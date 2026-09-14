@@ -13,9 +13,14 @@ export type Session = {
   name: string;
 };
 
-export const getSession = cache(async () =>
-  auth.api.getSession({ headers: await headers() }),
-);
+export const getSession = cache(async () => {
+  // `headers()` is awaited first on purpose. It is what marks the route
+  // dynamic, and reaching into `auth` beforehand would build the auth instance
+  // during static prerendering — before Next has been told this route cannot
+  // be static at all.
+  const requestHeaders = await headers();
+  return auth.api.getSession({ headers: requestHeaders });
+});
 
 /**
  * Resolves the signed-in user's organization, creating it on first sign-in.

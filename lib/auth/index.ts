@@ -12,26 +12,45 @@ import * as schema from "@/db/schema";
  * Resend is configured, add the email-otp or magic-link plugin: for this
  * audience a code sent to the phone or inbox beats remembering a password.
  */
-export const auth = betterAuth({
-  appName: "Invibot",
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-  secret: process.env.BETTER_AUTH_SECRET,
-  database: drizzleAdapter(db, { provider: "pg", usePlural: true, schema }),
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 10,
-    // No reset flow until there is an email provider to send it through.
-    requireEmailVerification: false,
+const createAuth = () =>
+  betterAuth({
+    appName: "Invibot",
+    baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+    secret: process.env.BETTER_AUTH_SECRET,
+    database: drizzleAdapter(db, { provider: "pg", usePlural: true, schema }),
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 10,
+      // No reset flow until there is an email provider to send it through.
+      requireEmailVerification: false,
+    },
+    session: {
+      expiresIn: 60 * 60 * 24 * 30,
+      // The cookie cache serves the session from a signed cookie instead of
+      // hitting the database, which also means a revoked session keeps working
+      // until it expires. Organizers hold their guests' phone numbers, so that
+      // window stays short — 60s of saved queries is worth it, 5 minutes of
+      // working back-button after signing out on a shared computer is not.
+      cookieCache: { enabled: true, maxAge: 60 },
+    },
+    // Must stay last: it lets server actions set the session cookie.
+    plugins: [nextCookies()],
+  });
+
+type Auth = ReturnType<typeof createAuth>;
+
+let instance: Auth | undefined;
+
+/**
+ * Built on first use, for the same reason the database client is: constructing
+ * it reaches into the Drizzle adapter, so doing it at module load made every
+ * route that imports auth require DATABASE_URL at build time.
+ */
+export const auth = new Proxy({} as Auth, {
+  get(_target, property) {
+    instance ??= createAuth();
+    const real = instance as unknown as Record<string | symbol, unknown>;
+    const value = real[property];
+    return typeof value === "function" ? value.bind(real) : value;
   },
-  session: {
-    expiresIn: 60 * 60 * 24 * 30,
-    // The cookie cache serves the session from a signed cookie instead of
-    // hitting the database, which also means a revoked session keeps working
-    // until it expires. Organizers hold their guests' phone numbers, so that
-    // window stays short — 60s of saved queries is worth it, 5 minutes of
-    // working back-button after signing out on a shared computer is not.
-    cookieCache: { enabled: true, maxAge: 60 },
-  },
-  // Must stay last: it lets server actions set the session cookie.
-  plugins: [nextCookies()],
 });
