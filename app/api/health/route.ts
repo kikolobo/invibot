@@ -18,8 +18,11 @@ export async function GET() {
     DATABASE_URL: present("DATABASE_URL"),
     BETTER_AUTH_SECRET: present("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? "MISSING",
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? "MISSING",
     VERCEL_ENV: process.env.VERCEL_ENV ?? "(not vercel)",
+    WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "MISSING",
+    WHATSAPP_ACCESS_TOKEN: present("WHATSAPP_ACCESS_TOKEN"),
+    WHATSAPP_APP_SECRET: present("WHATSAPP_APP_SECRET"),
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: present("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),
   };
 
   let database: string;
