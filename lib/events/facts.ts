@@ -53,6 +53,20 @@ export function setPath(obj: Answers, path: string, value: unknown): void {
   cursor[last] = value;
 }
 
+/**
+ * Flattens stored details back into the dotted-key map the questionnaire uses,
+ * so reopening the form shows what was answered last time.
+ */
+export function detailsToAnswers(kind: EventKind, details: unknown): Answers {
+  const answers: Answers = {};
+  if (!details || typeof details !== "object") return answers;
+  for (const q of questionsFor(kind)) {
+    const value = getPath(details as Answers, q.key);
+    if (value !== undefined && value !== null && value !== "") answers[q.key] = value;
+  }
+  return answers;
+}
+
 /** Renders a raw answer as the sentence the agent will quote. */
 export function renderAnswer(question: Question, value: unknown): string | null {
   if (value === null || value === undefined || value === "") return null;
