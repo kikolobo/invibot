@@ -89,7 +89,10 @@ export function Combobox({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-line bg-white py-1 shadow-lg"
+          // Sized to its longest option rather than to the input: `w-max` fits
+          // the content, with a floor so single short words still look like a
+          // menu and a ceiling so a long group name cannot run off a phone.
+          className="absolute z-20 mt-1 max-h-56 w-max min-w-48 max-w-[min(22rem,90vw)] overflow-y-auto rounded-lg border border-line bg-white py-1 shadow-lg"
         >
           {items.map((item, index) => (
             <li key={item ?? "__create__"} role="option" aria-selected={index === active}>
@@ -101,7 +104,7 @@ export function Combobox({
                   if (blurTimer.current) clearTimeout(blurTimer.current);
                   choose(index);
                 }}
-                className={`block w-full px-3.5 py-2 text-left text-[0.9rem] ${
+                className={`block w-full truncate whitespace-nowrap px-3.5 py-2 text-left text-[0.9rem] ${
                   index === active ? "bg-paper-deep text-ink" : "text-ink-soft"
                 }`}
               >
