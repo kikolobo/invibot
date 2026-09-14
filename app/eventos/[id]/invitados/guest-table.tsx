@@ -9,7 +9,7 @@ export type GuestRow = {
   fullName: string;
   phoneE164: string | null;
   email: string | null;
-  groupLabel: string | null;
+  groupName: string | null;
   partySizeAllowed: number;
   rsvpStatus: string;
   inviteStatus: string;
@@ -124,7 +124,7 @@ export function GuestTable({
                     <span className="block text-[0.82rem] text-ink-muted">{guest.email}</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink-soft">{guest.groupLabel ?? "—"}</td>
+                <td className="px-3 py-2.5 text-ink-soft">{guest.groupName ?? "—"}</td>
                 <td className="px-3 py-2.5 text-ink-soft">
                   {rsvpLabels[guest.rsvpStatus] ?? guest.rsvpStatus}
                 </td>

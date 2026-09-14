@@ -13,6 +13,7 @@ import { eventKinds } from "./kinds";
 import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
 import { answersToFacts, setPath } from "./facts";
+import { seedGroups } from "@/lib/guests/actions";
 
 const slugId = customAlphabet("abcdefghijkmnpqrstuvwxyz23456789", 6);
 
@@ -111,6 +112,8 @@ export async function createEvent(
       details: emptyEventDetails(),
     })
     .returning();
+
+  await seedGroups(created.id, v.kind);
 
   redirect(`/eventos/${created.id}/detalles`);
 }

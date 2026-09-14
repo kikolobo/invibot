@@ -12,6 +12,29 @@ import {
 import { events } from "./events";
 import { rsvpStatus, inviteStatus } from "./enums";
 
+/**
+ * The controlled vocabulary of groups for one event. `normalizedName` is the
+ * uniqueness key, so "Familia de la novia" and "familia novia" resolve to the
+ * same row instead of fragmenting the list.
+ */
+export const guestGroups = pgTable(
+  "guest_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("guest_groups_event_normalized_key").on(t.eventId, t.normalizedName),
+    index("guest_groups_event_idx").on(t.eventId),
+  ],
+);
+
 export const guests = pgTable(
   "guests",
   {
@@ -35,8 +58,8 @@ export const guests = pgTable(
     email: text("email"),
     locale: text("locale"),
 
-    /** Free-form grouping the organizer chooses: "Familia del novio", "Mesa 4". */
-    groupLabel: text("group_label"),
+    /** Which group this guest belongs to, from the event's own vocabulary. */
+    groupId: uuid("group_id").references(() => guestGroups.id, { onDelete: "set null" }),
 
     inviteStatus: inviteStatus("invite_status").notNull().default("pending"),
     rsvpStatus: rsvpStatus("rsvp_status").notNull().default("no_response"),

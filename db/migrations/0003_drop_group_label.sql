@@ -1,0 +1,1 @@
+ALTER TABLE "guests" DROP COLUMN "group_label";

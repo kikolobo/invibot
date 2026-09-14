@@ -15,6 +15,20 @@
       "when": 1789365397453,
       "tag": "0001_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789370001039,
+      "tag": "0002_guest_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789370045271,
+      "tag": "0003_drop_group_label",
+      "breakpoints": true
     }
   ]
 }

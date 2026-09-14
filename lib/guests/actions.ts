@@ -1,13 +1,15 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { events, guests, suppressions } from "@/db/schema";
+import { events, guests, guestGroups, suppressions } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import type { EventKind } from "@/lib/events/kinds";
 import { normalizePhone } from "@/lib/phone";
 import { parseGuestList, hasError, type ParsedGuest } from "./import";
+import { cleanGroupName, normalizeGroupName, suggestedGroups } from "./groups";
 
 export type GuestActionState = { error?: string; ok?: string };
 
@@ -21,6 +23,63 @@ async function ownedEvent(eventId: string) {
 
 const newToken = () => nanoid(24);
 
+/**
+ * Finds the group by its normalized name, or creates it. Returning the existing
+ * row for a near-miss is the point: "familia novia" typed into the box lands on
+ * the "Familia de la novia" that already exists instead of forking it.
+ */
+export async function resolveGroup(
+  eventId: string,
+  rawName: string | null | undefined,
+): Promise<string | null> {
+  const name = cleanGroupName(rawName ?? "");
+  const normalized = normalizeGroupName(name);
+  if (!normalized) return null;
+
+  const existing = await db.query.guestGroups.findFirst({
+    where: and(eq(guestGroups.eventId, eventId), eq(guestGroups.normalizedName, normalized)),
+  });
+  if (existing) return existing.id;
+
+  const [created] = await db
+    .insert(guestGroups)
+    .values({ eventId, name, normalizedName: normalized })
+    .onConflictDoNothing()
+    .returning();
+  if (created) return created.id;
+
+  // Lost a race with a concurrent insert; the other one is just as good.
+  const raced = await db.query.guestGroups.findFirst({
+    where: and(eq(guestGroups.eventId, eventId), eq(guestGroups.normalizedName, normalized)),
+  });
+  return raced?.id ?? null;
+}
+
+/** Seeds an event's vocabulary with the groups typical for its kind. */
+export async function seedGroups(eventId: string, kind: EventKind) {
+  const names = suggestedGroups(kind);
+  await db
+    .insert(guestGroups)
+    .values(
+      names.map((name, index) => ({
+        eventId,
+        name,
+        normalizedName: normalizeGroupName(name),
+        sortOrder: index,
+      })),
+    )
+    .onConflictDoNothing();
+}
+
+export async function listGroups(eventId: string): Promise<string[]> {
+  const rows = await db
+    .select({ name: guestGroups.name, sortOrder: guestGroups.sortOrder })
+    .from(guestGroups)
+    .where(eq(guestGroups.eventId, eventId))
+    .orderBy(asc(guestGroups.sortOrder), asc(guestGroups.name));
+  return rows.map((r) => r.name);
+}
+
 export async function addGuest(
   eventId: string,
   _prev: GuestActionState,
@@ -32,7 +91,7 @@ export async function addGuest(
   const fullName = String(formData.get("fullName") ?? "").trim();
   const rawPhone = String(formData.get("phone") ?? "").trim();
   const rawEmail = String(formData.get("email") ?? "").trim();
-  const groupLabel = String(formData.get("groupLabel") ?? "").trim() || null;
+  const groupName = String(formData.get("group") ?? "").trim() || null;
   const partyRaw = Number.parseInt(String(formData.get("partySizeAllowed") ?? "1"), 10);
 
   if (!fullName) return { error: "Falta el nombre." };
@@ -71,7 +130,7 @@ export async function addGuest(
     phoneE164,
     phoneVariants,
     email,
-    groupLabel,
+    groupId: await resolveGroup(eventId, groupName),
     partySizeAllowed: Math.min(
       Math.max(Number.isFinite(partyRaw) ? partyRaw : 1, 1),
       event.maxPartySize,
@@ -114,7 +173,7 @@ export async function updateGuest(
       phoneE164,
       phoneVariants,
       email: rawEmail ? rawEmail.toLowerCase() : null,
-      groupLabel: String(formData.get("groupLabel") ?? "").trim() || null,
+      groupId: await resolveGroup(eventId, String(formData.get("group") ?? "")),
       updatedAt: new Date(),
     })
     .where(and(eq(guests.id, guestId), eq(guests.eventId, eventId)));
@@ -207,6 +266,13 @@ export async function confirmImport(
     return { error: "No hay filas que se puedan importar." };
   }
 
+  // Resolve each distinct group name once, so a 200-row import does not issue
+  // 200 lookups for the same four groups.
+  const groupIds = new Map<string, string | null>();
+  for (const name of new Set(rows.map((g) => g.groupLabel).filter(Boolean) as string[])) {
+    groupIds.set(name, await resolveGroup(eventId, name));
+  }
+
   await db.insert(guests).values(
     rows.map((g) => ({
       eventId,
@@ -215,7 +281,7 @@ export async function confirmImport(
       phoneE164: g.phoneE164,
       phoneVariants: g.phoneVariants,
       email: g.email,
-      groupLabel: g.groupLabel,
+      groupId: g.groupLabel ? (groupIds.get(g.groupLabel) ?? null) : null,
       partySizeAllowed: g.partySizeAllowed,
       accessToken: newToken(),
     })),

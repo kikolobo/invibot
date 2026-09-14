@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests } from "@/db/schema";
+import { events, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import { listGroups } from "@/lib/guests/actions";
 import { AddGuest } from "./add-guest";
 import { ImportGuests } from "./import-guests";
 import { GuestTable } from "./guest-table";
@@ -24,10 +25,23 @@ export default async function Invitados({
   if (!event) notFound();
 
   const rows = await db
-    .select()
+    .select({
+      id: guests.id,
+      fullName: guests.fullName,
+      phoneE164: guests.phoneE164,
+      email: guests.email,
+      groupName: guestGroups.name,
+      partySizeAllowed: guests.partySizeAllowed,
+      partySizeConfirmed: guests.partySizeConfirmed,
+      rsvpStatus: guests.rsvpStatus,
+      inviteStatus: guests.inviteStatus,
+    })
     .from(guests)
+    .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))
     .where(eq(guests.eventId, id))
-    .orderBy(asc(guests.fullName));
+    .orderBy(asc(guestGroups.sortOrder), asc(guests.fullName));
+
+  const groups = await listGroups(id);
 
   const confirmed = rows.filter((g) => g.rsvpStatus === "confirmed");
   const seats = confirmed.reduce(
@@ -78,6 +92,7 @@ export default async function Invitados({
           eventId={event.id}
           maxPartySize={event.maxPartySize}
           allowPlusOnes={event.allowPlusOnes}
+          groups={groups}
         />
         <ImportGuests eventId={event.id} />
       </div>

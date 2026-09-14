@@ -3,15 +3,18 @@
 import { useActionState, useEffect, useRef } from "react";
 import { addGuest, type GuestActionState } from "@/lib/guests/actions";
 import { Input, SubmitButton } from "@/components/ui/field";
+import { Combobox } from "@/components/ui/combobox";
 
 export function AddGuest({
   eventId,
   maxPartySize,
   allowPlusOnes,
+  groups,
 }: {
   eventId: string;
   maxPartySize: number;
   allowPlusOnes: boolean;
+  groups: string[];
 }) {
   const bound = addGuest.bind(null, eventId);
   const [state, action, pending] = useActionState<GuestActionState, FormData>(bound, {});
@@ -29,7 +32,7 @@ export function AddGuest({
         <Input name="fullName" placeholder="Nombre completo" required />
         <Input name="phone" placeholder="55 1234 5678" inputMode="tel" />
         <Input name="email" type="email" placeholder="correo@ejemplo.com (opcional)" />
-        <Input name="groupLabel" placeholder="Grupo, p. ej. Familia de la novia" />
+        <Combobox name="group" options={groups} placeholder="Grupo o relación" />
         {allowPlusOnes && (
           <label className="flex items-center gap-3 text-[0.9rem] text-ink-soft">
             Pases
