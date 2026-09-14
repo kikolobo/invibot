@@ -1,16 +1,7 @@
 import { pgEnum } from "drizzle-orm/pg-core";
+import { eventKinds } from "@/lib/events/kinds";
 
-export const eventKind = pgEnum("event_kind", [
-  "wedding",
-  "birthday",
-  "quinceanera",
-  "corporate",
-  "product_launch",
-  "anniversary",
-  "baby_shower",
-  "graduation",
-  "other",
-]);
+export const eventKind = pgEnum("event_kind", eventKinds);
 
 export const eventStatus = pgEnum("event_status", [
   "draft",
