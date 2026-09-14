@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
-import { events, eventFacts } from "@/db/schema";
+import { events, eventFacts, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { questionsFor } from "@/lib/events/questions";
@@ -36,6 +36,11 @@ export default async function EventoPage({
     .from(eventFacts)
     .where(and(eq(eventFacts.eventId, id), eq(eventFacts.isActive, true)))
     .orderBy(asc(eventFacts.createdAt));
+
+  const [{ guestCount }] = await db
+    .select({ guestCount: count() })
+    .from(guests)
+    .where(eq(guests.eventId, id));
 
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
@@ -139,12 +144,24 @@ export default async function EventoPage({
           )}
         </section>
 
-        <div className="mt-12 rounded-xl border border-line bg-paper-deep p-6">
-          <p className="font-display text-xl text-ink">Siguiente paso</p>
+        <Link
+          href={`/eventos/${event.id}/invitados`}
+          className="mt-12 block rounded-xl border border-line bg-paper-deep p-6 transition-colors hover:border-accent"
+        >
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="font-display text-xl text-ink">Invitados</p>
+            <span className="font-display text-2xl text-accent">{guestCount}</span>
+          </div>
           <p className="mt-2 leading-relaxed text-ink-soft">
-            Elegir el diseño de la invitación y cargar tu lista de invitados.
-            Todavía no está listo.
+            {guestCount === 0
+              ? "Agrega tu lista de invitados o impórtala desde una hoja de cálculo."
+              : "Administra tu lista y revisa quién ha confirmado."}
           </p>
+        </Link>
+
+        <div className="mt-5 rounded-xl border border-dashed border-line p-6">
+          <p className="font-display text-xl text-ink-muted">Diseño de la invitación</p>
+          <p className="mt-2 leading-relaxed text-ink-muted">Todavía no está listo.</p>
         </div>
       </div>
     </>

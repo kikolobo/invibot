@@ -21,11 +21,28 @@ export function normalizePhone(
   input: string,
   defaultCountry: CountryCode = "MX",
 ): NormalizedPhone | null {
-  const parsed = parsePhoneNumberFromString(input, defaultCountry);
-  if (!parsed?.isValid()) return null;
+  const direct = parsePhoneNumberFromString(input, defaultCountry);
+  if (direct?.isValid()) {
+    return { e164: direct.number, variants: variantsOf(direct.number), country: direct.country };
+  }
 
-  const e164 = parsed.number;
-  return { e164, variants: variantsOf(e164), country: parsed.country };
+  // Mexican numbers that libphonenumber rejects but people really do have
+  // saved. All three forms were valid before the 2019 numbering change and
+  // still fill address books and WhatsApp exports:
+  //   +52 1 NNNNNNNNNN  the mobile prefix WhatsApp still hands out
+  //   045 NNNNNNNNNN    long-distance mobile dialling prefix
+  //   044 NNNNNNNNNN    local mobile dialling prefix
+  // Rejecting these would throw away a large share of every guest list.
+  const digits = input.replace(/\D/g, "");
+  const legacy = digits.match(/^(?:52)?1(\d{10})$/) ?? digits.match(/^04[45](\d{10})$/);
+  if (legacy) {
+    const retry = parsePhoneNumberFromString(`+52${legacy[1]}`, "MX");
+    if (retry?.isValid()) {
+      return { e164: retry.number, variants: variantsOf(retry.number), country: retry.country };
+    }
+  }
+
+  return null;
 }
 
 /**
