@@ -11,6 +11,20 @@
   --accent: #9c4221;
   --accent-soft: #c05621;
   --line: #e5ddd2;
+
+  /* Dark "Conversación" variant: midnight navy with gold, a classic invitation
+     pairing. Deliberately not WhatsApp's green — it should read as a chat
+     thread, not as a clone of their brand. */
+  --night: #0a1020;
+  --night-surface: #111a2e;
+  --night-raised: #18243c;
+  --night-text: #eef2f9;
+  --night-soft: #98a6c0;
+  --night-line: #253350;
+  --bubble-in: #18243c;
+  --bubble-out: #2a4a83;
+  --gold: #e0a458;
+  --gold-soft: #f0bd7c;
 }
 
 @theme inline {
@@ -22,6 +36,17 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-line: var(--line);
+
+  --color-night: var(--night);
+  --color-night-surface: var(--night-surface);
+  --color-night-raised: var(--night-raised);
+  --color-night-text: var(--night-text);
+  --color-night-soft: var(--night-soft);
+  --color-night-line: var(--night-line);
+  --color-bubble-in: var(--bubble-in);
+  --color-bubble-out: var(--bubble-out);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
 
   --font-sans: var(--font-geist-sans);
   --font-display: var(--font-cormorant);
