@@ -5,7 +5,6 @@ import { db } from "@/db";
 import { events } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
-import { SiteShell } from "@/components/site-chrome";
 
 export const metadata = { title: "Mis eventos" };
 
@@ -24,7 +23,7 @@ export default async function Eventos() {
     .orderBy(desc(events.startsAt));
 
   return (
-    <SiteShell tone="paper">
+    <>
       <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
         <div className="flex items-baseline justify-between gap-4">
           <h1 className="font-display text-4xl text-ink sm:text-5xl">Mis eventos</h1>
@@ -64,6 +63,6 @@ export default async function Eventos() {
           </ul>
         )}
       </div>
-    </SiteShell>
+    </>
   );
 }

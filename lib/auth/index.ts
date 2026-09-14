@@ -1,0 +1,37 @@
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { nextCookies } from "better-auth/next-js";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
+
+/**
+ * Organizer authentication. Guests never authenticate — they reach their
+ * invitation through a signed token in the URL and have no account at all.
+ *
+ * Email and password for now because it needs no email infrastructure. Once
+ * Resend is configured, add the email-otp or magic-link plugin: for this
+ * audience a code sent to the phone or inbox beats remembering a password.
+ */
+export const auth = betterAuth({
+  appName: "Invibot",
+  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  secret: process.env.BETTER_AUTH_SECRET,
+  database: drizzleAdapter(db, { provider: "pg", usePlural: true, schema }),
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 10,
+    // No reset flow until there is an email provider to send it through.
+    requireEmailVerification: false,
+  },
+  session: {
+    expiresIn: 60 * 60 * 24 * 30,
+    // The cookie cache serves the session from a signed cookie instead of
+    // hitting the database, which also means a revoked session keeps working
+    // until it expires. Organizers hold their guests' phone numbers, so that
+    // window stays short — 60s of saved queries is worth it, 5 minutes of
+    // working back-button after signing out on a shared computer is not.
+    cookieCache: { enabled: true, maxAge: 60 },
+  },
+  // Must stay last: it lets server actions set the session cookie.
+  plugins: [nextCookies()],
+});

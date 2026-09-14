@@ -1,11 +1,10 @@
-import { SiteShell } from "@/components/site-chrome";
 import { NuevoForm } from "./nuevo-form";
 
 export const metadata = { title: "Nuevo evento" };
 
 export default function NuevoEvento() {
   return (
-    <SiteShell tone="paper">
+    <>
       <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
         <p className="eyebrow">Paso 1 de 2</p>
         <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
@@ -17,6 +16,6 @@ export default function NuevoEvento() {
         </p>
         <NuevoForm />
       </div>
-    </SiteShell>
+    </>
   );
 }

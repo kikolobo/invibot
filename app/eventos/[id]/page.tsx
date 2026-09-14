@@ -7,7 +7,6 @@ import { events, eventFacts } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { questionsFor } from "@/lib/events/questions";
-import { SiteShell } from "@/components/site-chrome";
 
 export const metadata = { title: "Evento" };
 
@@ -45,7 +44,7 @@ export default async function EventoPage({
   const internalFacts = facts.filter((f) => f.visibility === "internal");
 
   return (
-    <SiteShell tone="paper">
+    <>
       <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
         <p className="eyebrow">{eventKindLabels[event.kind].es}</p>
         <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
@@ -148,6 +147,6 @@ export default async function EventoPage({
           </p>
         </div>
       </div>
-    </SiteShell>
+    </>
   );
 }
