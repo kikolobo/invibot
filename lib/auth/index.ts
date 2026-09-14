@@ -12,11 +12,34 @@ import * as schema from "@/db/schema";
  * Resend is configured, add the email-otp or magic-link plugin: for this
  * audience a code sent to the phone or inbox beats remembering a password.
  */
+/**
+ * An explicitly configured URL wins; otherwise fall back to the hostname Vercel
+ * assigns this deployment, so preview builds authenticate against themselves.
+ * An empty environment variable is treated as unset — a blank value in the
+ * dashboard would otherwise produce a baseURL of "".
+ */
+function baseURL(): string {
+  const configured = process.env.BETTER_AUTH_URL?.trim();
+  if (configured) return configured;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+}
+
 const createAuth = () =>
   betterAuth({
     appName: "Invibot",
-    baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+    baseURL: baseURL(),
     secret: process.env.BETTER_AUTH_SECRET,
+    // Both the vercel.app host and the custom domain serve the same app during
+    // the cutover, and preview deployments get a fresh hostname every push.
+    // Without all of them here, sign-in fails CSRF with "Missing or null Origin".
+    trustedOrigins: [
+      "http://localhost:3000",
+      "https://invibot.com",
+      "https://www.invibot.com",
+      "https://invibot.vercel.app",
+      ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+    ],
     database: drizzleAdapter(db, { provider: "pg", usePlural: true, schema }),
     emailAndPassword: {
       enabled: true,
