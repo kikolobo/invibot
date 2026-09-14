@@ -1,6 +1,12 @@
 import { and, eq, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
-import { guests, sends, conversations, messages as messageRows } from "@/db/schema";
+import {
+  guests,
+  sends,
+  conversations,
+  messages as messageRows,
+  unmatchedInbound,
+} from "@/db/schema";
 import { parseWebhook, verifySignature, type InboundMessage } from "@/lib/whatsapp/webhook";
 import { variantsOf } from "@/lib/phone";
 
@@ -101,7 +107,21 @@ async function recordInbound(message: InboundMessage) {
     where: raw`${guests.phoneE164} = ANY(${candidates}) OR ${guests.phoneVariants} ?| ${candidates}`,
   });
   if (!guest) {
-    console.warn("[whatsapp] inbound from unknown number", message.from);
+    // Keep it rather than dropping it: this is a forwarded invitation, a guest
+    // on a second phone, a mistyped number, or a stranger — all of which the
+    // organizer should be able to see.
+    await db
+      .insert(unmatchedInbound)
+      .values({
+        phoneNumberId: message.phoneNumberId,
+        fromPhone: `+${message.from.replace(/^\+/, "")}`,
+        profileName: message.profileName,
+        body: message.text,
+        providerMessageId: message.wamid,
+        raw: message.raw as never,
+        receivedAt: message.timestamp,
+      })
+      .onConflictDoNothing({ target: unmatchedInbound.providerMessageId });
     return;
   }
 

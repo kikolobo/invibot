@@ -223,6 +223,37 @@ export const messages = pgTable(
 );
 
 /**
+ * Inbound messages from a number that matches no guest on any event.
+ *
+ * These are real and worth keeping rather than dropping: someone forwarded an
+ * invitation, a guest replied from their other phone, a number was typed wrong
+ * in the list, or a stranger found the business number. Dropping them silently
+ * means an RSVP can disappear with nothing to show for it, and during setup it
+ * makes a working webhook indistinguishable from a broken one.
+ */
+export const unmatchedInbound = pgTable(
+  "unmatched_inbound",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    whatsappAccountId: uuid("whatsapp_account_id").references(() => whatsappAccounts.id),
+    phoneNumberId: text("phone_number_id"),
+    fromPhone: text("from_phone").notNull(),
+    profileName: text("profile_name"),
+    body: text("body"),
+    providerMessageId: text("provider_message_id"),
+    raw: jsonb("raw"),
+    /** Set once an organizer says which guest this actually was. */
+    resolvedGuestId: uuid("resolved_guest_id"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("unmatched_inbound_provider_message_id_key").on(t.providerMessageId),
+    index("unmatched_inbound_from_idx").on(t.fromPhone),
+  ],
+);
+
+/**
  * The escalation loop, and the reason an event gets smarter over its own lifetime:
  * guest asks something not in the facts -> organizer is asked once on their own WhatsApp
  * -> the answer is relayed to everyone waiting and written back into `event_facts`.
