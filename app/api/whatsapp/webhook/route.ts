@@ -1,4 +1,4 @@
-import { and, eq, sql as raw } from "drizzle-orm";
+import { and, eq, inArray, or, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guests,
@@ -102,9 +102,18 @@ async function recordInbound(message: InboundMessage) {
   // Match on every plausible form of the number. Meta is inconsistent about
   // whether Mexican numbers come back with the legacy "1" after +52, so an
   // equality check on the canonical value drops replies on the floor.
+  //
+  // Built from Drizzle operators rather than a raw fragment: passing a JS array
+  // through the template bound it as a parameter list rather than a single
+  // array, and jsonb's `?|` does not survive a placeholder layer intact.
   const candidates = variantsOf(`+${message.from.replace(/^\+/, "")}`);
   const guest = await db.query.guests.findFirst({
-    where: raw`${guests.phoneE164} = ANY(${candidates}) OR ${guests.phoneVariants} ?| ${candidates}`,
+    where: or(
+      inArray(guests.phoneE164, candidates),
+      ...candidates.map(
+        (candidate) => raw`${guests.phoneVariants} @> ${JSON.stringify([candidate])}::jsonb`,
+      ),
+    ),
   });
   if (!guest) {
     // Keep it rather than dropping it: this is a forwarded invitation, a guest
