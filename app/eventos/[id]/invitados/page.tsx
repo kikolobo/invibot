@@ -5,11 +5,19 @@ import { db } from "@/db";
 import { events, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { listGroups } from "@/lib/guests/actions";
+import { invitationPlan, eventVariables, greetingName } from "@/lib/campaigns/recipients";
 import { AddGuest } from "./add-guest";
 import { ImportGuests } from "./import-guests";
 import { GuestTable } from "./guest-table";
 
 export const metadata = { title: "Invitados" };
+
+/**
+ * Sending is sequential and paid per message, so the default action timeout is
+ * not enough for a real guest list. Set on the page because that is what
+ * governs every Server Action invoked from it.
+ */
+export const maxDuration = 60;
 
 export default async function Invitados({
   params,
@@ -42,6 +50,20 @@ export default async function Invitados({
     .orderBy(asc(guestGroups.sortOrder), asc(guests.fullName));
 
   const groups = await listGroups(id);
+
+  // Who could be invited right now, decided by the same module the send action
+  // uses — so the panel cannot offer a recipient the action would refuse.
+  const plan = await invitationPlan(id, orgId);
+  const invite = {
+    eventVars: plan && plan.missing.length === 0 ? eventVariables(plan.event) : [],
+    missing: plan?.missing ?? [],
+    eligible: Object.fromEntries(
+      (plan?.eligible ?? []).map((guest) => [guest.id, greetingName(guest)]),
+    ),
+    skipped: Object.fromEntries(
+      (plan?.skipped ?? []).map(({ guest, reason }) => [guest.id, reason]),
+    ),
+  };
 
   const confirmed = rows.filter((g) => g.rsvpStatus === "confirmed");
   const seats = confirmed.reduce(
@@ -84,7 +106,7 @@ export default async function Invitados({
       </dl>
 
       <div className="mt-8">
-        <GuestTable eventId={event.id} rows={rows} />
+        <GuestTable eventId={event.id} rows={rows} invite={invite} />
       </div>
 
       <div className="mt-10 space-y-5">

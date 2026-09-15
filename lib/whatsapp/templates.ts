@@ -254,3 +254,34 @@ export function toMetaPayload(
     components,
   };
 }
+
+/**
+ * The template as the guest will read it, with the variables substituted.
+ *
+ * Rendered from the same definition that was submitted to Meta so that the
+ * preview an organizer approves is the message that actually goes out. A
+ * hand-written mockup would drift the moment a template is resubmitted, and the
+ * whole point of the preview is that nobody sends 80 marketing messages on
+ * trust.
+ */
+export function renderTemplate(
+  name: TemplateName,
+  values: string[],
+): { header: string | null; body: string; footer: string | null; buttons: string[] } {
+  const definition: TemplateDefinition = templates[name];
+
+  if (values.length !== definition.variables.length) {
+    throw new Error(
+      `Template ${name} takes ${definition.variables.length} variables, got ${values.length}`,
+    );
+  }
+
+  return {
+    header: definition.header?.format === "TEXT" ? definition.header.text : null,
+    // Leaves an unmatched placeholder visible rather than blanking it: a
+    // preview that silently drops {{4}} hides exactly the bug worth catching.
+    body: definition.body.replace(/\{\{(\d+)\}\}/g, (match, index) => values[Number(index) - 1] ?? match),
+    footer: definition.footer ?? null,
+    buttons: definition.buttons?.map((button) => button.label) ?? [],
+  };
+}

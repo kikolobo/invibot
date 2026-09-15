@@ -105,6 +105,19 @@ export async function POST(request: Request) {
   return new Response("ok", { status: 200 });
 }
 
+/**
+ * How far an invitation has got, for the guest list. Meta delivers these out of
+ * order often enough to matter, so a late "delivered" must never walk a guest
+ * back from "read".
+ */
+const STATUS_RANK: Record<string, number> = {
+  pending: 0,
+  queued: 1,
+  sent: 2,
+  delivered: 3,
+  read: 4,
+};
+
 async function recordStatus(status: Awaited<ReturnType<typeof parseWebhook>>["statuses"][number]) {
   if (!status.wamid) return;
 
@@ -113,7 +126,7 @@ async function recordStatus(status: Awaited<ReturnType<typeof parseWebhook>>["st
   if (status.status === "delivered") timestamps.deliveredAt = status.timestamp;
   if (status.status === "read") timestamps.readAt = status.timestamp;
 
-  await db
+  const [send] = await db
     .update(sends)
     .set({
       status: status.status,
@@ -122,7 +135,28 @@ async function recordStatus(status: Awaited<ReturnType<typeof parseWebhook>>["st
       pricingCategory: status.pricingCategory as never,
       ...timestamps,
     })
-    .where(eq(sends.providerMessageId, status.wamid));
+    .where(eq(sends.providerMessageId, status.wamid))
+    .returning({ guestId: sends.guestId, kind: sends.kind });
+
+  // The ledger is the record of every message; `guests.inviteStatus` is the one
+  // column the organizer actually reads, and only the invitation defines it. A
+  // reminder being read says nothing about whether the invitation arrived.
+  if (!send?.guestId || send.kind !== "invite") return;
+
+  const guest = await db.query.guests.findFirst({ where: eq(guests.id, send.guestId) });
+  if (!guest) return;
+
+  const next = status.status;
+  const isProgress = (STATUS_RANK[next] ?? 0) > (STATUS_RANK[guest.inviteStatus] ?? 0);
+
+  // A failure always lands: it is the state worth acting on, and it can only
+  // arrive after the send it belongs to.
+  if (next !== "failed" && !isProgress) return;
+
+  await db
+    .update(guests)
+    .set({ inviteStatus: next, updatedAt: new Date() })
+    .where(eq(guests.id, guest.id));
 }
 
 async function recordInbound(
