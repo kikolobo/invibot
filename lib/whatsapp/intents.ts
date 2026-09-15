@@ -18,11 +18,37 @@ import type { InboundMessage } from "./webhook";
 
 export type GuestIntent = "rsvp_yes" | "rsvp_no" | "question" | "opt_out" | "unknown";
 
+const normalize = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .trim()
+    .toUpperCase();
+
 const PAYLOADS: Record<string, GuestIntent> = {
   [templates.invitacion_evento.buttons[0].payload]: "rsvp_yes",
   [templates.invitacion_evento.buttons[1].payload]: "rsvp_no",
   [templates.invitacion_evento.buttons[2].payload]: "question",
 };
+
+/**
+ * The same buttons, matched as typed words.
+ *
+ * Plenty of guests reply by typing instead of hunting for a quick reply — the
+ * buttons render faintly on some phones, and a reply is the more natural
+ * gesture in a chat. Someone who types the exact words printed on the button
+ * meant the button, and answering them with silence is worse than any risk of
+ * reading them wrong.
+ *
+ * Derived from the button list rather than written out, so relabelling a button
+ * cannot leave a stale phrase matching here.
+ */
+const LABELS: Record<string, GuestIntent> = Object.fromEntries(
+  templates.invitacion_evento.buttons
+    .filter((button) => PAYLOADS[button.payload])
+    .map((button) => [normalize(button.label), PAYLOADS[button.payload]]),
+);
 
 /**
  * The opt-out keyword promised in every marketing footer. Matched against the
@@ -31,22 +57,23 @@ const PAYLOADS: Record<string, GuestIntent> = {
  */
 const OPT_OUT_WORDS = new Set(["BAJA", "STOP", "CANCELAR"]);
 
-const normalize = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, "")
-    .trim()
-    .toUpperCase();
-
 export function parseIntent(message: InboundMessage): GuestIntent {
   // The payload is ours and survives a relabelled button; the visible text does
   // not. Always prefer it.
   if (message.buttonPayload && PAYLOADS[message.buttonPayload]) {
     return PAYLOADS[message.buttonPayload];
   }
-  if (message.text && OPT_OUT_WORDS.has(normalize(message.text))) return "opt_out";
-  return message.text ? "unknown" : "unknown";
+  if (!message.text) return "unknown";
+
+  const text = normalize(message.text);
+  if (OPT_OUT_WORDS.has(text)) return "opt_out";
+
+  // Only ever the whole message. "Sí, asistiré pero llego tarde" is a person
+  // telling us something a template cannot answer, and it stays a question for
+  // the assistant rather than becoming a silent confirmation.
+  if (LABELS[text]) return LABELS[text];
+
+  return "unknown";
 }
 
 type GuestRow = typeof guests.$inferSelect;
