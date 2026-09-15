@@ -1,7 +1,9 @@
+import { after } from "next/server";
 import { and, eq, inArray, or, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guests,
+  events,
   sends,
   conversations,
   messages as messageRows,
@@ -9,6 +11,12 @@ import {
 } from "@/db/schema";
 import { parseWebhook, verifySignature, type InboundMessage } from "@/lib/whatsapp/webhook";
 import { variantsOf } from "@/lib/phone";
+import { parseIntent, applyIntent, replyFor, type GuestIntent } from "@/lib/whatsapp/intents";
+import { sendTextToGuest, sendTemplateToGuest } from "@/lib/whatsapp/send";
+import { buildComponents } from "@/lib/whatsapp/templates";
+import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
+
+type GuestRow = typeof guests.$inferSelect;
 
 /**
  * Meta's webhook endpoint.
@@ -63,14 +71,35 @@ export async function POST(request: Request) {
 
   const { messages, statuses } = parseWebhook(payload);
 
+  const answerable: { guest: GuestRow; intent: GuestIntent }[] = [];
+
   try {
     for (const status of statuses) await recordStatus(status);
-    for (const message of messages) await recordInbound(message);
+    for (const message of messages) {
+      const handled = await recordInbound(message);
+      if (handled) answerable.push(handled);
+    }
   } catch (error) {
     console.error("[whatsapp] webhook processing failed", error);
     // A 500 makes Meta redeliver, which is what we want: the writes above are
     // idempotent, so a replay costs nothing and we do not silently lose an RSVP.
     return new Response("error", { status: 500 });
+  }
+
+  // Recording is a fact and belongs in the request; deciding what to say back
+  // is not, and Meta is holding the connection open while we think. `after`
+  // runs once the 200 is on the wire — the same seam Inngest will take over,
+  // which is where this belongs the moment a reply needs retries or ordering.
+  if (answerable.length > 0) {
+    after(async () => {
+      for (const { guest, intent } of answerable) {
+        try {
+          await respond(guest, intent);
+        } catch (error) {
+          console.error("[whatsapp] reply failed", guest.id, intent, error);
+        }
+      }
+    });
   }
 
   return new Response("ok", { status: 200 });
@@ -96,8 +125,10 @@ async function recordStatus(status: Awaited<ReturnType<typeof parseWebhook>>["st
     .where(eq(sends.providerMessageId, status.wamid));
 }
 
-async function recordInbound(message: InboundMessage) {
-  if (!message.wamid || !message.from) return;
+async function recordInbound(
+  message: InboundMessage,
+): Promise<{ guest: GuestRow; intent: GuestIntent } | null> {
+  if (!message.wamid || !message.from) return null;
 
   // Match on every plausible form of the number. Meta is inconsistent about
   // whether Mexican numbers come back with the legacy "1" after +52, so an
@@ -131,7 +162,7 @@ async function recordInbound(message: InboundMessage) {
         receivedAt: message.timestamp,
       })
       .onConflictDoNothing({ target: unmatchedInbound.providerMessageId });
-    return;
+    return null;
   }
 
   let conversation = await db.query.conversations.findFirst({
@@ -161,7 +192,7 @@ async function recordInbound(message: InboundMessage) {
       .where(eq(conversations.id, conversation.id));
   }
 
-  await db
+  const [row] = await db
     .insert(messageRows)
     .values({
       conversationId: conversation.id,
@@ -172,5 +203,56 @@ async function recordInbound(message: InboundMessage) {
       createdAt: message.timestamp,
     })
     // The idempotency guard: a redelivered webhook writes nothing the second time.
-    .onConflictDoNothing({ target: messageRows.providerMessageId });
+    .onConflictDoNothing({ target: messageRows.providerMessageId })
+    .returning();
+
+  // Nothing inserted means we have seen this wamid before. Acting on it again
+  // would confirm an RSVP twice and send a second reply, so stop here.
+  if (!row) return null;
+
+  const intent = parseIntent(message);
+  await applyIntent(guest, intent, message.timestamp);
+  return { guest, intent };
+}
+
+/**
+ * The reply, once the acknowledgement is sent. Free-form whenever the window is
+ * open — which a button tap always leaves open, and which costs nothing inside
+ * a service conversation — and the approved template only as the fallback.
+ */
+async function respond(guest: GuestRow, intent: GuestIntent): Promise<void> {
+  const text = await replyFor(guest, intent);
+  if (!text) return;
+
+  const kind = intent === "rsvp_yes" ? "rsvp_confirmation" : "custom";
+  const outcome = await sendTextToGuest(guest.id, text, kind);
+  if (outcome.ok) return;
+
+  if (outcome.reason !== "window_closed") {
+    console.error("[whatsapp] reply failed", guest.id, intent, outcome);
+    return;
+  }
+
+  // The window shut between the guest's tap and this call. Only a confirmation
+  // is worth a paid template; a decline can wait for the organizer.
+  if (intent !== "rsvp_yes") return;
+
+  const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+  if (!event) return;
+
+  const fallback = await sendTemplateToGuest(
+    guest.id,
+    {
+      name: "confirmacion_rsvp",
+      language: "es_MX",
+      components: buildComponents("confirmacion_rsvp", [
+        guest.firstName ?? guest.fullName,
+        event.name,
+        formatEventWhen(event),
+        formatEventWhere(event),
+      ]),
+    },
+    "rsvp_confirmation",
+  );
+  if (!fallback.ok) console.error("[whatsapp] template fallback failed", guest.id, fallback);
 }
