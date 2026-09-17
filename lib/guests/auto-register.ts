@@ -1,6 +1,7 @@
 import { customAlphabet } from "nanoid";
 import type { events } from "@/db/schema/events";
 import { publicBase } from "@/lib/public-url";
+import { formatEventDate } from "@/lib/events/format";
 import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
 
 /**
@@ -15,7 +16,10 @@ import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
  */
 
 type EventRow = typeof events.$inferSelect;
-type LinkFields = Pick<EventRow, "registrationCode" | "hostNames" | "name">;
+type LinkFields = Pick<
+  EventRow,
+  "registrationCode" | "hostNames" | "name" | "startsAt" | "timezone"
+>;
 
 /**
  * No i, l, o, 0 or 1: the code gets read aloud, retyped, and sometimes
@@ -65,14 +69,29 @@ export const displayCode = (code: string) => code.toUpperCase();
  *
  * The code sits at the front and the blank at the end, because WhatsApp drops
  * the cursor at the end: someone typing their name cannot disturb the one part
- * we need. Everything else in the sentence is decoration — the code is found by
- * checksum, not by position, so rewording it costs nothing.
+ * we need. Everything else in the sentence is for the guest's benefit — the
+ * code is found by checksum, not by position, so the wording can say whatever
+ * makes the message read like something a person would send.
+ *
+ * Naming the event and the date matters more than it looks. This message sits
+ * in the guest's own sent history, and "Regístrame para el evento C59M34" tells
+ * them nothing a week later about which party they signed up for.
+ *
+ * The trailing space after the colon is deliberate: without it the first
+ * character they type lands against the punctuation.
  */
 export function prefilledBody(event: LinkFields): string | null {
   if (!event.registrationCode) return null;
+
   const host = event.hostNames?.trim();
-  const who = host ? ` de ${host}` : "";
-  return `Regístrame para el evento ${displayCode(event.registrationCode)}${who}. Mi nombre es: `;
+  const parts = [
+    `Regístrame para el evento ${displayCode(event.registrationCode)}`,
+    event.name.trim(),
+    host ? `de ${host}` : null,
+    `el ${formatEventDate(event)}`,
+  ].filter(Boolean);
+
+  return `${parts.join(" ")}. Mi nombre es: `;
 }
 
 /** The link the host copies out of Generales: invibot.com/r/ab12cd. */

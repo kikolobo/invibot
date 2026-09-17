@@ -26,6 +26,18 @@ const timeFmt = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-d
  * instant, and "7 PM" means seven in the evening where the party is, not where
  * the server happens to run.
  */
+/**
+ * The day alone, no time. For sentences that carry the date inside them, where
+ * "el sábado 25 de octubre, 9:00 p.m." turns one clause into two.
+ */
+export function formatEventDate(event: Pick<EventRow, "startsAt" | "timezone">): string {
+  // "sábado 24 de octubre", not "sábado, 24 de octubre". Intl puts the comma
+  // there and it is right for a heading, but this string is read mid-sentence —
+  // "el sábado, 24 de octubre. Mi nombre es:" stumbles where the plain form
+  // does not. `formatEventWhen` keeps the comma: it stands on its own.
+  return dateFmt.format(new TZDate(event.startsAt, event.timezone)).replace(/,\s+/, " ");
+}
+
 export function formatEventWhen(event: Pick<EventRow, "startsAt" | "timezone">): string {
   const local = new TZDate(event.startsAt, event.timezone);
   return `${dateFmt.format(local)}, ${timeFmt.format(local)}`;
