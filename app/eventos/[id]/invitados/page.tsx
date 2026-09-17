@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -84,13 +83,7 @@ export default async function Invitados({
   );
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12 sm:px-10">
-      <Link
-        href={`/eventos/${event.id}`}
-        className="text-[0.85rem] text-ink-muted hover:text-accent"
-      >
-        ← {event.name}
-      </Link>
+    <div>
 
       <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
         Invitados

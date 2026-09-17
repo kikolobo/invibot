@@ -27,7 +27,7 @@ export default async function Detalles({
 
   return (
     <>
-      <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
+      <div>
         <p className="eyebrow">Paso 2 de 2 · {eventKindLabels[event.kind].es}</p>
         <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
           Lo que tus invitados van a preguntar

@@ -81,7 +81,7 @@ export default async function EventoPage({
 
   return (
     <>
-      <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
+      <div>
         <p className="eyebrow">{eventKindLabels[event.kind].es}</p>
         {archived ? (
           <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
@@ -140,20 +140,6 @@ export default async function EventoPage({
           />
         )}
 
-        <Link
-          href={`/eventos/${event.id}/invitados`}
-          className="mt-12 block rounded-xl border border-line bg-paper-deep p-6 transition-colors hover:border-accent"
-        >
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="font-display text-xl text-ink">Invitados</p>
-            <span className="font-display text-2xl text-accent">{guestCount}</span>
-          </div>
-          <p className="mt-2 leading-relaxed text-ink-soft">
-            {guestCount === 0
-              ? "Agrega tu lista de invitados o impórtala desde una hoja de cálculo."
-              : "Administra tu lista y revisa quién ha confirmado."}
-          </p>
-        </Link>
 
         {!archived && (
           <EventCard
@@ -240,9 +226,6 @@ export default async function EventoPage({
         </section>
 
 
-        {!archived && (
-          <ArchiveEvent eventId={event.id} archived={false} guestCount={guestCount} />
-        )}
       </div>
     </>
   );
