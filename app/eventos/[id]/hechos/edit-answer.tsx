@@ -8,6 +8,7 @@ import {
   type AnswerState,
 } from "@/lib/events/answers";
 import { Textarea } from "@/components/ui/field";
+import { buttonStyles } from "./buttons";
 
 /**
  * One learned answer, editable in place.
@@ -93,7 +94,7 @@ export function EditAnswer({
           <button
             type="submit"
             disabled={pending || closing}
-            className="rounded-full bg-accent px-4 py-1.5 text-[0.82rem] text-paper disabled:opacity-50"
+            className={buttonStyles.save}
           >
             {pending ? "Guardando…" : "Guardar"}
           </button>
@@ -101,7 +102,7 @@ export function EditAnswer({
             type="button"
             onClick={() => setOpen(false)}
             disabled={pending || closing}
-            className="text-[0.82rem] text-ink-muted hover:text-ink disabled:opacity-50"
+            className={buttonStyles.cancel}
           >
             Cancelar
           </button>
@@ -112,7 +113,7 @@ export function EditAnswer({
             type="button"
             onClick={() => close(markAnswerUnavailable)}
             disabled={pending || closing}
-            className="text-[0.82rem] text-ink-soft hover:text-ink disabled:opacity-50"
+            className={buttonStyles.unavailable}
           >
             Info no disponible
           </button>
@@ -120,7 +121,7 @@ export function EditAnswer({
             type="button"
             onClick={() => close(discardAnswer)}
             disabled={pending || closing}
-            className="text-[0.82rem] text-ink-muted hover:text-ink disabled:opacity-50"
+            className={buttonStyles.discard}
           >
             Descartar
           </button>

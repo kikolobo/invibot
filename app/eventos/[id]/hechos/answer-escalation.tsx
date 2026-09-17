@@ -9,6 +9,7 @@ import {
   type AnswerState,
 } from "@/lib/agent/escalations";
 import { Textarea } from "@/components/ui/field";
+import { buttonStyles } from "./buttons";
 
 /**
  * One unanswered question, with the three things an organizer can do about it.
@@ -95,7 +96,7 @@ export function AnswerEscalation({
           <button
             type="submit"
             disabled={busy}
-            className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+            className={buttonStyles.save}
           >
             {pending ? "Enviando…" : "Contestar"}
           </button>
@@ -103,7 +104,7 @@ export function AnswerEscalation({
             type="button"
             disabled={busy}
             onClick={() => close(declineToAnswer)}
-            className="text-[0.85rem] text-ink-soft hover:text-ink disabled:opacity-50"
+            className={buttonStyles.unavailable}
           >
             Info no disponible
           </button>
@@ -111,7 +112,7 @@ export function AnswerEscalation({
             type="button"
             disabled={busy}
             onClick={() => close(dismissEscalation)}
-            className="text-[0.85rem] text-ink-muted hover:text-ink disabled:opacity-50"
+            className={buttonStyles.discard}
           >
             Descartar
           </button>
