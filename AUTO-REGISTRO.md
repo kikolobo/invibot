@@ -14,7 +14,7 @@ El anfitrión prende la función en **Generales** y ahí mismo copia un link.
 Lo pega en sus grupos de WhatsApp. Quien lo abre cae en una conversación con
 nuestro número, con el mensaje ya escrito y el cursor al final:
 
-> Regístrame para el evento A7K2 Creatures of the Night de Francisco Lobo el sábado 24 de octubre. Mi nombre es: 
+> Regístrame para la boda Creatures of the Night (A7K2) el día sábado 24 de octubre. Mi nombre es: 
 
 Escribe su nombre, manda, y queda registrado **en estado pendiente**. No puede
 confirmar asistencia ni preguntar nada hasta que el anfitrión lo apruebe.
@@ -109,7 +109,7 @@ está procesado» a quien sólo dijo «gracias» se lee como un robot descompues
 
 | Cuándo | Texto |
 |---|---|
-| Cuerpo del link | Regístrame para el evento «código» «evento» de «anfitrión» el «fecha». Mi nombre es: _(con espacio al final)_ |
+| Cuerpo del link | Regístrame para «tipo» «evento» («código») el día «fecha». Mi nombre es: _(con espacio al final)_ |
 | Registro nuevo | Gracias por tu registro para «evento», «fecha». ¡Save the Date! Pronto te enviaremos tu invitación oficial. |
 | Falta el nombre | Disculpa, ¿cuál es tu nombre completo? |
 | Pendiente (comodín) | Tu registro aún no está procesado. En cuanto lo esté, te enviaremos tu invitación oficial. |

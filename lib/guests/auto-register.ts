@@ -2,6 +2,7 @@ import { customAlphabet } from "nanoid";
 import type { events } from "@/db/schema/events";
 import { publicBase } from "@/lib/public-url";
 import { formatEventDate } from "@/lib/events/format";
+import { eventKindLabels } from "@/lib/events/kinds";
 import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
 
 /**
@@ -18,7 +19,7 @@ import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
 type EventRow = typeof events.$inferSelect;
 type LinkFields = Pick<
   EventRow,
-  "registrationCode" | "hostNames" | "name" | "startsAt" | "timezone"
+  "registrationCode" | "name" | "kind" | "startsAt" | "timezone"
 >;
 
 /**
@@ -83,15 +84,13 @@ export const displayCode = (code: string) => code.toUpperCase();
 export function prefilledBody(event: LinkFields): string | null {
   if (!event.registrationCode) return null;
 
-  const host = event.hostNames?.trim();
-  const parts = [
-    `Regístrame para el evento ${displayCode(event.registrationCode)}`,
-    event.name.trim(),
-    host ? `de ${host}` : null,
-    `el ${formatEventDate(event)}`,
-  ].filter(Boolean);
+  const kind = eventKindLabels[event.kind].esInline;
+  const code = displayCode(event.registrationCode);
 
-  return `${parts.join(" ")}. Mi nombre es: `;
+  return (
+    `Regístrame para ${kind} ${event.name.trim()} (${code}) ` +
+    `el día ${formatEventDate(event)}. Mi nombre es: `
+  );
 }
 
 /** The link the host copies out of Generales: invibot.com/r/ab12cd. */
@@ -136,9 +135,13 @@ export function parseRegistration(text: string | null): ParsedRegistration | nul
   if (!text) return null;
   const folded = fold(text);
 
-  // Preferred reading: the token right after "evento", which is where our own
-  // wording puts it. Falls back to any checksum-valid token in the message.
-  const labelled = folded.match(/evento\s+([a-z0-9]{6})/)?.[1];
+  // Three readings, most specific first. The parenthesised form is where our
+  // wording puts it today; "evento XXXXXX" is where it used to go, and links
+  // pasted into group chats before the wording changed have to keep working;
+  // the scan catches a message someone retyped or reworded.
+  const labelled =
+    folded.match(/\(\s*([a-z0-9]{6})\s*\)/)?.[1] ?? folded.match(/evento\s+([a-z0-9]{6})/)?.[1];
+
   const code =
     labelled && isWellFormedCode(labelled)
       ? labelled
