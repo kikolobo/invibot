@@ -55,3 +55,21 @@ export function declineReply(facts: ReplyFacts): string {
 export function relayedAnswer(question: string, answer: string): string {
   return [`Ya tengo respuesta 🙌`, "", `Preguntaste: ${question}`, "", answer].join("\n");
 }
+
+
+/**
+ * A correction to something already answered.
+ *
+ * Says plainly that it changed rather than restating the answer as if it were
+ * new: the guest acted on the first one, and "the dress code is X" a second
+ * time reads as a duplicate they can ignore.
+ */
+export function updatedAnswer(question: string, answer: string): string {
+  return [
+    "Una corrección sobre algo que preguntaste 🙏",
+    "",
+    `Preguntaste: ${question}`,
+    "",
+    `La respuesta correcta es: ${answer}`,
+  ].join("\n");
+}
