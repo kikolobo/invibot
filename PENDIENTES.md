@@ -8,64 +8,40 @@ refleja la verdad.
 
 ---
 
-## 0. Pasar al número real — **el número ya sirve; falta prenderlo**
+## 0. Número real — **prendido**. Falta probar la tarjeta y el pase
 
-El número real quedó registrado y probado el 2026-09-17. Lo que falta es una
-variable en Vercel y una prueba de punta a punta.
-
-El par bueno es:
+Desde el 2026-09-17 `invibot.com` manda por el número real. Local también: los
+dos perfiles apuntan a producción, así que **cualquier envío desde la laptop
+sale por el número real y le cuesta a Meta**. Fue decisión de Francisco; no hay
+red de seguridad en desarrollo.
 
 | | |
 |---|---|
 | Número | `+1 619-304-5456` |
 | Phone number id | `1317996261394909` |
 | WABA | `150259448162128` «InviBot.com» |
+| Plantillas | 8 de 8 aprobadas |
 
-⚠️ **El mismo número aparece dos veces en Meta.** El id viejo
-`135995746264538`, en el WABA `154263271092631` («Movic's InviBot»), es el que
-estaba amarrado a Twilio. Sigue diciendo `CONNECTED` y **no es el que se usa**.
-Ahí quedaron ocho plantillas de más; no estorban.
+⚠️ El mismo número aparece dos veces en Meta. El id viejo `135995746264538`
+(WABA `154263271092631`, el que estaba en Twilio) sigue diciendo `CONNECTED` y
+**no es el que se usa**.
 
-Hecho:
+**Lo único que falta probar:** la confirmación completa — tarjeta e invitación
+de acceso. La prueba del 2026-09-17 llegó hasta la respuesta libre del
+asistente: salieron la invitación y una respuesta `custom`, las dos por el
+número nuevo, pero nunca se tocó el botón «Sí, ahí estaré», así que
+`deliverConfirmation` no corrió. Se nota en que `events.card_media_phone_number_id`
+todavía dice `140921972434962`, el número de prueba.
 
-- Los dos números conviven. `WHATSAPP_PROFILE` elige cuál abre conversaciones;
-  sin variable, `test`. Las respuestas salen siempre por el número al que el
-  invitado escribió, así que un número que no reconocemos se guarda y no se
-  contesta.
-- El número está registrado en la Cloud API bajo nuestra app: `CONNECTED`,
-  calidad GREEN, y el sondeo de permisos responde `131009` igual que el de
-  prueba. Para llegar ahí hubo que **apagar la verificación en dos pasos** en
-  WhatsApp Manager — no hay API para eso — y luego correr
-  `scripts/whatsapp-register-number.mts`.
-- El PIN de dos pasos que quedó al registrar **no está en este repo y no debe
-  estarlo**. Está en el gestor de contraseñas. Sin él no se puede volver a
-  registrar el número en ningún lado.
-- Las ocho plantillas ya están en el WABA bueno, y el webhook del WABA bueno
-  sólo tiene a `InviBot` — nada de Twilio.
-- Vercel ya trae los ids nuevos y está desplegado. Sigue en
-  `WHATSAPP_PROFILE=test`, así que produce igual que siempre, pero ya reconoce
-  el número nuevo si algo entra por ahí.
+Hay que confirmar desde el celular y verificar que lleguen los tres: texto de
+confirmación, tarjeta y pase QR. Importa porque **ese camino falla en
+silencio** a propósito — al invitado nunca se le avisa que su tarjeta no salió.
+La tarjeta se vuelve a subir sola la primera vez, y al terminar
+`card_media_phone_number_id` debe decir `1317996261394909`.
 
-Falta:
-
-1. **Esperar las tres plantillas que siguen en revisión** — `confirmacion_rsvp`,
-   `aviso_cambio_evento` y `consulta_organizador`. `invitacion_evento` ya está
-   aprobada, así que se puede probar desde ahora; `confirmacion_rsvp` sólo hace
-   falta cuando un invitado confirma con la ventana de 24 horas ya cerrada.
-   `npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts --profile production`
-2. **Probar de punta a punta** con `.env.local` en `production` y el servidor
-   local: mandar la invitación desde la app, contestar desde el celular (eso
-   llega a invibot.com, no a la laptop), y verificar respuesta, tarjeta y pase.
-   La tarjeta se vuelve a subir sola la primera vez.
-3. **Prender producción:** `WHATSAPP_PROFILE=production` en Vercel y
-   redesplegar. `/api/health` debe decir
-   `WHATSAPP_SENDING_AS: number 1317996261394909`. Para regresar se borra la
-   variable y se vuelve a desplegar.
-4. **Regresar `.env.local` a `test`** cuando se acabe la prueba, o todo envío
-   local sale por el número real.
-
-⚠️ El número real es `+1 619-304-5456`, de San Diego. Francisco lo dio por
-bueno por ahora: el costo lo fija el país de quien recibe, no el del remitente.
+Para volver al número de prueba, si alguna vez hace falta: se borra
+`WHATSAPP_PROFILE` de Vercel y se redespliega. Sin esa variable el perfil es
+`test`.
 
 ---
 
