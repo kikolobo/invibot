@@ -37,7 +37,7 @@ export function ReportSheet({
     <article className="report-sheet">
       <header className="border-b border-line pb-4">
         <h2 className="font-display text-2xl text-ink">{event.name}</h2>
-        <p className="mt-1 text-[0.9rem] text-ink-soft first-letter:uppercase">
+        <p className="mt-1 max-w-[46rem] text-[0.9rem] leading-relaxed text-ink-soft first-letter:uppercase">
           {dateFmt.format(new TZDate(event.startsAt, event.timezone))}
           {formatEventWhere(event) && ` · ${formatEventWhere(event)}`}
         </p>
@@ -76,12 +76,13 @@ export function ReportSheet({
                     className="flex items-baseline gap-3 border-b border-line/50 py-1.5 last:border-0"
                   >
                     {/* Something to tick with a pen at the door. */}
-                    <span className="mt-0.5 size-3.5 shrink-0 self-center rounded-sm border border-line" />
+                    <span className="size-4 shrink-0 self-center rounded-[3px] border border-ink-muted/50" />
                     <span className="text-ink">{guest.fullName}</span>
                     {!grouped && guest.groupName && (
                       <span className="text-[0.8rem] text-ink-muted">{guest.groupName}</span>
                     )}
-                    <span className="ml-auto text-[0.85rem] text-ink-soft">
+                    <span className="mx-2 flex-1 border-b border-dotted border-line/80" />
+                    <span className="text-[0.85rem] text-ink-soft">
                       {seatCount >= 2 ? `${seatCount} personas` : seatCount === 1 ? "1" : "—"}
                     </span>
                   </li>
