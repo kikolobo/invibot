@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNotNull, or, sql as raw } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { events, guests, suppressions } from "@/db/schema";
-import { variantsOf } from "@/lib/phone";
+import { normalizePhone, variantsOf } from "@/lib/phone";
 import { recordGuestEvent } from "./history";
 import { formatEventWhen } from "@/lib/events/format";
 import {
@@ -154,14 +154,21 @@ async function register(
   name: string | null,
 ): Promise<RegistrationAction> {
   const fullName = name ?? "Sin nombre";
+
+  // Meta hands us the wa_id, which for Mexico is the legacy `+521…` form. Every
+  // other phone in this database is canonical, and Meta itself rejects a send
+  // addressed to the 521 form — so a guest stored as the webhook spelled them
+  // could never be written to.
+  const normalized = normalizePhone(phoneE164);
+
   const [guest] = await db
     .insert(guests)
     .values({
       eventId: event.id,
       fullName,
       firstName: name ? fullName.split(/\s+/)[0] : null,
-      phoneE164,
-      phoneVariants: variantsOf(phoneE164),
+      phoneE164: normalized?.e164 ?? phoneE164,
+      phoneVariants: normalized?.variants ?? variantsOf(phoneE164),
       partySizeAllowed: event.maxPartySize,
       accessToken: nanoid(24),
       approvalStatus: "pending",
@@ -201,9 +208,15 @@ async function answerQuestion(
     return await noticeOnce(guest, COPY.pending);
   }
 
-  // Asking for the name.
-  if (looksLikeAName(text)) {
-    const name = cleanName(text ?? "")!;
+  // Asking for the name. Someone who answers by re-sending the whole
+  // registration message — which is what the link produces, so it is the
+  // obvious thing to do — is answering, not ignoring us: take the name out of
+  // it rather than asking a second time.
+  const resent = parseRegistration(text)?.name ?? null;
+  const answer = resent ?? (looksLikeAName(text) ? cleanName(text ?? "") : null);
+
+  if (answer) {
+    const name = answer;
     await db
       .update(guests)
       .set({

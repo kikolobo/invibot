@@ -360,6 +360,41 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
 }
 
 /**
+ * Records that the guest wrote to us, which is what makes a free-form reply
+ * legal for the next 24 hours.
+ *
+ * The same rule as the main inbound path; the registration short-circuit needs
+ * its own copy because it runs before that code and, for a brand-new
+ * registrant, before the conversation exists at all.
+ */
+async function openWindow(guestId: string, at: Date): Promise<void> {
+  const guest = await db.query.guests.findFirst({ where: eq(guests.id, guestId) });
+  if (!guest) return;
+
+  const windowExpiresAt = new Date(at.getTime() + 24 * 60 * 60 * 1000);
+  const existing = await db.query.conversations.findFirst({
+    where: and(eq(conversations.guestId, guestId), eq(conversations.channel, "whatsapp")),
+  });
+
+  if (existing) {
+    await db
+      .update(conversations)
+      .set({ windowExpiresAt, lastInboundAt: at, status: "active" })
+      .where(eq(conversations.id, existing.id));
+    return;
+  }
+
+  await db.insert(conversations).values({
+    eventId: guest.eventId,
+    guestId,
+    channel: "whatsapp",
+    peerPhoneE164: guest.phoneE164,
+    windowExpiresAt,
+    lastInboundAt: at,
+  });
+}
+
+/**
  * Carries out whatever the auto-registro rules decided.
  *
  * Idempotent on the wamid like every other write here, because Meta redelivers:
@@ -393,6 +428,13 @@ async function completeRegistration(
   if (action.kind === "silent") return;
 
   if (action.kind === "reply") {
+    // Their message opened the 24-hour window, and this path has to record that
+    // itself: it short-circuits before the usual bookkeeping, and without this
+    // `deliver()` refuses every reply as `window_closed` — silently, since it
+    // fails before the ledger row is written. That is exactly what "no
+    // contesta" looked like.
+    await openWindow(action.guestId, message.timestamp);
+
     const outcome = await sendTextToGuest(action.guestId, action.text, "auto_register");
     if (!outcome.ok) console.error("[auto-registro] reply failed", action.guestId, outcome);
     return;
