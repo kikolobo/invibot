@@ -8,6 +8,7 @@ import {
   isFilter,
   isOrder,
   seatsOf,
+  summarize,
   type Direction,
   type FilterKey,
   type OrderKey,
@@ -47,6 +48,7 @@ export async function loadReport(eventId: string, orgId: string, query: ReportQu
       firstName: guests.firstName,
       groupName: guestGroups.name,
       rsvpStatus: guests.rsvpStatus,
+      inviteStatus: guests.inviteStatus,
       partySizeConfirmed: guests.partySizeConfirmed,
       partySizeAllowed: guests.partySizeAllowed,
     })
@@ -59,6 +61,9 @@ export async function loadReport(eventId: string, orgId: string, query: ReportQu
   return {
     event,
     shape,
+    // Over the whole list, not the filtered view: it is the state of the
+    // event, and it should not change when you click a filter.
+    summary: summarize(rows),
     sections: buildSections(selected, shape),
     total: selected.length,
     seats: selected.reduce((sum, guest) => sum + seatsOf(guest), 0),

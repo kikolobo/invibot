@@ -11,6 +11,7 @@ export type ReportGuest = {
   firstName: string | null;
   groupName: string | null;
   rsvpStatus: string;
+  inviteStatus: string;
   partySizeConfirmed: number | null;
   partySizeAllowed: number;
 };
@@ -150,4 +151,63 @@ export function buildSections(guests: ReportGuest[], shape: ReportShape): Report
       if (b.heading === last) return -1;
       return sortKey(a.heading).localeCompare(sortKey(b.heading), "es") * sign;
     });
+}
+
+
+/** An invitation that actually left: queued and failed never reached a phone. */
+const wasSent = (guest: ReportGuest) =>
+  guest.inviteStatus === "sent" ||
+  guest.inviteStatus === "delivered" ||
+  guest.inviteStatus === "read";
+
+/**
+ * The state of the whole list at a glance.
+ *
+ * The three middle rows are the ones worth separating: "sin leer" and "sin
+ * confirmar" both look like silence on a list, but they are different problems.
+ * A guest who never opened the message may have a dead number or a phone in a
+ * drawer; a guest who read it and said nothing is deciding, and chasing them is
+ * a different conversation. The numbers rely on WhatsApp read receipts, which a
+ * guest can switch off — someone with them disabled stays in "sin leer" forever
+ * however carefully they read it.
+ */
+export type ReportSummary = {
+  enviadas: number;
+  sinEnviar: number;
+  confirmados: number;
+  lugares: number;
+  sinLeer: number;
+  sinConfirmar: number;
+  cancelados: number;
+};
+
+export function summarize(guests: ReportGuest[]): ReportSummary {
+  const summary: ReportSummary = {
+    enviadas: 0,
+    sinEnviar: 0,
+    confirmados: 0,
+    lugares: 0,
+    sinLeer: 0,
+    sinConfirmar: 0,
+    cancelados: 0,
+  };
+
+  for (const guest of guests) {
+    if (wasSent(guest)) summary.enviadas++;
+    else summary.sinEnviar++;
+
+    if (guest.rsvpStatus === "confirmed") {
+      summary.confirmados++;
+      summary.lugares += seatsOf(guest);
+    }
+
+    if (guest.rsvpStatus === "declined") summary.cancelados++;
+
+    if (guest.rsvpStatus === "no_response" && wasSent(guest)) {
+      if (guest.inviteStatus === "read") summary.sinConfirmar++;
+      else summary.sinLeer++;
+    }
+  }
+
+  return summary;
 }

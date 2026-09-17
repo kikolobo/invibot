@@ -94,7 +94,7 @@ export function ReportControls({
                 </svg>
               )}
             </span>
-            Agrupar por grupo
+            Por grupo
           </Link>
         </div>
 
