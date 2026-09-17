@@ -117,7 +117,24 @@ body {
     break-after: avoid;
   }
 
-  li {
+  tr {
     break-inside: avoid;
+  }
+
+  /* Column headings reprint at the top of each page, or the second page is a
+     grid of unlabelled numbers. */
+  thead {
+    display: table-header-group;
+  }
+
+  /* On screen a wide column set scrolls; on paper there is nowhere to scroll,
+     so it simply fits the page. */
+  .report-scroll {
+    overflow: visible !important;
+  }
+
+  /* A note must not be orphaned onto the next page away from its guest. */
+  .report-keep-next {
+    break-after: avoid;
   }
 }
