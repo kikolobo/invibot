@@ -22,7 +22,12 @@ type GuestRow = typeof guests.$inferSelect;
 /** Enough thread for the assistant to follow a conversation; not the guest's life story. */
 const HISTORY_LIMIT = 20;
 
-export type AgentReply = { text: string } | null;
+export type AgentReply = {
+  /** What to send the guest. Empty when the assistant only acted. */
+  text: string;
+  /** Whether it recorded the guest as coming — the caller owes them a card and a pass. */
+  confirmed: boolean;
+} | null;
 
 /**
  * Answers one inbound message, or returns null when there is nothing to say.
@@ -66,15 +71,21 @@ export async function answerGuest(guest: GuestRow, at: Date): Promise<AgentReply
 
   const { systemPrompt } = await buildContext(event, guest);
 
-  const result = await runAgentTurn(client, systemPrompt, history, (action) =>
-    perform(guest, conversation.id, action, at),
-  );
+  let confirmed = false;
+
+  const result = await runAgentTurn(client, systemPrompt, history, (action) => {
+    if (action.tool === "confirm_attendance") confirmed = true;
+    return perform(guest, conversation.id, action, at);
+  });
 
   if ("error" in result) {
     console.error("[agent] turn failed", guest.id, result.error);
     return null;
   }
-  return result.reply.trim() ? { text: result.reply } : null;
+
+  // Returned even with no text: a confirmation still owes the guest their pass,
+  // and an early exit on empty text is how that went missing the first time.
+  return { text: result.reply.trim(), confirmed };
 }
 
 /**

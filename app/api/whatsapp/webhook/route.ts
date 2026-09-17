@@ -341,8 +341,16 @@ async function respond(
     const answer = await answerGuest(guest, at);
     if (!answer) return;
 
-    const outcome = await sendTextToGuest(guest.id, answer.text, "custom");
-    if (!outcome.ok) console.error("[whatsapp] assistant reply failed", guest.id, outcome);
+    if (answer.text) {
+      const outcome = await sendTextToGuest(guest.id, answer.text, "custom");
+      if (!outcome.ok) console.error("[whatsapp] assistant reply failed", guest.id, outcome);
+    }
+
+    // A guest who says "sí voy" in words is owed exactly what a tapped button
+    // earns them. This path used to return here, so someone who cancelled and
+    // then changed their mind had their status updated and never received the
+    // new pass — the old one stayed revoked and no new one was issued.
+    if (answer.confirmed) await deliverConfirmation(guest);
     return;
   }
 
@@ -356,14 +364,7 @@ async function respond(
     // the part that must arrive, and an image that fails to upload should never
     // take the confirmation down with it. Declines get nothing — someone who
     // just said they cannot come has no use for the invitation.
-    if (isConfirmation(intent)) {
-      await sendCard(guest);
-      // After the card, never before: the invitation is the message they were
-      // waiting for and a QR arriving first reads like a ticketing system.
-      // `sendPasses` re-reads the guest, so it sees the RSVP just written.
-      const fresh = await db.query.guests.findFirst({ where: eq(guests.id, guest.id) });
-      if (fresh) await sendPasses(fresh);
-    }
+    if (isConfirmation(intent)) await deliverConfirmation(guest);
     return;
   }
 
@@ -399,6 +400,24 @@ async function respond(
   if (!fallback.ok) console.error("[whatsapp] template fallback failed", guest.id, fallback);
 }
 
+
+/**
+ * What a confirmation earns: the invitation card, then the pass.
+ *
+ * One function for both paths on purpose. It lived only in the button branch,
+ * and the assistant's branch returned before reaching it — so a guest who
+ * confirmed in words got their status changed and nothing else.
+ */
+async function deliverConfirmation(guest: GuestRow): Promise<void> {
+  await sendCard(guest);
+
+  // After the card, never before: the invitation is the message they were
+  // waiting for, and a QR arriving first reads like a ticketing system. Re-read
+  // so the pass reflects the RSVP that was just written — including a guest who
+  // cancelled and came back, whose old codes are revoked and who needs new ones.
+  const fresh = await db.query.guests.findFirst({ where: eq(guests.id, guest.id) });
+  if (fresh) await sendPasses(fresh);
+}
 
 /**
  * The invitation card, if this event has one.
