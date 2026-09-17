@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { questionsFor } from "@/lib/events/questions";
 import { r2FromEnv } from "@/lib/storage/r2";
+import { openEscalations } from "@/lib/agent/respond";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
 import { EventCard } from "./event-card";
@@ -64,6 +65,10 @@ export default async function EventoPage({
 
   const archived = event.archivedAt !== null;
 
+  // The assistant tells guests it asked the organizer. This is where being
+  // asked actually happens, so it sits above everything else on the page.
+  const pending = await openEscalations(id);
+
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
   const answerable = questionsFor(event.kind).filter((q) => q.feedsAgent).length;
@@ -87,6 +92,33 @@ export default async function EventoPage({
 
         {archived && (
           <ArchiveEvent eventId={event.id} archived guestCount={guestCount} />
+        )}
+
+        {pending.length > 0 && (
+          <section className="mt-8 rounded-xl border border-accent/30 bg-accent/5 p-5">
+            <p className="font-display text-lg text-ink">
+              {pending.length === 1
+                ? "Un invitado preguntó algo que no sé contestar"
+                : `${pending.length} preguntas que no sé contestar`}
+            </p>
+            <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+              Le dije que te lo consultaba. Contéstalas en los detalles del evento y el
+              asistente podrá responderlas solo de aquí en adelante.
+            </p>
+            <ul className="mt-4 space-y-2">
+              {pending.map((item) => (
+                <li key={item.id} className="text-[0.9rem] text-ink">
+                  {item.questionText}
+                  {item.waitingGuestIds.length > 1 && (
+                    <span className="text-ink-muted">
+                      {" "}
+                      · {item.waitingGuestIds.length} esperan la respuesta
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <dl className="mt-8 grid gap-x-8 gap-y-4 border-y border-line py-6 sm:grid-cols-2">

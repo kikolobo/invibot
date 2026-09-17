@@ -11,6 +11,7 @@ import type { EventKind } from "@/lib/events/kinds";
 import { normalizePhone } from "@/lib/phone";
 import { parseGuestList, hasError, type ParsedGuest } from "./import";
 import { cleanGroupName, normalizeGroupName, suggestedGroups } from "./groups";
+import { MAX_PARTY_SIZE } from "@/lib/events/party";
 
 export type GuestActionState = { error?: string; ok?: string };
 
@@ -210,8 +211,20 @@ export async function updateGuest(
 
   const requestedRsvp = String(formData.get("rsvpStatus") ?? guest.rsvpStatus);
   const rsvpStatus = settableRsvp.has(requestedRsvp) ? requestedRsvp : guest.rsvpStatus;
+
+  // What they were offered. Capped by the event: a guest cannot be given a
+  // companion at an event that does not offer one.
   const companion = formData.get("bringsCompanion") === "on";
-  const partySizeAllowed = companion ? Math.min(2, event.maxPartySize) : 1;
+  const partySizeAllowed = companion ? Math.min(MAX_PARTY_SIZE, event.maxPartySize) : 1;
+
+  // How many are actually coming. Clamped to what they were offered, so
+  // confirming two people for a single seat is not expressible — not by a
+  // tampered form and not by a stale page whose checkbox said otherwise.
+  const requestedConfirmed = Number.parseInt(String(formData.get("partySizeConfirmed") ?? "1"), 10);
+  const partySizeConfirmed = Math.min(
+    Math.max(Number.isFinite(requestedConfirmed) ? requestedConfirmed : 1, 1),
+    partySizeAllowed,
+  );
 
   await db
     .update(guests)
@@ -231,9 +244,9 @@ export async function updateGuest(
         rsvpStatus === "no_response"
           ? null
           : (guest.rsvpRespondedAt ?? (rsvpStatus !== guest.rsvpStatus ? new Date() : null)),
-      // Only meaningful once they are coming, and never more than they were offered.
-      partySizeConfirmed:
-        rsvpStatus === "confirmed" ? Math.min(companion ? 2 : 1, partySizeAllowed) : null,
+      // Only meaningful once they are coming; cleared when they are not, so a
+      // guest who cancels stops counting toward the seat total.
+      partySizeConfirmed: rsvpStatus === "confirmed" ? partySizeConfirmed : null,
       // A corrected number has not been invited — the invitation went to the
       // old one. Resetting this puts them back in the send list instead of
       // leaving them permanently "Enviada" at a number that was never theirs.

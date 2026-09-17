@@ -15,6 +15,7 @@ export type GuestRow = {
   email: string | null;
   groupName: string | null;
   partySizeAllowed: number;
+  partySizeConfirmed: number | null;
   rsvpStatus: string;
   inviteStatus: string;
 };
@@ -64,6 +65,7 @@ export function GuestTable({
     });
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
+  const editingGuest = rows.find((row) => row.id === editing) ?? null;
 
   function removeSelected() {
     const ids = [...selected];
@@ -147,13 +149,18 @@ export function GuestTable({
               <th className="px-3 py-2.5 font-medium">Grupo</th>
               <th className="px-3 py-2.5 font-medium">Invitación</th>
               <th className="px-3 py-2.5 font-medium">Asistencia</th>
+              <th className="px-3 py-2.5 font-medium">Confirmados</th>
               <th className="w-16 px-3 py-2.5" />
             </tr>
           </thead>
           <tbody>
             {rows.map((guest) => (
               <Fragment key={guest.id}>
-              <tr className="border-b border-line/60 last:border-0">
+              <tr
+                className={`border-b border-line/60 last:border-0 ${
+                  editing === guest.id ? "bg-paper-deep" : ""
+                }`}
+              >
                 <td className="px-3 py-2.5">
                   {!archived && (
                     <input
@@ -185,6 +192,9 @@ export function GuestTable({
                 <td className="px-3 py-2.5 text-ink-soft">
                   {rsvpLabels[guest.rsvpStatus] ?? guest.rsvpStatus}
                 </td>
+                <td className="px-3 py-2.5 text-ink-soft">
+                  {guest.rsvpStatus === "confirmed" ? (guest.partySizeConfirmed ?? 1) : "—"}
+                </td>
                 <td className="px-3 py-2.5 text-right">
                   {!archived && (
                     <button
@@ -197,24 +207,23 @@ export function GuestTable({
                   )}
                 </td>
               </tr>
-              {editing === guest.id && (
-                <tr>
-                  <td colSpan={7} className="px-3 pb-4">
-                    <EditGuest
-                      eventId={eventId}
-                      guest={guest}
-                      groups={groups}
-                      maxPartySize={maxPartySize}
-                      onDone={() => setEditing(null)}
-                    />
-                  </td>
-                </tr>
-              )}
               </Fragment>
             ))}
           </tbody>
         </table>
       </div>
+
+      {editingGuest && (
+        <div className="mt-3">
+          <EditGuest
+            eventId={eventId}
+            guest={editingGuest}
+            groups={groups}
+            maxPartySize={maxPartySize}
+            onDone={() => setEditing(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }

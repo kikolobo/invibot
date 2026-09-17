@@ -20,6 +20,7 @@ import {
 } from "@/lib/whatsapp/intents";
 import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
 import { resolveCardMediaId } from "@/lib/events/card-media";
+import { answerGuest } from "@/lib/agent/respond";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
 
   const { messages, statuses } = parseWebhook(payload);
 
-  const answerable: { guest: GuestRow; intent: GuestIntent }[] = [];
+  const answerable: { guest: GuestRow; intent: GuestIntent; at: Date }[] = [];
 
   try {
     for (const status of statuses) await recordStatus(status);
@@ -99,9 +100,9 @@ export async function POST(request: Request) {
   // which is where this belongs the moment a reply needs retries or ordering.
   if (answerable.length > 0) {
     after(async () => {
-      for (const { guest, intent } of answerable) {
+      for (const { guest, intent, at } of answerable) {
         try {
-          await respond(guest, intent);
+          await respond(guest, intent, at);
         } catch (error) {
           console.error("[whatsapp] reply failed", guest.id, intent, error);
         }
@@ -228,7 +229,7 @@ async function resolveGuest(message: InboundMessage): Promise<GuestRow | null> {
 
 async function recordInbound(
   message: InboundMessage,
-): Promise<{ guest: GuestRow; intent: GuestIntent } | null> {
+): Promise<{ guest: GuestRow; intent: GuestIntent; at: Date } | null> {
   if (!message.wamid || !message.from) return null;
 
   const guest = await resolveGuest(message);
@@ -298,7 +299,7 @@ async function recordInbound(
 
   const intent = parseIntent(message);
   await applyIntent(guest, intent, message.timestamp);
-  return { guest, intent };
+  return { guest, intent, at: message.timestamp };
 }
 
 /**
@@ -306,7 +307,19 @@ async function recordInbound(
  * open — which a button tap always leaves open, and which costs nothing inside
  * a service conversation — and the approved template only as the fallback.
  */
-async function respond(guest: GuestRow, intent: GuestIntent): Promise<void> {
+async function respond(guest: GuestRow, intent: GuestIntent, at: Date): Promise<void> {
+  // Anything the button vocabulary does not cover goes to the assistant: a
+  // question, or words that mean yes without saying it. Until now this was
+  // silence, which is the single worst thing to send someone who wrote to you.
+  if (intent === "unknown" || intent === "question") {
+    const answer = await answerGuest(guest, at);
+    if (!answer) return;
+
+    const outcome = await sendTextToGuest(guest.id, answer.text, "custom");
+    if (!outcome.ok) console.error("[whatsapp] assistant reply failed", guest.id, outcome);
+    return;
+  }
+
   const text = await replyFor(guest, intent);
   if (!text) return;
 

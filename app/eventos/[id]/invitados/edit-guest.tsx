@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateGuest, type GuestActionState } from "@/lib/guests/actions";
 import { Input } from "@/components/ui/field";
 import { Combobox } from "@/components/ui/combobox";
 import type { GuestRow } from "./guest-table";
+import { MAX_PARTY_SIZE } from "@/lib/events/party";
 
 /**
  * Correcting one guest in place.
@@ -34,6 +35,13 @@ export function EditGuest({
   maxPartySize: number;
   onDone: () => void;
 }) {
+  // Both fields are live because the count depends on them: it only means
+  // anything once they are coming, and it cannot exceed what they were offered.
+  const [rsvp, setRsvp] = useState(guest.rsvpStatus);
+  const [companion, setCompanion] = useState(guest.partySizeAllowed > 1);
+
+  const maxConfirmable = companion ? Math.min(MAX_PARTY_SIZE, maxPartySize) : 1;
+
   const [state, formAction, pending] = useActionState<GuestActionState, FormData>(
     async (prev: GuestActionState, formData: FormData) => {
       const result = await updateGuest(eventId, guest.id, prev, formData);
@@ -72,7 +80,8 @@ export function EditGuest({
           Asistencia
           <select
             name="rsvpStatus"
-            defaultValue={guest.rsvpStatus}
+            value={rsvp}
+            onChange={(e) => setRsvp(e.target.value as GuestRow["rsvpStatus"])}
             className="rounded-lg border border-line bg-white px-3 py-1.5 text-[0.88rem] text-ink outline-none focus:border-accent"
           >
             {rsvpChoices.map((choice) => (
@@ -88,13 +97,38 @@ export function EditGuest({
             <input
               type="checkbox"
               name="bringsCompanion"
-              defaultChecked={guest.partySizeAllowed > 1}
+              checked={companion}
+              onChange={(e) => setCompanion(e.target.checked)}
               className="size-4 accent-[var(--accent)]"
             />
             Puede traer acompañante
           </label>
         )}
+
+        {rsvp === "confirmed" && (
+          <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
+            Número de confirmados
+            <select
+              name="partySizeConfirmed"
+              defaultValue={String(Math.min(guest.partySizeConfirmed ?? 1, maxConfirmable))}
+              key={maxConfirmable}
+              className="rounded-lg border border-line bg-white px-3 py-1.5 text-[0.88rem] text-ink outline-none focus:border-accent"
+            >
+              {Array.from({ length: maxConfirmable }, (_, index) => index + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
+
+      {rsvp === "confirmed" && maxConfirmable === 1 && maxPartySize > 1 && (
+        <p className="mt-3 text-[0.8rem] text-ink-muted">
+          Para confirmar dos personas, primero marca que puede traer acompañante.
+        </p>
+      )}
 
       {guest.inviteStatus !== "pending" && (
         <p className="mt-3 text-[0.8rem] leading-relaxed text-ink-muted">
