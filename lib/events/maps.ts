@@ -23,17 +23,20 @@ type VenueFields = Pick<
 type ShortFields = VenueFields & Pick<EventRow, "mapsCode">;
 
 /**
- * Where a guest-facing link points.
+ * Where a guest-facing link points: the live site, always.
  *
- * Deliberately not the preview hostname Vercel mints per deployment: a link in
- * an invitation is read weeks later, long after that host is gone. Set
- * BETTER_AUTH_URL to the real domain and both this and sign-in follow it.
+ * Emphatically *not* BETTER_AUTH_URL, which is "http://localhost:3000" on a
+ * developer's machine — a real guest was sent
+ * "localhost:3000/m/fffb47b6" because a change notice went out from a local
+ * run. Nor the preview hostname Vercel mints per deployment: an invitation is
+ * read weeks later, long after that host is gone. The link resolves against
+ * production because that is the only place it can work.
  */
+const PUBLIC_SITE = "https://invibot.com";
+
 function publicBase(): string {
-  const configured = process.env.BETTER_AUTH_URL?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
+  const override = process.env.INVIBOT_PUBLIC_URL?.trim();
+  return (override || PUBLIC_SITE).replace(/\/$/, "");
 }
 
 /**

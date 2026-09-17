@@ -53,15 +53,12 @@ export type TemplateDefinition = {
 /**
  * The small grey line under every message.
  *
- * Meta caps a footer at 60 characters, which is the whole reason the opt-out
- * shortened: "Responde BAJA para dejar de recibir mensajes" left no room for
- * the credit. Marketing templates must keep an opt-out — it is what makes the
- * send legitimate — so the credit rides alongside it. Utility templates answer
- * something the guest just did and have no list to leave, so they carry the
- * credit alone.
+ * Meta caps a footer at 60 characters. The opt-out sentence that used to share
+ * this line is gone at the organizer's request: WhatsApp gives every recipient
+ * its own block and stop-promotions controls, and BAJA still works as a typed
+ * reply — it is the footer that stopped advertising it, not the handling.
  */
-const marketingFooter = "Responde BAJA para no recibir más · Powered by Invibot";
-const utilityFooter = "Powered by Invibot";
+const footer = "Powered by InviBot.com";
 
 export const templates = {
   /**
@@ -96,7 +93,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: marketingFooter,
+    footer,
     buttons: [
       { label: "Sí, asistiré", payload: "RSVP_YES" },
       { label: "No podré", payload: "RSVP_NO" },
@@ -140,7 +137,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: marketingFooter,
+    footer,
     buttons: [
       { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
       { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
@@ -183,7 +180,7 @@ export const templates = {
       { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
       { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: marketingFooter,
+    footer,
     buttons: [
       { label: "Sí, asistiré", payload: "RSVP_YES" },
       { label: "No podré", payload: "RSVP_NO" },
@@ -216,7 +213,7 @@ export const templates = {
       { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
       { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: marketingFooter,
+    footer,
     buttons: [
       { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
       { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
@@ -255,7 +252,7 @@ export const templates = {
       { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
       { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: marketingFooter,
+    footer,
   },
 
   /** Nudge before the date. Utility because it follows an invitation already accepted. */
@@ -278,7 +275,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: utilityFooter,
+    footer,
   },
 
   /** Sent after the guest confirms, so it answers their own action. */
@@ -303,7 +300,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: utilityFooter,
+    footer,
   },
 
   /**
@@ -327,7 +324,7 @@ export const templates = {
       { description: "Nombre del evento", example: "tu boda" },
       { description: "Pregunta del invitado, textual", example: "¿Pueden ir niños?" },
     ],
-    footer: utilityFooter,
+    footer,
   },
 } as const satisfies Record<string, TemplateDefinition>;
 
