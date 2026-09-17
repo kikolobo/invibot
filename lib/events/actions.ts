@@ -11,6 +11,7 @@ import { events, eventFacts, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
 import { MAX_PARTY_SIZE, resolveMaxPartySize } from "./party";
+import { editableEvent } from "./guard";
 import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
 import { answersToFacts, setPath } from "./facts";
@@ -137,10 +138,9 @@ export async function saveDetails(
 ): Promise<ActionState> {
   const { orgId } = await requireOrg();
 
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
-  if (!event) return { error: "No encontramos ese evento." };
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+  const event = guard.event;
 
   const answers: Answers = {};
   for (const q of questionsFor(event.kind)) {
@@ -214,10 +214,8 @@ export async function updatePartySettings(
 ): Promise<ActionState & { ok?: string }> {
   const { orgId } = await requireOrg();
 
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
-  if (!event) return { error: "No encontramos ese evento." };
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
 
   const allowPlusOnes = formData.get("allowPlusOnes") === "on";
   const requested = Number.parseInt(String(formData.get("maxPartySize") ?? "1"), 10);
@@ -265,17 +263,17 @@ export async function renameEvent(
 ): Promise<ActionState & { ok?: string }> {
   const { orgId } = await requireOrg();
 
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
   const name = String(formData.get("name") ?? "").trim();
   if (name.length < 2) return { error: "Ponle un nombre al evento." };
   if (name.length > 120) return { error: "Ese nombre es demasiado largo." };
 
-  const [updated] = await db
+  await db
     .update(events)
     .set({ name, updatedAt: new Date() })
-    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)))
-    .returning({ id: events.id });
-
-  if (!updated) return { error: "No encontramos ese evento." };
+    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)));
 
   revalidatePath(`/eventos/${eventId}`);
   revalidatePath("/eventos");
@@ -429,4 +427,47 @@ export async function cloneEvent(
 
   revalidatePath("/eventos");
   redirect(`/eventos/${created.id}`);
+}
+
+
+/**
+ * Archiving, which is this app's delete.
+ *
+ * Nothing is removed. An event carries the message ledger for every invitation
+ * it sent and the RSVPs people gave it — a real delete would destroy the record
+ * of messages that actually reached real phones, which is not ours to destroy.
+ * Archiving takes the event out of the way and locks it instead.
+ */
+export async function archiveEvent(eventId: string): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  const [updated] = await db
+    .update(events)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)))
+    .returning({ id: events.id });
+
+  if (!updated) return { error: "No encontramos ese evento." };
+
+  revalidatePath("/eventos");
+  revalidatePath(`/eventos/${eventId}`);
+  return { ok: "Evento archivado." };
+}
+
+export async function unarchiveEvent(eventId: string): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  // `status` is untouched in both directions, so an event comes back exactly
+  // where it left off rather than reset to a draft.
+  const [updated] = await db
+    .update(events)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)))
+    .returning({ id: events.id });
+
+  if (!updated) return { error: "No encontramos ese evento." };
+
+  revalidatePath("/eventos");
+  revalidatePath(`/eventos/${eventId}`);
+  return { ok: "Evento restaurado." };
 }

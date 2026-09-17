@@ -38,10 +38,12 @@ export function GuestTable({
   eventId,
   rows,
   invite,
+  archived = false,
 }: {
   eventId: string;
   rows: GuestRow[];
   invite: InviteContext;
+  archived?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
@@ -78,7 +80,7 @@ export function GuestTable({
 
   return (
     <div>
-      <div className="flex min-h-9 items-center justify-between gap-4">
+      <div className={`flex min-h-9 items-center justify-between gap-4 ${archived ? "hidden" : ""}`}>
         <label className="flex items-center gap-2 text-[0.85rem] text-ink-muted">
           <input
             type="checkbox"
@@ -145,12 +147,14 @@ export function GuestTable({
             {rows.map((guest) => (
               <tr key={guest.id} className="border-b border-line/60 last:border-0">
                 <td className="px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(guest.id)}
-                    onChange={() => toggle(guest.id)}
-                    className="size-4 accent-[var(--accent)]"
-                  />
+                  {!archived && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(guest.id)}
+                      onChange={() => toggle(guest.id)}
+                      className="size-4 accent-[var(--accent)]"
+                    />
+                  )}
                 </td>
                 <td className="px-3 py-2.5 text-ink">
                   {guest.fullName}

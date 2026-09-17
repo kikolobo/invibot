@@ -4,8 +4,9 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { events, guests, guestGroups, suppressions } from "@/db/schema";
+import { guests, guestGroups, suppressions } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import { editableEvent } from "@/lib/events/guard";
 import type { EventKind } from "@/lib/events/kinds";
 import { normalizePhone } from "@/lib/phone";
 import { parseGuestList, hasError, type ParsedGuest } from "./import";
@@ -13,12 +14,16 @@ import { cleanGroupName, normalizeGroupName, suggestedGroups } from "./groups";
 
 export type GuestActionState = { error?: string; ok?: string };
 
-/** Loads an event the caller actually owns, or null. */
+/**
+ * Loads an event the caller owns *and* may change, or null.
+ *
+ * Every guest mutation goes through here, so archiving an event freezes its
+ * list without each action having to remember to check.
+ */
 async function ownedEvent(eventId: string) {
   const { orgId } = await requireOrg();
-  return db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
+  const guard = await editableEvent(eventId, orgId);
+  return guard.ok ? guard.event : null;
 }
 
 const newToken = () => nanoid(24);

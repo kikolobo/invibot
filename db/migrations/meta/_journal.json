@@ -43,6 +43,13 @@
       "when": 1789623561162,
       "tag": "0005_chief_cargill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789623833522,
+      "tag": "0006_glossy_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

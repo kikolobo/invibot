@@ -1,12 +1,13 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { events } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { r2FromEnv, putObject, deleteObject } from "@/lib/storage/r2";
 import type { ActionState } from "./actions";
+import { editableEvent } from "./guard";
 
 /**
  * The invitation card an organizer uploads, and which every guest receives the
@@ -26,10 +27,9 @@ export async function uploadCard(
 ): Promise<ActionState & { ok?: string }> {
   const { orgId } = await requireOrg();
 
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
-  if (!event) return { error: "No encontramos ese evento." };
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+  const event = guard.event;
 
   const file = formData.get("card");
   if (!(file instanceof File) || file.size === 0) return { error: "Elige una imagen." };
@@ -91,10 +91,9 @@ export async function uploadCard(
 export async function removeCard(eventId: string): Promise<ActionState & { ok?: string }> {
   const { orgId } = await requireOrg();
 
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
-  if (!event) return { error: "No encontramos ese evento." };
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+  const event = guard.event;
 
   await db
     .update(events)

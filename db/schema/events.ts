@@ -86,6 +86,13 @@ export const events = pgTable(
     cardMediaRefreshedAt: timestamp("card_media_refreshed_at", { withTimezone: true }),
 
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    /**
+     * Soft delete. Separate from `status` on purpose: that column is the event's
+     * lifecycle (draft → live → closed) and archiving is orthogonal to it, so a
+     * closed event that gets archived and restored comes back closed rather than
+     * having lost where it was. Null means active.
+     */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

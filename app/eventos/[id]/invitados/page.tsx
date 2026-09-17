@@ -55,6 +55,7 @@ export default async function Invitados({
     .orderBy(asc(guestGroups.sortOrder), asc(guests.fullName));
 
   const groups = await listGroups(id);
+  const archived = event.archivedAt !== null;
 
   // Who could be invited right now, decided by the same module the send action
   // uses — so the panel cannot offer a recipient the action would refuse.
@@ -117,10 +118,17 @@ export default async function Invitados({
       </dl>
 
       <div className="mt-8">
-        <GuestTable eventId={event.id} rows={rows} invite={invite} />
+        <GuestTable eventId={event.id} rows={rows} invite={invite} archived={archived} />
       </div>
 
-      <div className="mt-10 space-y-5">
+      {archived && (
+        <p className="mt-8 rounded-xl border border-line bg-paper-deep p-5 text-[0.88rem] leading-relaxed text-ink-muted">
+          Este evento está archivado. Su lista se conserva completa, pero no puede
+          cambiarse ni recibir invitaciones.
+        </p>
+      )}
+
+      <div className={`mt-10 space-y-5 ${archived ? "hidden" : ""}`}>
         <AddGuest
           eventId={event.id}
           maxPartySize={event.maxPartySize}

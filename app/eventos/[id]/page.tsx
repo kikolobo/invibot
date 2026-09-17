@@ -11,6 +11,7 @@ import { r2FromEnv } from "@/lib/storage/r2";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
 import { EventCard } from "./event-card";
+import { ArchiveEvent } from "./archive-event";
 
 export const metadata = { title: "Evento" };
 
@@ -52,6 +53,8 @@ export default async function EventoPage({
     .from(guests)
     .where(and(eq(guests.eventId, id), ne(guests.inviteStatus, "pending")));
 
+  const archived = event.archivedAt !== null;
+
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
   const answerable = questionsFor(event.kind).filter((q) => q.feedsAgent).length;
@@ -62,9 +65,19 @@ export default async function EventoPage({
     <>
       <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
         <p className="eyebrow">{eventKindLabels[event.kind].es}</p>
-        <RenameEvent eventId={event.id} name={event.name} />
+        {archived ? (
+          <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
+            {event.name}
+          </h1>
+        ) : (
+          <RenameEvent eventId={event.id} name={event.name} />
+        )}
         {event.hostNames && (
           <p className="mt-2 text-lg text-ink-soft">Invita: {event.hostNames}</p>
+        )}
+
+        {archived && (
+          <ArchiveEvent eventId={event.id} archived guestCount={guestCount} />
         )}
 
         <dl className="mt-8 grid gap-x-8 gap-y-4 border-y border-line py-6 sm:grid-cols-2">
@@ -94,12 +107,14 @@ export default async function EventoPage({
                   · hasta {event.maxPartySize} personas
                 </span>
               )}
-              <PartySettings
-                eventId={event.id}
-                allowPlusOnes={event.allowPlusOnes}
-                maxPartySize={event.maxPartySize}
-                invitedCount={invitedCount}
-              />
+              {!archived && (
+                <PartySettings
+                  eventId={event.id}
+                  allowPlusOnes={event.allowPlusOnes}
+                  maxPartySize={event.maxPartySize}
+                  invitedCount={invitedCount}
+                />
+              )}
             </dd>
           </div>
           <div>
@@ -108,26 +123,30 @@ export default async function EventoPage({
           </div>
         </dl>
 
-        <EventCard
-          eventId={event.id}
-          hasCard={Boolean(event.cardR2Key)}
-          bytes={event.cardBytes}
-          uploadedAt={event.cardUploadedAt}
-          storageReady={r2FromEnv() !== null}
-          invitedCount={invitedCount}
-        />
+        {!archived && (
+          <EventCard
+            eventId={event.id}
+            hasCard={Boolean(event.cardR2Key)}
+            bytes={event.cardBytes}
+            uploadedAt={event.cardUploadedAt}
+            storageReady={r2FromEnv() !== null}
+            invitedCount={invitedCount}
+          />
+        )}
 
         <section className="mt-12">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="font-display text-2xl text-ink">
               Lo que el asistente ya sabe
             </h2>
-            <Link
-              href={`/eventos/${event.id}/detalles`}
-              className="text-[0.85rem] text-accent hover:underline"
-            >
-              Editar
-            </Link>
+            {!archived && (
+              <Link
+                href={`/eventos/${event.id}/detalles`}
+                className="text-[0.85rem] text-accent hover:underline"
+              >
+                Editar
+              </Link>
+            )}
           </div>
           <p className="mt-2 text-[0.9rem] text-ink-muted">
             {publicFacts.length} de {answerable} preguntas contestadas. Las que
@@ -136,11 +155,18 @@ export default async function EventoPage({
 
           {publicFacts.length === 0 ? (
             <p className="mt-6 rounded-xl border border-dashed border-line bg-paper-deep p-6 text-center text-ink-muted">
-              Todavía no has contestado nada.{" "}
-              <Link href={`/eventos/${event.id}/detalles`} className="text-accent hover:underline">
-                Empieza aquí
-              </Link>
-              .
+              Todavía no has contestado nada.
+              {!archived && (
+                <>
+                  {" "}
+                  <Link
+                    href={`/eventos/${event.id}/detalles`}
+                    className="text-accent hover:underline"
+                  >
+                    Empieza aquí
+                  </Link>
+                </>
+              )}
             </p>
           ) : (
             <ul className="mt-6 space-y-4">
@@ -181,6 +207,10 @@ export default async function EventoPage({
               : "Administra tu lista y revisa quién ha confirmado."}
           </p>
         </Link>
+
+        {!archived && (
+          <ArchiveEvent eventId={event.id} archived={false} guestCount={guestCount} />
+        )}
 
         <div className="mt-5 rounded-xl border border-dashed border-line p-6">
           <p className="font-display text-xl text-ink-muted">Diseño de la invitación</p>

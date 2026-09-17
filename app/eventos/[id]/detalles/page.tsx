@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events } from "@/db/schema";
@@ -21,6 +21,9 @@ export default async function Detalles({
     where: and(eq(events.id, id), eq(events.orgId, orgId)),
   });
   if (!event) notFound();
+  // Nothing on this page is readable-only: it is the questionnaire form itself,
+  // so an archived event goes back to the overview, where its answers are shown.
+  if (event.archivedAt) redirect(`/eventos/${event.id}`);
 
   return (
     <>

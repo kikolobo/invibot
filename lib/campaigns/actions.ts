@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { campaigns, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import { editableEvent } from "@/lib/events/guard";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { sendTemplateToGuest } from "@/lib/whatsapp/send";
 import { invitationPlan, invitationVariables, templateForGuest } from "./recipients";
@@ -59,6 +60,9 @@ export async function sendInvitations(
   const { orgId, userId } = await requireOrg();
 
   if (guestIds.length === 0) return { error: "No seleccionaste a nadie." };
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
 
   // Rebuilt from the database, never taken from the form: the ids say which
   // guests, and every other fact — phone, opt-out, invite status — is read
