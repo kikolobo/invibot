@@ -38,6 +38,7 @@ export type FilterKey = keyof typeof filters;
 export const orders = {
   nombre: "Nombre",
   apellido: "Apellido",
+  mesa: "Mesa",
 } as const;
 
 export type OrderKey = keyof typeof orders;
@@ -127,7 +128,24 @@ export function buildSections(guests: ReportGuest[], shape: ReportShape): Report
   const nameOf = (guest: ReportGuest) =>
     shape.order === "apellido" ? surnameOf(guest) : given(guest);
 
+  // Tables sort as numbers, not as text: otherwise table 10 lands between 1
+  // and 2. Anyone unseated sorts last whichever way the list runs — they are
+  // the ones still to place, and they belong together at the end.
+  const tableOf = (guest: ReportGuest) =>
+    guest.tableNumber ? Number.parseInt(guest.tableNumber, 10) : Number.NaN;
+
   const sorted = [...guests].sort((a, b) => {
+    if (shape.order === "mesa") {
+      const left = tableOf(a);
+      const right = tableOf(b);
+      const leftMissing = Number.isNaN(left);
+      const rightMissing = Number.isNaN(right);
+      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+      if (!leftMissing && left !== right) return (left - right) * sign;
+      // Within one table, alphabetical — a seating chart is read by name.
+      return sortKey(given(a)).localeCompare(sortKey(given(b)), "es");
+    }
+
     const primary = sortKey(nameOf(a)).localeCompare(sortKey(nameOf(b)), "es");
     if (primary !== 0) return primary * sign;
     // A stable second key, so two Lobos keep a predictable order.
@@ -136,7 +154,11 @@ export function buildSections(guests: ReportGuest[], shape: ReportShape): Report
 
   const sections = new Map<string, ReportGuest[]>();
   for (const guest of sorted) {
-    const heading = shape.grouped ? (guest.groupName ?? "Sin grupo") : initial(nameOf(guest));
+    const heading = shape.grouped
+      ? (guest.groupName ?? "Sin grupo")
+      : shape.order === "mesa"
+        ? (guest.tableNumber ? `Mesa ${guest.tableNumber}` : "Sin mesa")
+        : initial(nameOf(guest));
     const bucket = sections.get(heading);
     if (bucket) bucket.push(guest);
     else sections.set(heading, [guest]);
@@ -144,13 +166,19 @@ export function buildSections(guests: ReportGuest[], shape: ReportShape): Report
 
   // Leftovers sort last whichever way the list runs: "Sin grupo" is not a group
   // and "#" is not a letter, and putting either first buries the real content.
-  const last = shape.grouped ? "Sin grupo" : "#";
+  const last = shape.grouped ? "Sin grupo" : shape.order === "mesa" ? "Sin mesa" : "#";
 
   return [...sections.entries()]
     .map(([heading, list]) => ({ heading, guests: list }))
     .sort((a, b) => {
       if (a.heading === last) return 1;
       if (b.heading === last) return -1;
+      // Table headings are numbers wearing a word; "Mesa 10" after "Mesa 9".
+      if (!shape.grouped && shape.order === "mesa") {
+        const left = Number.parseInt(a.heading.replace(/\D/g, ""), 10);
+        const right = Number.parseInt(b.heading.replace(/\D/g, ""), 10);
+        return (left - right) * sign;
+      }
       return sortKey(a.heading).localeCompare(sortKey(b.heading), "es") * sign;
     });
 }

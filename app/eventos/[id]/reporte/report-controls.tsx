@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { filters, orders } from "@/lib/reports/guest-report";
 import type { readShape } from "@/lib/reports/load";
 
@@ -19,6 +19,7 @@ export function ReportControls({
   eventId: string;
   shape: ReturnType<typeof readShape>;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -46,14 +47,27 @@ export function ReportControls({
   return (
     <div>
       <div className="mt-6">
-        <p className="eyebrow">Quiénes</p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <label className="eyebrow block" htmlFor="filtro">
+          Quiénes
+        </label>
+        {/*
+          A select rather than seven pills: the options are mutually exclusive
+          and the row of them wrapped to two lines, which read as a toolbar
+          rather than a choice. Still URL state — changing it navigates, so the
+          print view and a shared link both follow.
+        */}
+        <select
+          id="filtro"
+          value={shape.filter}
+          onChange={(event) => router.push(hrefWith("filtro", event.target.value), { scroll: false })}
+          className="mt-2 rounded-lg border border-line bg-white px-3 py-2 text-[0.9rem] text-ink outline-none transition-colors focus:border-accent"
+        >
           {Object.entries(filters).map(([key, label]) => (
-            <Link key={key} href={hrefWith("filtro", key)} scroll={false} className={pill(shape.filter === key)}>
+            <option key={key} value={key}>
               {label}
-            </Link>
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-5">

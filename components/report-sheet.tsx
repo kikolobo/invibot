@@ -89,18 +89,15 @@ export function ReportSheet({
                         V
                       </span>
                     )}
+                    <span className="mx-2 flex-1 border-b border-dotted border-line/80" />
+                    <span className="shrink-0 text-[0.85rem] text-ink-soft">
+                      {seatCount >= 2 ? `${seatCount} personas` : seatCount === 1 ? "1" : "—"}
+                    </span>
                     {guest.tableNumber && (
-                      <span className="shrink-0 text-[0.78rem] text-ink-muted">
+                      <span className="w-20 shrink-0 text-right text-[0.85rem] text-ink-soft">
                         Mesa {guest.tableNumber}
                       </span>
                     )}
-                    {!grouped && guest.groupName && (
-                      <span className="text-[0.8rem] text-ink-muted">{guest.groupName}</span>
-                    )}
-                    <span className="mx-2 flex-1 border-b border-dotted border-line/80" />
-                    <span className="text-[0.85rem] text-ink-soft">
-                      {seatCount >= 2 ? `${seatCount} personas` : seatCount === 1 ? "1" : "—"}
-                    </span>
                   </li>
                 );
               })}
