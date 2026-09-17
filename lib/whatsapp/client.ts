@@ -107,6 +107,76 @@ export function sendText(
   });
 }
 
+/**
+ * Free-form image, with the caption WhatsApp renders under it. Same window rule
+ * as `sendText`: only legal once the guest has written to us.
+ *
+ * Sent by media id rather than a link. A link would mean the card sits at a
+ * public URL — permanently, for anyone who finds it — and the card has the
+ * venue and the date on it.
+ */
+export function sendImage(
+  config: WhatsAppConfig,
+  to: string,
+  mediaId: string,
+  caption?: string,
+): Promise<SendResult> {
+  return post(config, {
+    recipient_type: "individual",
+    to: toRecipient(to),
+    type: "image",
+    image: { id: mediaId, ...(caption ? { caption } : {}) },
+  });
+}
+
+export type MediaUploadResult =
+  | { ok: true; mediaId: string }
+  | { ok: false; title: string; detail?: string };
+
+/**
+ * Uploads bytes to Meta and returns the handle to send them with.
+ *
+ * The handle is tied to this phone number and expires — Meta documents roughly
+ * 30 days — so the original has to stay in our own storage and be re-uploaded
+ * when the handle stops working. Not a cache we can lose: a card the organizer
+ * uploaded once must keep arriving for as long as guests keep confirming.
+ */
+export async function uploadMedia(
+  config: WhatsAppConfig,
+  bytes: ArrayBuffer,
+  contentType: string,
+  filename = "invitacion",
+): Promise<MediaUploadResult> {
+  const form = new FormData();
+  form.set("messaging_product", "whatsapp");
+  form.set("type", contentType);
+  form.set("file", new Blob([bytes], { type: contentType }), filename);
+
+  let response: Response;
+  try {
+    response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${config.phoneNumberId}/media`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${config.accessToken}` },
+      body: form,
+    });
+  } catch (cause) {
+    return { ok: false, title: cause instanceof Error ? cause.message : "Network error" };
+  }
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    error?: { message?: string; error_data?: { details?: string } };
+  };
+
+  if (response.ok && payload.id) return { ok: true, mediaId: payload.id };
+
+  return {
+    ok: false,
+    title: payload.error?.message ?? `HTTP ${response.status}`,
+    detail: payload.error?.error_data?.details,
+  };
+}
+
 export type TemplateComponent =
   | { type: "header"; parameters: { type: "image"; image: { link: string } }[] }
   | { type: "body"; parameters: { type: "text"; text: string }[] }

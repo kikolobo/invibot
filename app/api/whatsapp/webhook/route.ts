@@ -18,7 +18,8 @@ import {
   isConfirmation,
   type GuestIntent,
 } from "@/lib/whatsapp/intents";
-import { sendTextToGuest, sendTemplateToGuest } from "@/lib/whatsapp/send";
+import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
+import { resolveCardMediaId } from "@/lib/events/card-media";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 
@@ -266,7 +267,14 @@ async function respond(guest: GuestRow, intent: GuestIntent): Promise<void> {
 
   const kind = isConfirmation(intent) ? "rsvp_confirmation" : "custom";
   const outcome = await sendTextToGuest(guest.id, text, kind);
-  if (outcome.ok) return;
+  if (outcome.ok) {
+    // The card follows the confirmation rather than replacing it: the words are
+    // the part that must arrive, and an image that fails to upload should never
+    // take the confirmation down with it. Declines get nothing — someone who
+    // just said they cannot come has no use for the invitation.
+    if (isConfirmation(intent)) await sendCard(guest);
+    return;
+  }
 
   if (outcome.reason !== "window_closed") {
     console.error("[whatsapp] reply failed", guest.id, intent, outcome);
@@ -298,4 +306,23 @@ async function respond(guest: GuestRow, intent: GuestIntent): Promise<void> {
     "rsvp_confirmation",
   );
   if (!fallback.ok) console.error("[whatsapp] template fallback failed", guest.id, fallback);
+}
+
+
+/**
+ * The invitation card, if this event has one.
+ *
+ * Every failure here is silent on purpose. The guest already has their
+ * confirmation, and there is no version of "your card could not be sent" worth
+ * putting on someone's phone.
+ */
+async function sendCard(guest: GuestRow): Promise<void> {
+  const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+  if (!event?.cardR2Key) return;
+
+  const mediaId = await resolveCardMediaId(event);
+  if (!mediaId) return;
+
+  const outcome = await sendImageToGuest(guest.id, mediaId, "rsvp_confirmation");
+  if (!outcome.ok) console.error("[whatsapp] card send failed", guest.id, outcome);
 }

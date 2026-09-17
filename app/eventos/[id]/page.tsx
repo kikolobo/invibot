@@ -7,8 +7,10 @@ import { events, eventFacts, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { questionsFor } from "@/lib/events/questions";
+import { r2FromEnv } from "@/lib/storage/r2";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
+import { EventCard } from "./event-card";
 
 export const metadata = { title: "Evento" };
 
@@ -105,6 +107,15 @@ export default async function EventoPage({
             <dd className="mt-1 text-ink">Borrador</dd>
           </div>
         </dl>
+
+        <EventCard
+          eventId={event.id}
+          hasCard={Boolean(event.cardR2Key)}
+          bytes={event.cardBytes}
+          uploadedAt={event.cardUploadedAt}
+          storageReady={r2FromEnv() !== null}
+          invitedCount={invitedCount}
+        />
 
         <section className="mt-12">
           <div className="flex items-baseline justify-between gap-4">

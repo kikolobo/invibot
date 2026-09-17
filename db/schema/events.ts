@@ -68,6 +68,23 @@ export const events = pgTable(
     /** FK added in a follow-up migration — circular with designs.event_id. */
     coverDesignId: uuid("cover_design_id"),
 
+    /**
+     * The invitation card the organizer uploaded, sent to each guest right after
+     * they confirm. Distinct from `designs`, which is never a file — this is one
+     * image the organizer already had, not something the renderer produces.
+     *
+     * Held privately in R2: a card carries a venue, a date and a family's names,
+     * and a public URL for it is a public URL forever. WhatsApp receives the
+     * bytes through Meta's media endpoint instead of a link.
+     */
+    cardR2Key: text("card_r2_key"),
+    cardContentType: text("card_content_type"),
+    cardBytes: integer("card_bytes"),
+    cardUploadedAt: timestamp("card_uploaded_at", { withTimezone: true }),
+    /** Meta's media handle for the same file. Expires; re-uploaded from R2 when it does. */
+    cardMediaId: text("card_media_id"),
+    cardMediaRefreshedAt: timestamp("card_media_refreshed_at", { withTimezone: true }),
+
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

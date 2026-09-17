@@ -12,6 +12,7 @@ import {
   configFromEnv,
   sendText,
   sendTemplate,
+  sendImage,
   type SendResult,
   type TemplateComponent,
 } from "./client";
@@ -61,6 +62,23 @@ export async function sendTextToGuest(
 ): Promise<SendOutcome> {
   return deliver({ guestId, kind, requireOpenWindow: true, body }, (config, to) =>
     sendText(config, to, body),
+  );
+}
+
+/**
+ * An image the guest did not ask for but will want — the invitation card, once
+ * they have confirmed. Free-form, so the same window rule applies: this can
+ * only follow something the guest sent us.
+ */
+export async function sendImageToGuest(
+  guestId: string,
+  mediaId: string,
+  kind: SendKind = "custom",
+  caption?: string,
+): Promise<SendOutcome> {
+  return deliver(
+    { guestId, kind, requireOpenWindow: true, body: caption ?? "[image]" },
+    (config, to) => sendImage(config, to, mediaId, caption),
   );
 }
 
