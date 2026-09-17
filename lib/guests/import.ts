@@ -22,6 +22,8 @@ export type ParsedGuest = {
   email: string | null;
   groupLabel: string | null;
   partySizeAllowed: number;
+  tableNumber: string | null;
+  isVip: boolean;
   issues: Issue[];
 };
 
@@ -32,7 +34,7 @@ export type ParseResult = {
   headerDetected: boolean;
 };
 
-type Column = "name" | "phone" | "email" | "group" | "party";
+type Column = "name" | "phone" | "email" | "group" | "party" | "table" | "vip";
 
 /** Header labels we recognise, accent-stripped and lowercased. */
 const HEADERS: Record<string, Column> = {
@@ -41,8 +43,12 @@ const HEADERS: Record<string, Column> = {
   telefono: "phone", tel: "phone", celular: "phone", movil: "phone",
   whatsapp: "phone", phone: "phone", mobile: "phone", numero: "phone",
   email: "email", correo: "email", "correo electronico": "email", mail: "email",
-  grupo: "group", group: "group", mesa: "group", table: "group",
-  familia: "group", relacion: "group",
+  grupo: "group", group: "group", familia: "group", relacion: "group",
+  // "mesa" used to mean group here, from before tables existed as a field.
+  // A spreadsheet with a Mesa column was importing table numbers as group
+  // names, which is the kind of wrong that looks right until the door.
+  mesa: "table", table: "table", "numero de mesa": "table", "mesa asignada": "table",
+  vip: "vip", importante: "vip",
   acompanantes: "party", pases: "party", party: "party", guests: "party",
   lugares: "party",
 };
@@ -150,6 +156,8 @@ export function parseGuestList(input: string, maxPartySize = 1): ParseResult {
     const rawEmail = pick("email").trim();
     const group = pick("group").trim();
     const rawParty = pick("party").trim();
+    const rawTable = pick("table").trim();
+    const rawVip = pick("vip").trim();
 
     if (!fullName) issues.push({ level: "error", message: "Falta el nombre." });
 
@@ -194,6 +202,29 @@ export function parseGuestList(input: string, maxPartySize = 1): ParseResult {
       }
     }
 
+    // Same rule as the form: digits, at most five, and "0005" is table 5.
+    let tableNumber: string | null = null;
+    if (rawTable) {
+      if (/^\d{1,5}$/.test(rawTable)) {
+        const normalized = String(Number.parseInt(rawTable, 10));
+        if (normalized === "0") {
+          issues.push({ level: "warning", message: "La mesa no puede ser 0; se dejó vacía." });
+        } else {
+          tableNumber = normalized;
+        }
+      } else {
+        issues.push({
+          level: "warning",
+          message: `Mesa no válida: "${rawTable}". Debe ser un número de hasta 5 dígitos.`,
+        });
+      }
+    }
+
+    // A column people fill with an x, a 1, or the word itself. Anything else
+    // is left as not-VIP rather than guessed at — marking the wrong person is
+    // worse than marking nobody.
+    const isVip = ["si", "sí", "yes", "x", "1", "true", "vip", "v"].includes(strip(rawVip));
+
     // Duplicates within the file itself, matched on any phone variant.
     const key = phoneE164 ?? (email ? `mail:${email}` : "");
     if (key) {
@@ -218,6 +249,8 @@ export function parseGuestList(input: string, maxPartySize = 1): ParseResult {
       email,
       groupLabel: group || null,
       partySizeAllowed,
+      tableNumber,
+      isVip,
       issues,
     });
   });

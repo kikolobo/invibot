@@ -129,6 +129,9 @@ export async function addGuest(
     if (already) return { error: `${already.fullName} ya está en la lista con ese número.` };
   }
 
+  const table = readTable(formData.get("tableNumber"));
+  if ("error" in table) return { error: table.error };
+
   await db.insert(guests).values({
     eventId,
     fullName,
@@ -141,6 +144,9 @@ export async function addGuest(
     // companions cannot conjure a second seat.
     partySizeAllowed:
       formData.get("bringsCompanion") === "on" ? Math.min(2, event.maxPartySize) : 1,
+    tableNumber: table.value,
+    isVip: formData.get("isVip") === "on",
+    notes: String(formData.get("notes") ?? "").trim() || null,
     accessToken: newToken(),
   });
 
@@ -417,6 +423,8 @@ export async function confirmImport(
       email: g.email,
       groupId: g.groupLabel ? (groupIds.get(g.groupLabel) ?? null) : null,
       partySizeAllowed: g.partySizeAllowed,
+      tableNumber: g.tableNumber,
+      isVip: g.isVip,
       accessToken: newToken(),
     })),
   );
