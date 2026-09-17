@@ -179,17 +179,17 @@ export function GuestTable({
       )}
 
       <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[38rem] text-left text-[0.9rem]">
+        <table className="w-full text-left text-[0.88rem]">
           <thead className="border-b border-line">
             <tr className="text-ink-muted">
-              <th className="w-10 px-3 py-2.5" />
-              <th className="px-3 py-2.5 font-medium">Nombre</th>
-              <th className="px-3 py-2.5 font-medium">Contacto</th>
-              <th className="px-3 py-2.5 font-medium">Grupo</th>
-              <th className="px-3 py-2.5 font-medium">Invitación</th>
-              <th className="px-3 py-2.5 font-medium">Asistencia</th>
-              <th className="px-3 py-2.5 font-medium">Confirmados</th>
-              <th className="w-16 px-3 py-2.5" />
+              <th className="w-8 px-2 py-2.5" />
+              <th className="px-2 py-2.5 font-medium">Nombre</th>
+              <th className="px-2 py-2.5 font-medium">Contacto</th>
+              <th className="whitespace-nowrap px-2 py-2.5 font-medium">Grupo</th>
+              <th className="whitespace-nowrap px-2 py-2.5 font-medium">Status</th>
+              <th className="whitespace-nowrap px-2 py-2.5 font-medium">Asistencia</th>
+              <th className="whitespace-nowrap px-2 py-2.5 font-medium"># Conf</th>
+              <th className="w-12 px-2 py-2.5" />
             </tr>
           </thead>
           <tbody>
@@ -200,7 +200,7 @@ export function GuestTable({
                   editing === guest.id ? "bg-paper-deep" : ""
                 }`}
               >
-                <td className="px-3 py-2.5">
+                <td className="px-2 py-2.5">
                   {!archived && (
                     <input
                       type="checkbox"
@@ -210,7 +210,7 @@ export function GuestTable({
                     />
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink">
+                <td className="whitespace-nowrap px-2 py-2.5 text-ink">
                   {guest.fullName}
                   {guest.partySizeAllowed > 1 && (
                     <span className="ml-2 text-[0.8rem] text-ink-muted">
@@ -218,23 +218,28 @@ export function GuestTable({
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink-soft">
+                <td className="px-2 py-2.5 text-ink-soft">
                   {guest.phoneE164 ? formatPhone(guest.phoneE164) : ""}
                   {guest.email && (
-                    <span className="block text-[0.82rem] text-ink-muted">{guest.email}</span>
+                    <span
+                      className="block max-w-[10rem] truncate text-[0.82rem] text-ink-muted"
+                      title={guest.email}
+                    >
+                      {guest.email}
+                    </span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink-soft">{guest.groupName ?? "—"}</td>
-                <td className="px-3 py-2.5 text-ink-soft">
+                <td className="px-2 py-2.5 text-ink-soft">{guest.groupName ?? "—"}</td>
+                <td className="px-2 py-2.5 text-ink-soft">
                   {inviteLabels[guest.inviteStatus] ?? guest.inviteStatus}
                 </td>
-                <td className="px-3 py-2.5 text-ink-soft">
+                <td className="px-2 py-2.5 text-ink-soft">
                   {rsvpLabels[guest.rsvpStatus] ?? guest.rsvpStatus}
                 </td>
-                <td className="px-3 py-2.5 text-ink-soft">
+                <td className="px-2 py-2.5 text-ink-soft">
                   {guest.rsvpStatus === "confirmed" ? (guest.partySizeConfirmed ?? 1) : "—"}
                 </td>
-                <td className="px-3 py-2.5 text-right">
+                <td className="px-2 py-2.5 text-right">
                   {!archived && (
                     <button
                       type="button"
