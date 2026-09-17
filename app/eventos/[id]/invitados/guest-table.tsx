@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { deleteGuests } from "@/lib/guests/actions";
 import { formatPhone } from "@/lib/phone";
 import { inviteLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
 import type { TemplateName } from "@/lib/whatsapp/templates";
 import { SendInvitations } from "./send-invitations";
+import { EditGuest } from "./edit-guest";
 
 export type GuestRow = {
   id: string;
@@ -38,15 +39,20 @@ export function GuestTable({
   eventId,
   rows,
   invite,
+  groups,
+  maxPartySize,
   archived = false,
 }: {
   eventId: string;
   rows: GuestRow[];
   invite: InviteContext;
+  groups: string[];
+  maxPartySize: number;
   archived?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const toggle = (id: string) =>
@@ -141,11 +147,13 @@ export function GuestTable({
               <th className="px-3 py-2.5 font-medium">Grupo</th>
               <th className="px-3 py-2.5 font-medium">Invitación</th>
               <th className="px-3 py-2.5 font-medium">Asistencia</th>
+              <th className="w-16 px-3 py-2.5" />
             </tr>
           </thead>
           <tbody>
             {rows.map((guest) => (
-              <tr key={guest.id} className="border-b border-line/60 last:border-0">
+              <Fragment key={guest.id}>
+              <tr className="border-b border-line/60 last:border-0">
                 <td className="px-3 py-2.5">
                   {!archived && (
                     <input
@@ -177,7 +185,32 @@ export function GuestTable({
                 <td className="px-3 py-2.5 text-ink-soft">
                   {rsvpLabels[guest.rsvpStatus] ?? guest.rsvpStatus}
                 </td>
+                <td className="px-3 py-2.5 text-right">
+                  {!archived && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(editing === guest.id ? null : guest.id)}
+                      className="text-[0.82rem] text-ink-muted transition-colors hover:text-accent"
+                    >
+                      {editing === guest.id ? "Cerrar" : "Editar"}
+                    </button>
+                  )}
+                </td>
               </tr>
+              {editing === guest.id && (
+                <tr>
+                  <td colSpan={7} className="px-3 pb-4">
+                    <EditGuest
+                      eventId={eventId}
+                      guest={guest}
+                      groups={groups}
+                      maxPartySize={maxPartySize}
+                      onDone={() => setEditing(null)}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

@@ -146,6 +146,16 @@ export async function addGuest(
   return { ok: `${fullName} agregado.` };
 }
 
+/** The states an organizer may set by hand. Waitlist has no UI yet. */
+const settableRsvp = new Set(["no_response", "confirmed", "declined", "maybe"]);
+
+/**
+ * Correcting a guest.
+ *
+ * Mostly this is fixing a typo in a phone number, which is the one field here
+ * with consequences: the invitation already went to the *old* number, the new
+ * one may belong to someone who opted out, and it may already be on this list.
+ */
 export async function updateGuest(
   eventId: string,
   guestId: string,
@@ -154,6 +164,11 @@ export async function updateGuest(
 ): Promise<GuestActionState> {
   const event = await ownedEvent(eventId);
   if (!event) return { error: "No encontramos ese evento." };
+
+  const guest = await db.query.guests.findFirst({
+    where: and(eq(guests.id, guestId), eq(guests.eventId, eventId)),
+  });
+  if (!guest) return { error: "No encontramos a esa persona." };
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const rawPhone = String(formData.get("phone") ?? "").trim();
@@ -169,6 +184,35 @@ export async function updateGuest(
     phoneVariants = normalized.variants;
   }
 
+  const email = rawEmail ? rawEmail.toLowerCase() : null;
+  if (!phoneE164 && !email) {
+    return { error: "Necesitamos al menos un teléfono o un correo para poder invitar." };
+  }
+
+  const phoneChanged = phoneE164 !== guest.phoneE164;
+
+  if (phoneChanged && phoneE164) {
+    // The unique index on (event, phone) would otherwise surface as a 500.
+    const clash = await db.query.guests.findFirst({
+      where: and(eq(guests.eventId, eventId), eq(guests.phoneE164, phoneE164)),
+    });
+    if (clash && clash.id !== guestId) {
+      return { error: `${clash.fullName} ya está en la lista con ese número.` };
+    }
+
+    const blocked = await db.query.suppressions.findFirst({
+      where: inArray(suppressions.phoneE164, normalizePhone(rawPhone)?.variants ?? []),
+    });
+    if (blocked) {
+      return { error: "Esa persona pidió no recibir más invitaciones y no podemos contactarla." };
+    }
+  }
+
+  const requestedRsvp = String(formData.get("rsvpStatus") ?? guest.rsvpStatus);
+  const rsvpStatus = settableRsvp.has(requestedRsvp) ? requestedRsvp : guest.rsvpStatus;
+  const companion = formData.get("bringsCompanion") === "on";
+  const partySizeAllowed = companion ? Math.min(2, event.maxPartySize) : 1;
+
   await db
     .update(guests)
     .set({
@@ -176,14 +220,35 @@ export async function updateGuest(
       firstName: fullName.split(/\s+/)[0] || null,
       phoneE164,
       phoneVariants,
-      email: rawEmail ? rawEmail.toLowerCase() : null,
+      email,
       groupId: await resolveGroup(eventId, String(formData.get("group") ?? "")),
+      partySizeAllowed,
+      rsvpStatus: rsvpStatus as typeof guest.rsvpStatus,
+      // Set when the organizer records an answer, cleared when they take it
+      // back. Existing timestamps are left alone so a guest's own reply keeps
+      // the moment they actually sent it.
+      rsvpRespondedAt:
+        rsvpStatus === "no_response"
+          ? null
+          : (guest.rsvpRespondedAt ?? (rsvpStatus !== guest.rsvpStatus ? new Date() : null)),
+      // Only meaningful once they are coming, and never more than they were offered.
+      partySizeConfirmed:
+        rsvpStatus === "confirmed" ? Math.min(companion ? 2 : 1, partySizeAllowed) : null,
+      // A corrected number has not been invited — the invitation went to the
+      // old one. Resetting this puts them back in the send list instead of
+      // leaving them permanently "Enviada" at a number that was never theirs.
+      ...(phoneChanged ? { inviteStatus: "pending" as const } : {}),
       updatedAt: new Date(),
     })
     .where(and(eq(guests.id, guestId), eq(guests.eventId, eventId)));
 
   revalidatePath(`/eventos/${eventId}/invitados`);
-  return { ok: "Guardado." };
+
+  const note =
+    phoneChanged && guest.inviteStatus !== "pending"
+      ? " La invitación anterior se envió al número viejo; puedes volver a invitarle."
+      : "";
+  return { ok: `Guardado.${note}` };
 }
 
 export async function deleteGuests(eventId: string, guestIds: string[]) {

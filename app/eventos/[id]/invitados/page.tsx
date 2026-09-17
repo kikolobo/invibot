@@ -111,7 +111,14 @@ export default async function Invitados({
       </dl>
 
       <div className="mt-8">
-        <GuestTable eventId={event.id} rows={rows} invite={invite} archived={archived} />
+        <GuestTable
+          eventId={event.id}
+          rows={rows}
+          invite={invite}
+          groups={groups}
+          maxPartySize={event.maxPartySize}
+          archived={archived}
+        />
       </div>
 
       {archived && (
