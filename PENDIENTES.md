@@ -45,6 +45,37 @@ Para volver al número de prueba, si alguna vez hace falta: se borra
 
 ---
 
+## 0.5 Vista previa de la liga de autorregistro — **a discutir**
+
+Cuando alguien pega `invibot.com/r/{code}` en WhatsApp, la vista previa que sale
+hoy es la de `wa.me`: el rastreador sigue el 302 y lee las etiquetas de ellos,
+no las nuestras. Para controlarla, esa ruta tiene que dejar de ser un redirect y
+devolver HTML con `og:title`, `og:description` y `og:image`, mandando a la
+persona a WhatsApp desde el navegador. El rastreador no corre JavaScript, así
+que se queda en las etiquetas.
+
+**La imagen NO puede ser la invitación oficial.** Un `og:image` es público por
+definición, y la tarjeta lleva el lugar, la fecha y los nombres — es justo lo
+que `lib/storage/r2.ts` mantiene en un bucket privado a propósito. Y la liga
+está hecha para reenviarse en grupos: sería cerrar la puerta y abrir la ventana.
+
+**Decidido:** se sube una **imagen teaser** aparte, sólo para esto. Es el
+anfitrión quien decide hacerla pública, que es otra cosa muy distinta a que
+nosotros publiquemos su invitación. El lugar nunca aparece ahí.
+
+Dos cosas que hay que saber antes de construirlo:
+
+- WhatsApp **cachea la vista previa por URL** y no se puede invalidar. Si cambia
+  el nombre o la fecha después de compartir la liga, la tarjeta se queda vieja.
+- Tira las imágenes que considera pesadas y no enseña nada. Hay que apuntar a
+  pocos cientos de KB, no a calidad de impresión.
+
+`next/og` ya está disponible. Si se genera en vez de subirse, que herede la
+lección de `lib/passes/render.ts`: en serverless no hay fuentes del sistema y
+los glifos se convierten a trazos.
+
+---
+
 ## 1. Quitar «Responde BAJA» de las plantillas del WABA de *prueba*
 
 Sólo aplica al WABA de prueba. Las de producción nacieron con el pie correcto,
