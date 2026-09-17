@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { events, eventFacts, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
+import { newMapsCode } from "./maps";
 import { partySizeFor } from "./party";
 import { diffEvent } from "./changes";
 import { editableEvent } from "./guard";
@@ -58,6 +59,12 @@ const basicsSchema = z
     venueCity: z.string().trim().max(120).optional(),
     venueState: z.string().trim().max(120).optional(),
     venueCountry: z.string().trim().length(2).optional(),
+    venueMapsUrl: z
+      .string()
+      .trim()
+      .url("Pega el link completo, empezando con https://")
+      .max(500)
+      .optional(),
     rsvpRequired: z.boolean().default(true),
     allowPlusOnes: z.boolean().default(false),
     qrEnabled: z.boolean().default(false),
@@ -83,6 +90,7 @@ export async function createEvent(
     venueCity: formData.get("venueCity") || undefined,
     venueState: formData.get("venueState") || undefined,
     venueCountry: formData.get("venueCountry") || undefined,
+    venueMapsUrl: formData.get("venueMapsUrl") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
     qrEnabled: formData.get("qrEnabled") === "on",
@@ -114,6 +122,8 @@ export async function createEvent(
       venueCity: v.venueCity ?? null,
       venueState: v.venueState ?? null,
       venueCountry: v.venueCountry ?? null,
+      venueMapsUrl: v.venueMapsUrl ?? null,
+      mapsCode: newMapsCode(),
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize: partySizeFor(v.allowPlusOnes),
@@ -357,6 +367,8 @@ export async function cloneEvent(
       venueLng: source.venueLng,
       venuePlaceId: source.venuePlaceId,
       venueMapsUrl: source.venueMapsUrl,
+      // Its own short link: the copy can be moved without breaking the original.
+      mapsCode: newMapsCode(),
       rsvpRequired: source.rsvpRequired,
       rsvpDeadline: slide(source.rsvpDeadline),
       allowPlusOnes: source.allowPlusOnes,
@@ -526,6 +538,12 @@ const basicsEditSchema = z.object({
   venueCity: z.string().trim().max(120).optional(),
   venueState: z.string().trim().max(120).optional(),
   venueCountry: z.string().trim().length(2).optional(),
+  venueMapsUrl: z
+    .string()
+    .trim()
+    .url("Pega el link completo, empezando con https://")
+    .max(500)
+    .optional(),
   rsvpRequired: z.boolean().default(true),
   allowPlusOnes: z.boolean().default(false),
   qrEnabled: z.boolean().default(false),
@@ -569,6 +587,7 @@ export async function updateEventBasics(
     venueCity: formData.get("venueCity") || undefined,
     venueState: formData.get("venueState") || undefined,
     venueCountry: formData.get("venueCountry") || undefined,
+    venueMapsUrl: formData.get("venueMapsUrl") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
     qrEnabled: formData.get("qrEnabled") === "on",
@@ -603,6 +622,7 @@ export async function updateEventBasics(
       venueCity: v.venueCity ?? null,
       venueState: v.venueState ?? null,
       venueCountry: v.venueCountry ?? null,
+      venueMapsUrl: v.venueMapsUrl ?? null,
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize,

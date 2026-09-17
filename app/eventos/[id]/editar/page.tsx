@@ -50,6 +50,7 @@ export default async function Editar({
             venueAddress: event.venueAddress,
             venueState: event.venueState,
             venueCountry: event.venueCountry,
+            venueMapsUrl: event.venueMapsUrl,
             venueCity: event.venueCity,
             rsvpRequired: event.rsvpRequired,
             allowPlusOnes: event.allowPlusOnes,

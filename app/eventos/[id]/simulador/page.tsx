@@ -10,6 +10,8 @@ import {
   greetingName,
 } from "@/lib/campaigns/recipients";
 import { missingLabels } from "@/lib/campaigns/labels";
+import { formatEventWhere } from "@/lib/events/format";
+import { guestMapsLink } from "@/lib/events/maps";
 import { WhatsAppPreview } from "../whatsapp-preview";
 import { AgentChat } from "../agent-chat";
 
@@ -67,6 +69,8 @@ export default async function Simulador({
             eventName={event.name}
             eventVars={eventVariables(event)}
             guestName={previewName}
+            where={formatEventWhere(event)}
+            mapsUrl={guestMapsLink(event)}
             withCompanion={event.maxPartySize > 1}
             cardSrc={
               event.cardR2Key

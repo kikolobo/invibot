@@ -14,6 +14,10 @@ export type ReplyFacts = {
   /** Already formatted in the event's timezone by `formatEventWhen`. */
   when: string;
   where: string;
+  /** The venue and the street, one per line. Free-form sends allow newlines. */
+  addressLines?: string[];
+  /** Google Maps, when the event has an address. Omitted rather than faked. */
+  mapsUrl?: string | null;
 };
 
 /**
@@ -29,7 +33,10 @@ export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): st
       : `Tu lugar está confirmado para ${facts.eventName}.`,
     "",
     `📅 ${facts.when}`,
-    `📍 ${facts.where}`,
+    ...(facts.addressLines?.length
+      ? [`📍 ${facts.addressLines[0]}`, ...facts.addressLines.slice(1)]
+      : [`📍 ${facts.where}`]),
+    ...(facts.mapsUrl ? [`🗺️ Cómo llegar: ${facts.mapsUrl}`] : []),
     "",
     "Si algo cambia, avísame por este medio.",
   ].join("\n");

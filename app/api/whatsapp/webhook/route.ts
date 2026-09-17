@@ -25,7 +25,7 @@ import { recordGuestEvent } from "@/lib/guests/history";
 import { sendPasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configFromEnv, markRead } from "@/lib/whatsapp/client";
-import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
+import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -392,7 +392,7 @@ async function respond(
         guest.firstName ?? guest.fullName,
         event.name,
         formatEventWhen(event),
-        formatEventWhere(event),
+        formatEventWhereForMessage(event),
       ]),
     },
     "rsvp_confirmation",

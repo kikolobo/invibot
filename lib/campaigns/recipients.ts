@@ -1,7 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests, guestGroups, suppressions } from "@/db/schema";
-import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
+import {
+  formatEventWhen,
+  formatEventWhere,
+  formatEventWhereForMessage,
+} from "@/lib/events/format";
 import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 import { variantsOf } from "@/lib/phone";
 import type { SkipReason, MissingField } from "./labels";
@@ -82,7 +86,12 @@ export function greetingName(guest: Pick<Invitee, "fullName" | "firstName">): st
  * a round trip.
  */
 export function eventVariables(event: EventRow): string[] {
-  return [event.hostNames!.trim(), event.name, formatEventWhen(event), formatEventWhere(event)];
+  return [
+    event.hostNames!.trim(),
+    event.name,
+    formatEventWhen(event),
+    formatEventWhereForMessage(event),
+  ];
 }
 
 /** The five template variables for one guest, in the order Meta matches them. */

@@ -2,7 +2,12 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guests, suppressions } from "@/db/schema/guests";
 import { events } from "@/db/schema/events";
-import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
+import {
+  formatEventAddressLines,
+  formatEventWhen,
+  formatEventWhere,
+} from "@/lib/events/format";
+import { guestMapsLink } from "@/lib/events/maps";
 import { templates } from "./templates";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { revokePasses } from "@/lib/passes/issue";
@@ -194,6 +199,8 @@ export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<st
     eventName: event.name,
     when: formatEventWhen(event),
     where: formatEventWhere(event),
+    addressLines: formatEventAddressLines(event),
+    mapsUrl: guestMapsLink(event),
   };
 
   if (intent === "rsvp_no") return declineReply(facts);

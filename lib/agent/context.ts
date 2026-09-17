@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, eventFacts, guests } from "@/db/schema";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
+import { eventMapsUrl } from "@/lib/events/maps";
 
 type EventRow = typeof events.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -51,6 +52,11 @@ export async function buildContext(
   const name = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || guest.fullName;
   const canBringCompanion = guest.partySizeAllowed >= 2;
 
+  // Directions are a fact like any other, and the one guests ask for most. It
+  // goes in the prompt rather than behind a tool: the model needs to recognise
+  // "¿me pasas la ubicación?" and answer it, not call something to find out.
+  const maps = eventMapsUrl(event);
+
   const knowledge =
     facts.length > 0
       ? facts.map((fact) => `P: ${fact.question}\nR: ${fact.answer}`).join("\n\n")
@@ -63,6 +69,8 @@ export async function buildContext(
     `Nombre: ${event.name}`,
     `Cuándo: ${formatEventWhen(event)}`,
     `Dónde: ${formatEventWhere(event) || "Sin definir"}`,
+    ...(event.venueAddress?.trim() ? [`Dirección: ${event.venueAddress.trim()}`] : []),
+    ...(maps ? [`Link de Google Maps: ${maps}`] : []),
     `Anfitriones: ${event.hostNames ?? "Sin definir"}`,
     "",
     "## Lo que el anfitrión ya contestó",
@@ -79,8 +87,14 @@ export async function buildContext(
     "- Solo puedes usar lo que está escrito arriba. No sabes nada más de este evento.",
     "- Si te preguntan algo que no está arriba, NO lo adivines y NO digas lo que suele pasar en eventos así. Dile que lo consultas con el anfitrión y usa la herramienta escalate_question. Una respuesta inventada llega al teléfono de alguien que va a llegar vestido mal, o el día equivocado.",
     "- Si el invitado te dice que sí asiste, que no puede, o que trae acompañante, regístralo con la herramienta correspondiente y luego confírmaselo en una frase.",
+    canBringCompanion
+      ? "- Solo cuenta un acompañante: si menciona a dos o más, registra el suyo y dile que lo consultas con el anfitrión."
+      : "- Su invitación NO incluye acompañante. Aunque te diga que va con su pareja, un amigo o un familiar, jamás uses confirm_attendance con companion=true ni le digas que ambos quedan registrados: registra su lugar y dile que le confirmas con el anfitrión si puede llevar a alguien.",
     "- Si pide dejar de recibir mensajes, usa opt_out y no insistas.",
     "- Nunca repitas la invitación completa: ya la tiene.",
+    maps
+      ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
+      : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",
     "- Nunca inventes precios, direcciones, horarios ni reglas que no estén arriba.",
   ].join("\n");
 

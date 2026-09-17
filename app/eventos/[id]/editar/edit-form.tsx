@@ -31,6 +31,7 @@ export function EditForm({
     venueAddress: string | null;
     venueState: string | null;
     venueCountry: string | null;
+    venueMapsUrl: string | null;
     venueCity: string | null;
     rsvpRequired: boolean;
     allowPlusOnes: boolean;
@@ -170,6 +171,19 @@ export function EditForm({
             />
           </Field>
         </div>
+        <Field
+          label="Link de Google Maps"
+          help="Opcional. Pega el link de «Compartir» y el pin cae exacto. Si lo dejas vacío, buscamos la dirección de arriba."
+          error={err("venueMapsUrl")}
+        >
+          <Input
+            name="venueMapsUrl"
+            type="url"
+            defaultValue={event.venueMapsUrl ?? ""}
+            placeholder="https://maps.app.goo.gl/..."
+          />
+        </Field>
+
 
         <div className="space-y-3 border-t border-line pt-5">
           <label className="flex items-start gap-3">

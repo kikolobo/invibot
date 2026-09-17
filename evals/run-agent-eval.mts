@@ -31,7 +31,13 @@ if (!event || !guest) throw new Error("need an event with at least one guest");
 const client = anthropicFromEnv();
 if (!client) throw new Error("ANTHROPIC_API_KEY is not set");
 
-const { systemPrompt } = await buildContext(event, guest);
+// Two prompts, so a case can pin the guest's seats instead of inheriting
+// whatever the seeded row happens to say today.
+const promptFor = new Map<number, string>();
+for (const seats of [1, 2]) {
+  const { systemPrompt } = await buildContext(event, { ...guest, partySizeAllowed: seats });
+  promptFor.set(seats, systemPrompt);
+}
 console.log(`event "${event.name}" · guest ${guest.fullName} (pases=${guest.partySizeAllowed})`);
 console.log(`model ${process.env.ANTHROPIC_MODEL ?? "claude-opus-5"}\n`);
 
@@ -49,7 +55,8 @@ for (const testCase of cases) {
 
   for (const message of testCase.messages) {
     history.push({ role: "user", content: message });
-    const result = await runAgentTurn(client, systemPrompt, history, async (action) => {
+    const seats = testCase.seats ?? (guest.partySizeAllowed >= 2 ? 2 : 1);
+    const result = await runAgentTurn(client, promptFor.get(seats)!, history, async (action) => {
       actions.push(action as { tool: string });
       return "Registrado.";
     });

@@ -56,7 +56,8 @@ const sameVenue = (a: EventRow, b: EventRow) =>
   a.venueAddress === b.venueAddress &&
   a.venueCity === b.venueCity &&
   a.venueState === b.venueState &&
-  a.venueCountry === b.venueCountry;
+  a.venueCountry === b.venueCountry &&
+  a.venueMapsUrl === b.venueMapsUrl;
 
 export function diffEvent(before: EventRow, after: EventRow): ChangeSet {
   const all: EventChange[] = [];

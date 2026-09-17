@@ -103,9 +103,22 @@ async function perform(
   at: Date,
 ): Promise<string> {
   switch (action.tool) {
-    case "confirm_attendance":
-      await applyIntent(guest, action.companion ? "rsvp_yes_plus_one" : "rsvp_yes_solo", at);
+    case "confirm_attendance": {
+      // `applyIntent` already clamps the stored seats, so a companion invented
+      // here was never written — but the model went on to tell the guest "los
+      // dos quedan registrados", and someone arrives with a person who has no
+      // place. The correction has to reach the sentence, not just the row.
+      const companion = action.companion && guest.partySizeAllowed >= 2;
+      await applyIntent(guest, companion ? "rsvp_yes_plus_one" : "rsvp_yes_solo", at);
+      if (action.companion && !companion) {
+        return [
+          "Registrado, pero SOLO el invitado: su invitación no incluye acompañante.",
+          "No le prometas un lugar extra. Dile con tacto que su invitación es",
+          "individual y que lo consultas con el anfitrión si insiste.",
+        ].join(" ");
+      }
       return "Registrado. El invitado queda confirmado.";
+    }
 
     case "decline_attendance":
       await applyIntent(guest, "rsvp_no", at);

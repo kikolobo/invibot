@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryLabel } from "@/lib/events/places";
+import { eventMapsEmbedUrl, eventMapsUrl } from "@/lib/events/maps";
 import { and, count, eq, ne } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
@@ -62,6 +63,9 @@ export default async function EventoPage({
 
   const archived = event.archivedAt !== null;
 
+  const mapsEmbed = eventMapsEmbedUrl(event);
+  const mapsLink = eventMapsUrl(event);
+
   // City, state and country read as one line; any of them may be missing.
   const where = [event.venueCity, event.venueState, countryLabel(event.venueCountry)]
     .filter(Boolean)
@@ -98,6 +102,16 @@ export default async function EventoPage({
             <dd className="mt-1 text-ink">
               {event.venueName ?? "Sin definir"}
               {where && <span className="block text-[0.9rem] text-ink-soft">{where}</span>}
+              {mapsLink && (
+                <a
+                  href={mapsLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-block text-[0.85rem] text-accent hover:underline"
+                >
+                  Cómo llegar
+                </a>
+              )}
             </dd>
           </div>
           <div>
@@ -124,6 +138,18 @@ export default async function EventoPage({
           >
             Editar evento
           </Link>
+        )}
+
+        {mapsEmbed && (
+          <div className="mt-6 overflow-hidden rounded-xl border border-line">
+            <iframe
+              src={mapsEmbed}
+              title="Mapa del lugar"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="block h-64 w-full border-0"
+            />
+          </div>
         )}
 
 

@@ -89,6 +89,18 @@ export function NuevoForm() {
           <Select name="venueCountry" defaultValue="MX" options={countries} />
         </Field>
       </div>
+        <Field
+          label="Link de Google Maps"
+          help="Opcional. Pega el link de «Compartir» y el pin cae exacto. Si lo dejas vacío, buscamos la dirección de arriba."
+          error={err("venueMapsUrl")}
+        >
+          <Input
+            name="venueMapsUrl"
+            type="url"
+            placeholder="https://maps.app.goo.gl/..."
+          />
+        </Field>
+
 
       <div className="space-y-4 rounded-xl border border-line bg-paper-deep p-5">
         <label className="flex items-start gap-3">

@@ -54,6 +54,13 @@ export const events = pgTable(
     venueLng: doublePrecision("venue_lng"),
     venuePlaceId: text("venue_place_id"),
     venueMapsUrl: text("venue_maps_url"),
+    /**
+     * The tail of the short link guests tap: invibot.com/m/{mapsCode}. A random
+     * code rather than the event id because it rides inside invitations that
+     * live on phones for months, and because a full Google Maps URL is eighty
+     * unreadable characters in the middle of a message.
+     */
+    mapsCode: text("maps_code").unique(),
 
     // Behaviour-driving fields live as columns, not in `details`.
     rsvpRequired: boolean("rsvp_required").notNull().default(true),

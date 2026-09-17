@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { guests } from "@/db/schema/guests";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "./guard";
-import { formatEventWhen, formatEventWhere } from "./format";
+import { formatEventWhen, formatEventWhereForMessage } from "./format";
 import { greetingName } from "@/lib/campaigns/recipients";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { sendTemplateToGuest } from "@/lib/whatsapp/send";
@@ -62,7 +62,7 @@ export async function notifyGuestsOfChange(
     );
 
   const when = formatEventWhen(event);
-  const where = formatEventWhere(event);
+  const where = formatEventWhereForMessage(event);
 
   let updated = 0;
   let informed = 0;

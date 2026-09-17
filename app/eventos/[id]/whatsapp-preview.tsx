@@ -26,11 +26,16 @@ export function WhatsAppPreview({
   guestName,
   withCompanion,
   cardSrc,
+  where,
+  mapsUrl,
 }: {
   eventName: string;
   /** The four event-level template values, in Meta's order. */
   eventVars: string[];
   guestName: string;
+  /** The place on its own — the template variable has the link glued on. */
+  where: string;
+  mapsUrl: string | null;
   /** Follows the event's own setting — never a choice made here. */
   withCompanion: boolean;
   cardSrc: string | null;
@@ -46,7 +51,8 @@ export function WhatsAppPreview({
     name: guestName,
     eventName,
     when: eventVars[2] ?? "",
-    where: eventVars[3] ?? "",
+    where,
+    mapsUrl,
   };
 
   // The plain invitation has no "solo" button — its yes is simply yes.

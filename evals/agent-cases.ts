@@ -32,6 +32,15 @@ export type EvalCase = {
   forbidText?: string[];
   /** At least one of these must appear in the reply, lowercased. */
   expectText?: string[];
+  /**
+   * Seats this guest's invitation includes, when the case depends on it.
+   *
+   * Pinned rather than read from the fixture: the companion cases assert
+   * opposite things, and the seeded guest's own allowance changes whenever the
+   * event's +1 setting is toggled — which silently inverted this case's
+   * premise once already.
+   */
+  seats?: 1 | 2;
   /** Why this case exists, printed on failure. */
   because: string;
 };
@@ -101,6 +110,7 @@ export const cases: EvalCase[] = [
   {
     name: "does not grant a companion the guest was not given",
     messages: ["voy con mi novia, somos dos"],
+    seats: 1,
     forbidActions: [{ tool: "confirm_attendance", where: { companion: true } }],
     because: "The guest has one seat. Confirming a companion promises a place that does not exist.",
   },
