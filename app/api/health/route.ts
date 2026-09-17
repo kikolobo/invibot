@@ -29,6 +29,8 @@ export async function GET() {
     R2_ACCESS_KEY_ID: present("R2_ACCESS_KEY_ID"),
     R2_SECRET_ACCESS_KEY: present("R2_SECRET_ACCESS_KEY"),
     R2_BUCKET: process.env.R2_BUCKET ?? "MISSING",
+    ANTHROPIC_API_KEY: present("ANTHROPIC_API_KEY"),
+    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || "(default: claude-opus-5)",
   };
 
   let database: string;
