@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 import { confirmationReply, declineReply } from "@/lib/whatsapp/replies";
+import { Bubble, Phone } from "./chat-bubble";
 
 /**
  * The conversation as a guest will actually see it.
@@ -66,15 +67,7 @@ export function WhatsAppPreview({
 
   return (
     <div>
-      <div className="max-w-[22rem] overflow-hidden rounded-2xl border border-line shadow-sm">
-        <div className="flex items-center gap-2.5 bg-[#075e54] px-3.5 py-2.5">
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/25 text-[0.7rem] font-medium text-white">
-            {(eventName[0] ?? "?").toUpperCase()}
-          </span>
-          <span className="truncate text-[0.85rem] font-medium text-white">{eventName}</span>
-        </div>
-
-        <div className="space-y-2 bg-[#e5ddd5] px-3 py-3.5">
+      <Phone title={eventName}>
           <Bubble from="them">
             {invitation.header && <p className="font-semibold">{invitation.header}</p>}
             <p className="mt-1 whitespace-pre-line">{invitation.body}</p>
@@ -115,36 +108,12 @@ export function WhatsAppPreview({
                 confirmación.
               </p>
             ))}
-        </div>
-      </div>
+      </Phone>
 
       <p className="mt-4 max-w-prose text-[0.85rem] leading-relaxed text-ink-muted">
         Quien escriba con sus propias palabras en vez de tocar un botón todavía no
         recibe respuesta automática.
       </p>
-    </div>
-  );
-}
-
-function Bubble({
-  from,
-  padded = true,
-  children,
-}: {
-  from: "me" | "them";
-  padded?: boolean;
-  children: React.ReactNode;
-}) {
-  const mine = from === "me";
-  return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[85%] rounded-lg text-[0.8rem] leading-relaxed text-[#111b21] shadow-sm ${
-          padded ? "px-2.5 py-1.5" : "p-1"
-        } ${mine ? "rounded-tr-none bg-[#d9fdd3]" : "rounded-tl-none bg-white"}`}
-      >
-        {children}
-      </div>
     </div>
   );
 }

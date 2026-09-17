@@ -11,6 +11,7 @@ import {
 } from "@/lib/campaigns/recipients";
 import { missingLabels } from "@/lib/campaigns/labels";
 import { WhatsAppPreview } from "../whatsapp-preview";
+import { AgentChat } from "../agent-chat";
 
 export const metadata = { title: "Simulador de WhatsApp" };
 
@@ -75,6 +76,8 @@ export default async function Simulador({
           />
         </div>
       )}
+
+      <AgentChat eventId={event.id} eventName={event.name} />
     </div>
   );
 }
