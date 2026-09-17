@@ -91,8 +91,8 @@ export function ApprovalQueue({
 
       {pending.length > 0 && (
         <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-          Toca un nombre para corregirlo antes de aprobar: llegan como la persona los
-          escribió en su teléfono, o como se llama su WhatsApp.
+          Corrige los nombres antes de aprobar: llegan como la persona los escribió en su
+          teléfono, o como se llama su WhatsApp — «FL», «Kiko», el nombre de un negocio.
         </p>
       )}
 
@@ -137,16 +137,24 @@ export function ApprovalQueue({
                     </button>
                   </div>
                 ) : (
+                  // The whole name is the target, but it carries a visible
+                  // "Editar" beside it: the first version cued this with a
+                  // hover colour and a tooltip, which is no cue at all on the
+                  // phone most of this gets done from.
                   <button
                     type="button"
                     onClick={() => {
                       setEditing(guest.id);
                       setDraft(guest.fullName);
                     }}
-                    className="block max-w-full truncate text-left text-[0.95rem] text-ink hover:text-accent"
-                    title="Corregir el nombre"
+                    className="group flex max-w-full items-baseline gap-2 text-left"
                   >
-                    {guest.fullName}
+                    <span className="truncate text-[0.95rem] text-ink group-hover:text-accent">
+                      {guest.fullName}
+                    </span>
+                    <span className="shrink-0 text-[0.75rem] text-ink-muted underline decoration-dotted underline-offset-2 group-hover:text-accent">
+                      Editar
+                    </span>
                   </button>
                 )}
                 <span className="block truncate text-[0.8rem] text-ink-muted">
