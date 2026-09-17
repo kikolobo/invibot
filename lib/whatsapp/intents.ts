@@ -4,6 +4,7 @@ import { guests, suppressions } from "@/db/schema/guests";
 import { events } from "@/db/schema/events";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 import { templates } from "./templates";
+import { confirmationReply, declineReply } from "./replies";
 import type { InboundMessage } from "./webhook";
 
 /**
@@ -160,24 +161,13 @@ export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<st
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
   if (!event) return null;
 
-  const name = guest.firstName ?? guest.fullName;
+  const facts = {
+    name: guest.firstName ?? guest.fullName,
+    eventName: event.name,
+    when: formatEventWhen(event),
+    where: formatEventWhere(event),
+  };
 
-  if (intent === "rsvp_no") {
-    return `Gracias por avisar, ${name}. Te vamos a extrañar en ${event.name} 💛\n\nSi tus planes cambian, escríbeme por aquí.`;
-  }
-
-  // Mirrors the confirmacion_rsvp template, which is what goes out instead when
-  // the service window has closed.
-  return [
-    `Listo ${name} ✅`,
-    "",
-    intent === "rsvp_yes_plus_one"
-      ? `Tu lugar y el de tu acompañante están confirmados para ${event.name}.`
-      : `Tu lugar está confirmado para ${event.name}.`,
-    "",
-    `📅 ${formatEventWhen(event)}`,
-    `📍 ${formatEventWhere(event)}`,
-    "",
-    "Si algo cambia, avísame por este medio.",
-  ].join("\n");
+  if (intent === "rsvp_no") return declineReply(facts);
+  return confirmationReply(facts, intent === "rsvp_yes_plus_one");
 }

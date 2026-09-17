@@ -8,10 +8,12 @@ import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { questionsFor } from "@/lib/events/questions";
 import { r2FromEnv } from "@/lib/storage/r2";
+import { eventVariables, missingForInvitation, greetingName } from "@/lib/campaigns/recipients";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
 import { EventCard } from "./event-card";
 import { ArchiveEvent } from "./archive-event";
+import { WhatsAppPreview } from "./whatsapp-preview";
 
 export const metadata = { title: "Evento" };
 
@@ -54,6 +56,13 @@ export default async function EventoPage({
     .where(and(eq(guests.eventId, id), ne(guests.inviteStatus, "pending")));
 
   const archived = event.archivedAt !== null;
+
+  // The preview needs the same values a real send would use, so it is built from
+  // the same module. When the event is missing hosts or a venue there is nothing
+  // honest to show — the invitation could not be sent either.
+  const missing = missingForInvitation(event);
+  const sampleGuest = await db.query.guests.findFirst({ where: eq(guests.eventId, id) });
+  const previewName = sampleGuest ? greetingName(sampleGuest) : "María";
 
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
@@ -131,6 +140,20 @@ export default async function EventoPage({
             uploadedAt={event.cardUploadedAt}
             storageReady={r2FromEnv() !== null}
             invitedCount={invitedCount}
+          />
+        )}
+
+        {missing.length === 0 && (
+          <WhatsAppPreview
+            eventName={event.name}
+            eventVars={eventVariables(event)}
+            guestName={previewName}
+            hasCompanionVersion={event.maxPartySize > 1}
+            cardSrc={
+              event.cardR2Key
+                ? `/api/eventos/${event.id}/card?v=${event.cardUploadedAt?.getTime() ?? 0}`
+                : null
+            }
           />
         )}
 
