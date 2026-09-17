@@ -39,10 +39,10 @@ export function AddGuest({
           <label className="flex items-center gap-3 text-[0.9rem] text-ink-soft">
             <input
               type="checkbox"
-              name="bringsCompanion"
+              name="noCompanion"
               className="size-4 accent-[var(--accent)]"
             />
-            Puede traer acompañante
+            No permitir acompañante
           </label>
         )}
       </div>

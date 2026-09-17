@@ -186,7 +186,9 @@ export function parseGuestList(input: string, maxPartySize = 1): ParseResult {
       });
     }
 
-    let partySizeAllowed = 1;
+    // The event's offer is the default here too, so importing a list into an
+    // event with companions does not quietly deny every one of them.
+    let partySizeAllowed = maxPartySize;
     if (rawParty) {
       const n = Number.parseInt(rawParty, 10);
       if (Number.isFinite(n) && n >= 1) {

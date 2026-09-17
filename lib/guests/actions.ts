@@ -142,8 +142,9 @@ export async function addGuest(
     groupId: await resolveGroup(eventId, groupName),
     // Clamped to the event: ticking the box on an event that offers no
     // companions cannot conjure a second seat.
-    partySizeAllowed:
-      formData.get("bringsCompanion") === "on" ? Math.min(2, event.maxPartySize) : 1,
+    // The event decides whether companions exist; this form only makes
+    // exceptions. Everyone gets what the event offers unless told otherwise.
+    partySizeAllowed: formData.get("noCompanion") === "on" ? 1 : event.maxPartySize,
     tableNumber: table.value,
     isVip: formData.get("isVip") === "on",
     notes: String(formData.get("notes") ?? "").trim() || null,
@@ -244,10 +245,11 @@ export async function updateGuest(
   const requestedRsvp = String(formData.get("rsvpStatus") ?? guest.rsvpStatus);
   const rsvpStatus = settableRsvp.has(requestedRsvp) ? requestedRsvp : guest.rsvpStatus;
 
-  // What they were offered. Capped by the event: a guest cannot be given a
-  // companion at an event that does not offer one.
-  const companion = formData.get("bringsCompanion") === "on";
-  const partySizeAllowed = companion ? Math.min(MAX_PARTY_SIZE, event.maxPartySize) : 1;
+  // What they were offered. The event sets the default and this is the
+  // exception to it, so an event with no companions cannot have one granted
+  // here either.
+  const denied = formData.get("noCompanion") === "on";
+  const partySizeAllowed = denied ? 1 : Math.min(MAX_PARTY_SIZE, event.maxPartySize);
 
   // How many are actually coming. Clamped to what they were offered, so
   // confirming two people for a single seat is not expressible — not by a

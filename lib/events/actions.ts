@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
 import { customAlphabet, nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
@@ -221,23 +221,35 @@ export async function updatePartySettings(
     .set({ allowPlusOnes, maxPartySize, updatedAt: new Date() })
     .where(eq(events.id, eventId));
 
-  // Lowering the ceiling has to reach the guests, or someone sitting on two
-  // seats keeps receiving the companion invitation for a companion the
-  // organizer just withdrew. `partySizeConfirmed` is left alone on purpose:
-  // it records what a guest already answered, and rewriting that would be
-  // inventing an answer they did not give.
-  const clamped = await db
+  // The event's setting is the default every guest gets, and the guest form
+  // only makes exceptions to it — so changing it here has to reach the list in
+  // both directions. Lowering it and leaving someone on two seats would keep
+  // sending them the companion invitation for a companion just withdrawn;
+  // raising it and leaving everyone on one would grant nobody anything.
+  //
+  // It does overwrite exceptions, which is the honest cost of a single column
+  // holding both the default and the exception to it. Toggling the event
+  // setting resets them, and that is predictable in a way "some of them
+  // survived" would not be.
+  const changed = await db
     .update(guests)
     .set({ partySizeAllowed: maxPartySize, updatedAt: new Date() })
-    .where(and(eq(guests.eventId, eventId), gt(guests.partySizeAllowed, maxPartySize)))
+    .where(and(eq(guests.eventId, eventId), ne(guests.partySizeAllowed, maxPartySize)))
     .returning({ id: guests.id });
+
+  // A guest who confirmed more people than they are now offered cannot keep
+  // the extra seat.
+  await db
+    .update(guests)
+    .set({ partySizeConfirmed: maxPartySize, updatedAt: new Date() })
+    .where(and(eq(guests.eventId, eventId), gt(guests.partySizeConfirmed, maxPartySize)));
 
   revalidatePath(`/eventos/${eventId}`);
   revalidatePath(`/eventos/${eventId}/invitados`);
 
   const note =
-    clamped.length > 0
-      ? ` ${clamped.length} ${clamped.length === 1 ? "invitado pasó" : "invitados pasaron"} a ${maxPartySize} ${maxPartySize === 1 ? "lugar" : "lugares"}.`
+    changed.length > 0
+      ? ` ${changed.length} ${changed.length === 1 ? "invitado pasó" : "invitados pasaron"} a ${maxPartySize} ${maxPartySize === 1 ? "lugar" : "lugares"}.`
       : "";
 
   return { ok: `Listo.${note}` };

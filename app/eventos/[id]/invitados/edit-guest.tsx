@@ -38,9 +38,11 @@ export function EditGuest({
   // Both fields are live because the count depends on them: it only means
   // anything once they are coming, and it cannot exceed what they were offered.
   const [rsvp, setRsvp] = useState(guest.rsvpStatus);
-  const [companion, setCompanion] = useState(guest.partySizeAllowed > 1);
+  // Stored as the exception, because that is what the organizer is setting:
+  // the event already said whether companions exist.
+  const [denied, setDenied] = useState(guest.partySizeAllowed <= 1);
 
-  const maxConfirmable = companion ? Math.min(MAX_PARTY_SIZE, maxPartySize) : 1;
+  const maxConfirmable = denied ? 1 : Math.min(MAX_PARTY_SIZE, maxPartySize);
 
   const [state, formAction, pending] = useActionState<GuestActionState, FormData>(
     async (prev: GuestActionState, formData: FormData) => {
@@ -121,12 +123,12 @@ export function EditGuest({
           <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
             <input
               type="checkbox"
-              name="bringsCompanion"
-              checked={companion}
-              onChange={(e) => setCompanion(e.target.checked)}
+              name="noCompanion"
+              checked={denied}
+              onChange={(e) => setDenied(e.target.checked)}
               className="size-4 accent-[var(--accent)]"
             />
-            Puede traer acompañante
+            No permitir acompañante
           </label>
         )}
 
@@ -149,9 +151,9 @@ export function EditGuest({
         )}
       </div>
 
-      {rsvp === "confirmed" && maxConfirmable === 1 && maxPartySize > 1 && (
+      {rsvp === "confirmed" && denied && maxPartySize > 1 && (
         <p className="mt-3 text-[0.8rem] text-ink-muted">
-          Para confirmar dos personas, primero marca que puede traer acompañante.
+          Para confirmar dos personas, quita la excepción de arriba.
         </p>
       )}
 
