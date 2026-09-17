@@ -28,7 +28,7 @@ export default async function Imprimir({
   if (!report) notFound();
 
   return (
-    <div className="mx-auto max-w-3xl bg-white px-10 py-12 text-ink">
+    <div className="print-page mx-auto max-w-5xl bg-white px-10 py-10 text-ink sm:px-14">
       <AutoPrint />
       <ReportSheet
         event={report.event}
