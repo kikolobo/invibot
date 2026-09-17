@@ -9,7 +9,9 @@ import {
 } from "@/db/schema";
 import { variantsOf } from "@/lib/phone";
 import {
-  configFromEnv,
+  whatsappConfig,
+  activeProfile,
+  type WhatsAppConfig,
   sendText,
   sendTemplate,
   sendImage,
@@ -61,9 +63,10 @@ export async function sendTextToGuest(
   guestId: string,
   body: string,
   kind: SendKind = "custom",
+  config?: WhatsAppConfig,
 ): Promise<SendOutcome> {
-  return deliver({ guestId, kind, requireOpenWindow: true, body }, (config, to) =>
-    sendText(config, to, body),
+  return deliver({ guestId, kind, requireOpenWindow: true, body, config }, (account, to) =>
+    sendText(account, to, body),
   );
 }
 
@@ -77,10 +80,11 @@ export async function sendImageToGuest(
   mediaId: string,
   kind: SendKind = "custom",
   caption?: string,
+  config?: WhatsAppConfig,
 ): Promise<SendOutcome> {
   return deliver(
-    { guestId, kind, requireOpenWindow: true, body: caption ?? "[image]" },
-    (config, to) => sendImage(config, to, mediaId, caption),
+    { guestId, kind, requireOpenWindow: true, body: caption ?? "[image]", config },
+    (account, to) => sendImage(account, to, mediaId, caption),
   );
 }
 
@@ -92,6 +96,7 @@ export async function sendTemplateToGuest(
   guestId: string,
   template: { name: string; language: string; components?: TemplateComponent[] },
   kind: SendKind = "invite",
+  config?: WhatsAppConfig,
 ): Promise<SendOutcome> {
   return deliver(
     {
@@ -101,9 +106,10 @@ export async function sendTemplateToGuest(
       body: `[template:${template.name}]`,
       templateName: template.name,
       templateLanguage: template.language,
+      config,
     },
-    (config, to) =>
-      sendTemplate(config, to, template.name, template.language, template.components ?? []),
+    (account, to) =>
+      sendTemplate(account, to, template.name, template.language, template.components ?? []),
   );
 }
 
@@ -115,11 +121,12 @@ export async function sendLocationToGuest(
   guestId: string,
   location: LocationPayload,
   kind: SendKind = "logistics",
+  config?: WhatsAppConfig,
 ): Promise<SendOutcome> {
   const label = [location.name, location.address].filter(Boolean).join(" · ");
   return deliver(
-    { guestId, kind, requireOpenWindow: true, body: `[location] ${label}`.trim() },
-    (config, to) => sendLocation(config, to, location),
+    { guestId, kind, requireOpenWindow: true, body: `[location] ${label}`.trim(), config },
+    (account, to) => sendLocation(account, to, location),
   );
 }
 
@@ -131,11 +138,17 @@ type DeliverInput = {
   body: string;
   templateName?: string;
   templateLanguage?: string;
+  /**
+   * The number to send through, when the caller already knows. A reply knows:
+   * it goes out on whichever of our numbers the guest wrote to. Anything we
+   * start ourselves has no such constraint and takes the active profile.
+   */
+  config?: WhatsAppConfig;
 };
 
 async function deliver(
   input: DeliverInput,
-  call: (config: NonNullable<ReturnType<typeof configFromEnv>>, to: string) => Promise<SendResult>,
+  call: (config: WhatsAppConfig, to: string) => Promise<SendResult>,
 ): Promise<SendOutcome> {
   const fail = (reason: SendFailureReason, detail: string, retryable = false): SendOutcome => ({
     ok: false,
@@ -148,8 +161,13 @@ async function deliver(
   // Resolved from the environment rather than `whatsapp_accounts`, which is
   // still empty. When a customer gets their own WABA the lookup moves there and
   // `sends.whatsappAccountId` stops being null; nothing else here changes.
-  const config = configFromEnv();
-  if (!config) return fail("not_configured", "WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN is unset");
+  const config = input.config ?? whatsappConfig();
+  if (!config) {
+    return fail(
+      "not_configured",
+      `No phone number id or access token for the ${activeProfile()} profile`,
+    );
+  }
 
   const guest = await db.query.guests.findFirst({ where: eq(guests.id, input.guestId) });
   if (!guest) return fail("not_found", `No guest ${input.guestId}`);
@@ -249,7 +267,16 @@ async function deliver(
       direction: "outbound",
       body: input.body,
       providerMessageId: result.messageId,
-      raw: { sendId: send.id, kind: input.kind, template: input.templateName ?? null } as never,
+      // Which number this went out on. `sends` has no column for it and
+      // `whatsapp_accounts` is still empty, but with two live numbers a thread
+      // that cannot say which one it used is a thread nobody can debug.
+      raw: {
+        sendId: send.id,
+        kind: input.kind,
+        template: input.templateName ?? null,
+        profile: config.profile,
+        phoneNumberId: config.phoneNumberId,
+      } as never,
       createdAt: sentAt,
     })
     .onConflictDoNothing({ target: messageRows.providerMessageId });

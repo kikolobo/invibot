@@ -11,17 +11,16 @@
  * for, and an edit that changes the variable count silently breaks every call
  * site that fills them.
  *
- *   npx tsx scripts/update-whatsapp-templates.mts            # shows the plan
+ *   npx tsx scripts/update-whatsapp-templates.mts [--profile production]   # shows the plan
  *   npx tsx scripts/update-whatsapp-templates.mts --apply    # sends it
  *   npx tsx scripts/update-whatsapp-templates.mts --apply --only recordatorio_evento
  */
 import { templates, type TemplateDefinition } from "@/lib/whatsapp/templates";
+import { wabaFromArgv } from "./whatsapp-profile.mjs";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
-const wabaId = process.env.WHATSAPP_WABA_ID;
-const token = process.env.WHATSAPP_ACCESS_TOKEN;
-if (!wabaId || !token) throw new Error("WHATSAPP_WABA_ID and WHATSAPP_ACCESS_TOKEN must be set");
+const { wabaId, token } = wabaFromArgv();
 
 const apply = process.argv.includes("--apply");
 const only = process.argv.includes("--only")

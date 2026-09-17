@@ -8,7 +8,58 @@ refleja la verdad.
 
 ---
 
-## 1. Quitar «Responde BAJA» de las plantillas en Meta — **listo para correr**
+## 0. Pasar al número real — **esperando la revisión de Meta**
+
+El código ya maneja los dos números a la vez y lo de Meta ya está hecho. Falta
+sólo lo de Vercel, y que Meta apruebe.
+
+Hecho el 2026-09-17:
+
+- `WHATSAPP_PROFILE` elige entre `test` y `production`; sin variable, `test`
+  (a propósito: un entorno despistado cae en el número que no cuesta nada).
+- Las respuestas salen por el número al que el invitado escribió, no por el
+  perfil activo. Un número que no reconocemos se guarda y no se contesta.
+- Los media ids ya se guardan con el número que los creó
+  (`events.card_media_phone_number_id`). Un handle del otro número sólo puede
+  fallar, y en silencio.
+- La app `InviBot` ya está suscrita al WABA de producción. Antes los webhooks
+  de ese número iban únicamente a tres apps de Twilio. **Las de Twilio siguen
+  ahí** — sólo se pueden quitar desde la consola de Twilio, nuestra app no
+  puede borrar la suscripción de otra. Francisco dijo que ese número ya no hace
+  nada en Twilio, así que conviene quitarlas para que no reciban copia.
+- Las ocho plantillas ya se crearon en el WABA de producción y están en
+  `PENDING`. Nacieron con el pie correcto (`Powered by InviBot.com`), así que
+  el pendiente #1 no aplica ahí.
+
+Falta:
+
+1. **Esperar la aprobación.** Minutos a días. Mientras estén en `PENDING` el
+   perfil de producción no puede abrir ninguna conversación.
+   `npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts --profile production`
+2. **Poner las variables en Vercel y redesplegar:** `WHATSAPP_TEST_PHONE_NUMBER_ID`,
+   `WHATSAPP_TEST_WABA_ID`, `WHATSAPP_PROD_PHONE_NUMBER_ID`,
+   `WHATSAPP_PROD_WABA_ID`, `WHATSAPP_PROFILE`. Los nombres viejos sin prefijo
+   siguen sirviendo como respaldo del perfil `test`, así que el orden no
+   importa y no hay ventana rota.
+3. **Prender producción:** `WHATSAPP_PROFILE=production` en Vercel, redesplegar,
+   y `/api/health` debe decir `WHATSAPP_SENDING_AS: number 135995746264538`.
+4. **Probar en vivo con un invitado de prueba** antes de cualquier lista real:
+   una invitación, una respuesta libre, y que llegue la tarjeta (la primera vez
+   se vuelve a subir sola, porque el handle viejo era del número de prueba).
+
+⚠️ `code_verification_status` del número real dice `EXPIRED`. No parece
+bloquear nada — está `CONNECTED`, `LIVE` y con calidad GREEN — pero si un envío
+falla sin explicación, empieza por ahí.
+
+⚠️ El número real es `+1 619-304-5456`, de San Diego. Francisco lo dio por
+bueno por ahora: el costo lo fija el país de quien recibe, no el del remitente.
+
+---
+
+## 1. Quitar «Responde BAJA» de las plantillas del WABA de *prueba*
+
+Sólo aplica al WABA de prueba. Las de producción nacieron con el pie correcto,
+así que esto ya no bloquea nada — es limpieza.
 
 El código ya no tiene esa línea: las ocho plantillas llevan únicamente
 `Powered by InviBot.com`. Falta empujarlo a Meta, que rechazó la edición porque
@@ -19,12 +70,14 @@ el 2026-09-17 entre las 10:29 y 10:33 UTC.
 Monterrey).
 
 ```
-npx tsx --env-file=.env.local scripts/update-whatsapp-templates.mts --apply
-npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts
+npx tsx --env-file=.env.local scripts/update-whatsapp-templates.mts --profile test --apply
+npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts --profile test
 ```
 
-Antes de correrlo, verifica si ya se hizo: si el status muestra
-`Powered by InviBot.com` en las ocho, no hay nada que hacer.
+Antes de correrlo, verifica si ya se hizo. El 2026-09-17 el status mostraba la
+edición aplicada sólo en tres —`consulta_organizador`, `confirmacion_rsvp` y
+`recordatorio_evento`— y las otras cinco todavía con la línea vieja, así que la
+tanda anterior pasó a medias.
 
 ⚠️ **Al editarlas entran en revisión, y una plantilla en revisión no se puede
 mandar** (error `132001`). El 2026-09-17 eso costó un envío fallido. No lo

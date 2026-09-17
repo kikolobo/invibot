@@ -9,15 +9,14 @@
  * `update-whatsapp-templates.mts` — an approved template can be edited in
  * place, once a day. Submitting a new name is only for a new message.
  *
- *   npx tsx scripts/sync-whatsapp-templates.mts [--dry-run]
+ *   npx tsx scripts/sync-whatsapp-templates.mts [--profile production] [--dry-run]
  */
 import { templates, toMetaPayload, type TemplateDefinition } from "@/lib/whatsapp/templates";
+import { wabaFromArgv } from "./whatsapp-profile.mjs";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
-const wabaId = process.env.WHATSAPP_WABA_ID;
-const token = process.env.WHATSAPP_ACCESS_TOKEN;
-if (!wabaId || !token) throw new Error("WHATSAPP_WABA_ID and WHATSAPP_ACCESS_TOKEN must be set");
+const { wabaId, token } = wabaFromArgv();
 
 const dryRun = process.argv.includes("--dry-run");
 

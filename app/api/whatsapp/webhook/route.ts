@@ -24,7 +24,7 @@ import { answerGuest } from "@/lib/agent/respond";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { sendPasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
-import { configFromEnv, markRead } from "@/lib/whatsapp/client";
+import { configForPhoneNumberId, markRead, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
 
 type GuestRow = typeof guests.$inferSelect;
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
   const { messages, statuses } = parseWebhook(payload);
 
-  const answerable: { guest: GuestRow; intent: GuestIntent; at: Date; wamid: string }[] = [];
+  const answerable: Answerable[] = [];
 
   try {
     for (const status of statuses) await recordStatus(status);
@@ -103,9 +103,9 @@ export async function POST(request: Request) {
   // which is where this belongs the moment a reply needs retries or ordering.
   if (answerable.length > 0) {
     after(async () => {
-      for (const { guest, intent, at, wamid } of answerable) {
+      for (const { guest, intent, at, wamid, config } of answerable) {
         try {
-          await respond(guest, intent, at, wamid);
+          await respond(guest, intent, at, wamid, config);
         } catch (error) {
           console.error("[whatsapp] reply failed", guest.id, intent, error);
         }
@@ -242,9 +242,16 @@ async function resolveGuest(message: InboundMessage): Promise<GuestRow | null> {
   return matches.find((row) => row.id === latest?.guestId) ?? matches[0];
 }
 
-async function recordInbound(
-  message: InboundMessage,
-): Promise<{ guest: GuestRow; intent: GuestIntent; at: Date; wamid: string } | null> {
+type Answerable = {
+  guest: GuestRow;
+  intent: GuestIntent;
+  at: Date;
+  wamid: string;
+  /** The number this arrived on — the same one the reply must go out through. */
+  config: WhatsAppConfig;
+};
+
+async function recordInbound(message: InboundMessage): Promise<Answerable | null> {
   if (!message.wamid || !message.from) return null;
 
   const guest = await resolveGuest(message);
@@ -314,7 +321,19 @@ async function recordInbound(
 
   const intent = parseIntent(message);
   await applyIntent(guest, intent, message.timestamp);
-  return { guest, intent, at: message.timestamp, wamid: message.wamid };
+
+  // Both of our numbers deliver here, so the reply follows the number the guest
+  // wrote to rather than whichever profile the environment happens to prefer.
+  // A number we do not recognise is recorded above and left unanswered: the
+  // alternatives are billing a stranger's conversation to the live number, or
+  // a template send that fails anyway because the WABAs share no templates.
+  const config = configForPhoneNumberId(message.phoneNumberId);
+  if (!config) {
+    console.error("[whatsapp] inbound on an unconfigured number", message.phoneNumberId);
+    return null;
+  }
+
+  return { guest, intent, at: message.timestamp, wamid: message.wamid, config };
 }
 
 /**
@@ -327,6 +346,7 @@ async function respond(
   intent: GuestIntent,
   at: Date,
   wamid: string,
+  config: WhatsAppConfig,
 ): Promise<void> {
   // Anything the button vocabulary does not cover goes to the assistant: a
   // question, or words that mean yes without saying it. Until now this was
@@ -335,14 +355,13 @@ async function respond(
     // Before the model runs, not after: the bubble is the answer to "did that
     // even send?", and it is worth nothing once the reply has arrived. It also
     // marks the message read, so the guest sees both at once.
-    const config = configFromEnv();
-    if (config) await markRead(config, wamid, true);
+    await markRead(config, wamid, true);
 
     const answer = await answerGuest(guest, at);
     if (!answer) return;
 
     if (answer.text) {
-      const outcome = await sendTextToGuest(guest.id, answer.text, "custom");
+      const outcome = await sendTextToGuest(guest.id, answer.text, "custom", config);
       if (!outcome.ok) console.error("[whatsapp] assistant reply failed", guest.id, outcome);
     }
 
@@ -350,7 +369,7 @@ async function respond(
     // earns them. This path used to return here, so someone who cancelled and
     // then changed their mind had their status updated and never received the
     // new pass — the old one stayed revoked and no new one was issued.
-    if (answer.confirmed) await deliverConfirmation(guest);
+    if (answer.confirmed) await deliverConfirmation(guest, config);
     return;
   }
 
@@ -358,13 +377,13 @@ async function respond(
   if (!text) return;
 
   const kind = isConfirmation(intent) ? "rsvp_confirmation" : "custom";
-  const outcome = await sendTextToGuest(guest.id, text, kind);
+  const outcome = await sendTextToGuest(guest.id, text, kind, config);
   if (outcome.ok) {
     // The card follows the confirmation rather than replacing it: the words are
     // the part that must arrive, and an image that fails to upload should never
     // take the confirmation down with it. Declines get nothing — someone who
     // just said they cannot come has no use for the invitation.
-    if (isConfirmation(intent)) await deliverConfirmation(guest);
+    if (isConfirmation(intent)) await deliverConfirmation(guest, config);
     return;
   }
 
@@ -396,6 +415,7 @@ async function respond(
       ]),
     },
     "rsvp_confirmation",
+    config,
   );
   if (!fallback.ok) console.error("[whatsapp] template fallback failed", guest.id, fallback);
 }
@@ -408,15 +428,15 @@ async function respond(
  * and the assistant's branch returned before reaching it — so a guest who
  * confirmed in words got their status changed and nothing else.
  */
-async function deliverConfirmation(guest: GuestRow): Promise<void> {
-  await sendCard(guest);
+async function deliverConfirmation(guest: GuestRow, config: WhatsAppConfig): Promise<void> {
+  await sendCard(guest, config);
 
   // After the card, never before: the invitation is the message they were
   // waiting for, and a QR arriving first reads like a ticketing system. Re-read
   // so the pass reflects the RSVP that was just written — including a guest who
   // cancelled and came back, whose old codes are revoked and who needs new ones.
   const fresh = await db.query.guests.findFirst({ where: eq(guests.id, guest.id) });
-  if (fresh) await sendPasses(fresh);
+  if (fresh) await sendPasses(fresh, config);
 }
 
 /**
@@ -426,13 +446,13 @@ async function deliverConfirmation(guest: GuestRow): Promise<void> {
  * confirmation, and there is no version of "your card could not be sent" worth
  * putting on someone's phone.
  */
-async function sendCard(guest: GuestRow): Promise<void> {
+async function sendCard(guest: GuestRow, config: WhatsAppConfig): Promise<void> {
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
   if (!event?.cardR2Key) return;
 
-  const mediaId = await resolveCardMediaId(event);
+  const mediaId = await resolveCardMediaId(event, config);
   if (!mediaId) return;
 
-  const outcome = await sendImageToGuest(guest.id, mediaId, "rsvp_confirmation");
+  const outcome = await sendImageToGuest(guest.id, mediaId, "rsvp_confirmation", undefined, config);
   if (!outcome.ok) console.error("[whatsapp] card send failed", guest.id, outcome);
 }

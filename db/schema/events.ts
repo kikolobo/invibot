@@ -97,6 +97,14 @@ export const events = pgTable(
     /** Meta's media handle for the same file. Expires; re-uploaded from R2 when it does. */
     cardMediaId: text("card_media_id"),
     cardMediaRefreshedAt: timestamp("card_media_refreshed_at", { withTimezone: true }),
+    /**
+     * Which number uploaded that handle. Media ids belong to a phone number,
+     * not to an account, so the handle is worthless to any other number — and
+     * the failure is silent: the confirmation goes out and the card just never
+     * arrives. With the test and live numbers both in use, a cached handle is
+     * only usable when this matches the number about to send it.
+     */
+    cardMediaPhoneNumberId: text("card_media_phone_number_id"),
 
     publishedAt: timestamp("published_at", { withTimezone: true }),
     /**

@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "card_media_phone_number_id" text;

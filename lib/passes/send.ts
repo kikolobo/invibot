@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests } from "@/db/schema";
-import { configFromEnv, uploadMedia } from "@/lib/whatsapp/client";
+import { whatsappConfig, uploadMedia, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { sendImageToGuest } from "@/lib/whatsapp/send";
 import { syncPasses, markPassSent } from "./issue";
 import { renderPass } from "./render";
@@ -19,11 +19,13 @@ type GuestRow = typeof guests.$inferSelect;
  * invitation; a missing pass is worth a log line and a retry, not a message
  * telling them something went wrong with something they never asked for.
  */
-export async function sendPasses(guest: GuestRow): Promise<void> {
+export async function sendPasses(guest: GuestRow, account?: WhatsAppConfig): Promise<void> {
   const pending = await syncPasses(guest);
   if (pending.length === 0) return;
 
-  const config = configFromEnv();
+  // The upload and the send must be the same number: a media id is minted for
+  // one phone number and rejected by any other.
+  const config = account ?? whatsappConfig();
   if (!config) return;
 
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
@@ -48,7 +50,7 @@ export async function sendPasses(guest: GuestRow): Promise<void> {
           ? `Este es tu acceso para ${event.name}. Muéstralo en la entrada.`
           : "Y este es el de tu acompañante.";
 
-      const outcome = await sendImageToGuest(guest.id, uploaded.mediaId, "logistics", caption);
+      const outcome = await sendImageToGuest(guest.id, uploaded.mediaId, "logistics", caption, config);
       if (!outcome.ok) {
         console.error("[pass] send failed", pass.id, outcome.reason);
         continue;

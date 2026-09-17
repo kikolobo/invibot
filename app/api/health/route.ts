@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { whatsappConfig, activeProfile } from "@/lib/whatsapp/client";
 
 /**
  * Deployment diagnostic. Reports only whether configuration is present and
@@ -14,12 +15,25 @@ export async function GET() {
     return value ? `set (${value.length} chars)` : "MISSING";
   };
 
+  const describe = (profile: "test" | "production") => {
+    const config = whatsappConfig(profile);
+    return config
+      ? `number ${config.phoneNumberId} · WABA ${config.wabaId ?? "MISSING"} · token ${config.accessToken.length} chars`
+      : "NOT CONFIGURED";
+  };
+
   const env = {
     DATABASE_URL: present("DATABASE_URL"),
     BETTER_AUTH_SECRET: present("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? "MISSING",
     VERCEL_ENV: process.env.VERCEL_ENV ?? "(not vercel)",
-    WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "MISSING",
+    // Which number is live, and both sets side by side. With two numbers
+    // configured, "is WhatsApp set up" stopped being the useful question —
+    // "which one will this deployment send through" is.
+    WHATSAPP_PROFILE: activeProfile(),
+    WHATSAPP_SENDING_AS: describe(activeProfile()),
+    WHATSAPP_TEST: describe("test"),
+    WHATSAPP_PRODUCTION: describe("production"),
     WHATSAPP_ACCESS_TOKEN: present("WHATSAPP_ACCESS_TOKEN"),
     WHATSAPP_APP_SECRET: present("WHATSAPP_APP_SECRET"),
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: present("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),

@@ -1,15 +1,15 @@
 /**
  * What Meta thinks of our templates right now.
  *
- *   npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts
+ *   npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts [--profile production]
  *
  * A template in PENDING cannot be sent — invitations and change notices fail
  * until it is APPROVED again. Free-form replies inside the 24-hour window are
  * unaffected, which is why a guest mid-conversation still gets answers.
  */
-const wabaId = process.env.WHATSAPP_WABA_ID;
-const token = process.env.WHATSAPP_ACCESS_TOKEN;
-if (!wabaId || !token) throw new Error("WHATSAPP_WABA_ID and WHATSAPP_ACCESS_TOKEN must be set");
+import { wabaFromArgv } from "./whatsapp-profile.mjs";
+
+const { wabaId, token } = wabaFromArgv();
 
 const result = await fetch(
   `https://graph.facebook.com/v21.0/${wabaId}/message_templates?fields=name,status,category,components&limit=100`,

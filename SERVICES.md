@@ -63,11 +63,14 @@ Runs the Next.js app: the marketing site, the organizer app, and the auth API.
   | `DATABASE_URL`                  | Neon pooled connection string                        |
   | `BETTER_AUTH_SECRET`            | Signs session cookies. Distinct from local           |
   | `BETTER_AUTH_URL`               | `https://invibot.com`                                |
-  | `WHATSAPP_PHONE_NUMBER_ID`      | The sending number. No trailing space — it cost a day |
-  | `WHATSAPP_ACCESS_TOKEN`         | System user token, never expires                     |
-  | `WHATSAPP_WABA_ID`              | Needed to list and edit templates                    |
-  | `WHATSAPP_APP_SECRET`           | Verifies webhook signatures                          |
-  | `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Meta's subscription handshake                        |
+  | `WHATSAPP_PROFILE`              | `test` or `production`. Unset means test             |
+  | `WHATSAPP_TEST_PHONE_NUMBER_ID` | Meta's test number. No trailing space — it cost a day |
+  | `WHATSAPP_TEST_WABA_ID`         | The test WABA, where today's 8 templates live        |
+  | `WHATSAPP_PROD_PHONE_NUMBER_ID` | The live number                                      |
+  | `WHATSAPP_PROD_WABA_ID`         | The live WABA. A *separate* template library         |
+  | `WHATSAPP_ACCESS_TOKEN`         | System user token, never expires. Covers both WABAs  |
+  | `WHATSAPP_APP_SECRET`           | Verifies webhook signatures. One app, so shared      |
+  | `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Meta's subscription handshake. Shared                |
   | `R2_ACCOUNT_ID`                 | Cloudflare account                                   |
   | `R2_ACCESS_KEY_ID`              | R2 credentials                                       |
   | `R2_SECRET_ACCESS_KEY`          | R2 credentials                                       |
@@ -122,7 +125,8 @@ organizer never answered.
 
 ### Meta / WhatsApp Business Platform — **the channel**
 
-**In use**, on Meta's test number with allow-listed recipients.
+**In use**, on Meta's test number with allow-listed recipients. The live number
+is configured alongside it and not yet switched on — see "Two numbers" below.
 
 - **Consoles:** https://business.facebook.com (business account),
   https://developers.facebook.com (the app)
@@ -152,8 +156,46 @@ organizer never answered.
   normal WhatsApp app.
 - Development works without verification: Meta provides a test number and up to
   5 verified recipients.
-- **Env vars:** `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_WABA_ID`,
-  `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+- **Two numbers, one selected.** `WHATSAPP_PROFILE` picks between `test` and
+  `production`; both credential sets stay in the environment. Unset means
+  `test`, deliberately — a deployment that forgets lands on the number that can
+  only reach allow-listed phones and costs nothing, instead of the one that
+  bills real conversations. `/api/health` prints which is live.
+
+  | | test | production |
+  | --- | --- | --- |
+  | Number | `+1 555-074-3275` (Meta's) | `+1 619-304-5456` |
+  | Phone number id | `140921972434962` | `135995746264538` |
+  | WABA | `126496910555795` Test | `154263271092631` Movic's InviBot |
+  | Templates | 8 approved | 8 submitted 2026-09-17, in review |
+  | Recipients | 5 allow-listed | anybody |
+
+  Inbound is routed by `metadata.phone_number_id`, not by the profile: both
+  numbers deliver to the same webhook, and a reply always goes out on the number
+  the guest wrote to. A number matching neither profile is recorded and left
+  unanswered.
+
+- **⚠️ Templates do not cross WABAs.** The eight approved templates exist only
+  on the test WABA. The live WABA has none, so the production profile can open
+  no conversation at all until they are created there and approved again.
+  Every template script takes `--profile production` and prints which WABA it
+  is about to touch.
+- **⚠️ Media ids do not cross numbers.** A card or pass uploaded by one number
+  is rejected by the other, and the failure is silent — the confirmation goes
+  out and the image simply never arrives. `events.card_media_phone_number_id`
+  records which number minted the cached handle so the other one re-uploads.
+- **⚠️ The live WABA also delivers to Twilio.** It arrived subscribed to three
+  Twilio apps and not to us; `InviBot` was subscribed on 2026-09-17, and
+  Twilio's three are still there. A subscription can only be removed by the app
+  that owns it, so those have to go from Twilio's own console.
+  `scripts/whatsapp-subscribe-webhook.mts --profile production` shows and sets
+  ours. The subscription is per-WABA and is the piece that is easy to forget:
+  without it a number sends perfectly and delivers nothing inbound, which looks
+  exactly like guests ignoring us.
+- **Env vars:** see the Vercel table above.
+- `scripts/whatsapp-accounts.mts` prints the whole picture read-only — every
+  WABA in the portfolio, its numbers, its subscribed apps and its templates.
+  Run it first whenever something about the channel looks wrong.
 - Going direct to Meta rather than through a BSP — see "Considered and
   rejected" below.
 

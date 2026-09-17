@@ -11,16 +11,97 @@ export type SendResult =
   | { ok: true; messageId: string }
   | { ok: false; code: string; title: string; detail?: string; retryable: boolean };
 
+/**
+ * Which of our two numbers a message goes out through.
+ *
+ * Both stay configured at once. Meta's test number reaches only the five
+ * recipients allow-listed in the dashboard and costs nothing; the live number
+ * reaches anybody and bills every conversation. They sit on different WABAs,
+ * which matters more than it sounds: templates are approved per WABA, so the
+ * two profiles do not share a template library and a send that works on one
+ * can come back `132001` on the other.
+ */
+export type WhatsAppProfile = "test" | "production";
+
+export const PROFILES: readonly WhatsAppProfile[] = ["test", "production"];
+
 export type WhatsAppConfig = {
+  profile: WhatsAppProfile;
   phoneNumberId: string;
+  /** Needed to read or edit templates. Never needed to send. */
+  wabaId: string | null;
   accessToken: string;
 };
 
-export function configFromEnv(): WhatsAppConfig | null {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+/** First of these that holds something. An empty string counts as unset — a
+ * blanked-out variable in a dashboard should behave like a missing one. */
+function read(...names: string[]): string | null {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+/**
+ * The profile that opens new conversations.
+ *
+ * Defaults to `test`, deliberately. An environment that forgot to say lands on
+ * the number that can only reach allow-listed phones, which fails loudly and
+ * for free. The opposite default would let a missing variable spend money on
+ * strangers.
+ */
+export function activeProfile(): WhatsAppProfile {
+  return process.env.WHATSAPP_PROFILE?.trim().toLowerCase() === "production"
+    ? "production"
+    : "test";
+}
+
+/**
+ * Credentials for one profile, or null when that profile is not configured.
+ *
+ * `test` falls back to the unprefixed variables, which is what every
+ * environment holds today — so nothing breaks in the window between deploying
+ * this and editing Vercel. `production` has no such fallback on purpose: the
+ * live number is only ever used because somebody named it.
+ *
+ * The access token falls back to the shared one for both, because a single
+ * system user holds both WABAs. The per-profile names exist for the day that
+ * stops being true.
+ */
+export function whatsappConfig(
+  profile: WhatsAppProfile = activeProfile(),
+): WhatsAppConfig | null {
+  const prefix = profile === "production" ? "WHATSAPP_PROD_" : "WHATSAPP_TEST_";
+  const legacy = profile === "production" ? [] : ["WHATSAPP_"];
+  const field = (suffix: string) =>
+    read(`${prefix}${suffix}`, ...legacy.map((name) => name + suffix));
+
+  const phoneNumberId = field("PHONE_NUMBER_ID");
+  const accessToken = read(`${prefix}ACCESS_TOKEN`, "WHATSAPP_ACCESS_TOKEN");
   if (!phoneNumberId || !accessToken) return null;
-  return { phoneNumberId, accessToken };
+
+  return { profile, phoneNumberId, wabaId: field("WABA_ID"), accessToken };
+}
+
+/**
+ * The profile an inbound message arrived on.
+ *
+ * Both numbers deliver to the same webhook — one Meta app, one URL — so a
+ * reply has to follow the number it came in on rather than the active profile.
+ * Answering a test-number message from the live number would bill a real
+ * conversation to a stranger, and its template fallback would fail outright
+ * because the two WABAs share no templates.
+ *
+ * Null for a number we do not recognise, which is a reason to record the
+ * message and say nothing rather than to guess.
+ */
+export function configForPhoneNumberId(phoneNumberId: string): WhatsAppConfig | null {
+  for (const profile of PROFILES) {
+    const config = whatsappConfig(profile);
+    if (config?.phoneNumberId === phoneNumberId) return config;
+  }
+  return null;
 }
 
 /**
