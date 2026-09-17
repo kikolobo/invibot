@@ -392,7 +392,33 @@ export async function setGuestApproval(
   }
 
   revalidatePath(`/eventos/${eventId}/invitados`);
+  revalidatePath(`/eventos/${eventId}/aprobaciones`);
   revalidatePath(`/eventos/${eventId}`);
+}
+
+/**
+ * Fixing a name before letting someone in.
+ *
+ * Self-registered names arrive as whatever the guest typed on a phone, or as
+ * their WhatsApp profile name — "Kiko 🎧", "Mamá", a business. The host is
+ * going to correct them, and the moment to do it is while deciding, not after
+ * the invitation has gone out addressed to a nickname.
+ */
+export async function renameGuest(eventId: string, guestId: string, fullName: string) {
+  const event = await ownedEvent(eventId);
+  if (!event) return { error: "No encontramos ese evento." };
+
+  const name = fullName.replace(/\s+/g, " ").trim().slice(0, 80);
+  if (!name) return { error: "El nombre no puede quedar vacío." };
+
+  await db
+    .update(guests)
+    .set({ fullName: name, firstName: name.split(" ")[0], updatedAt: new Date() })
+    .where(and(eq(guests.eventId, eventId), eq(guests.id, guestId)));
+
+  revalidatePath(`/eventos/${eventId}/aprobaciones`);
+  revalidatePath(`/eventos/${eventId}/invitados`);
+  return {};
 }
 
 export type ImportPreview = {

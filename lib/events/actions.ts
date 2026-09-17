@@ -70,6 +70,7 @@ const basicsSchema = z
     rsvpRequired: z.boolean().default(true),
     allowPlusOnes: z.boolean().default(false),
     qrEnabled: z.boolean().default(false),
+    autoRegisterEnabled: z.boolean().default(false),
   });
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> };
@@ -96,6 +97,7 @@ export async function createEvent(
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
     qrEnabled: formData.get("qrEnabled") === "on",
+    autoRegisterEnabled: formData.get("autoRegisterEnabled") === "on",
   });
 
   if (!parsed.success) {
@@ -144,6 +146,11 @@ export async function createEvent(
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize: partySizeFor(v.allowPlusOnes),
       qrEnabled: v.qrEnabled,
+      autoRegisterEnabled: v.autoRegisterEnabled,
+      // Minted whether or not the feature starts on: the code is the event's
+      // for good, so a link shared today keeps working if the host toggles the
+      // feature off and on again.
+      registrationCode: newRegistrationCode(),
       details: emptyEventDetails(),
     })
     .returning();
@@ -299,17 +306,14 @@ export async function updatePartySettings(
  * stays pending, which is why the guest-facing effect of "off" and of a closed
  * event is the same sentence.
  */
-export async function updateAutoRegister(
+export async function setAutoRegister(
   eventId: string,
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState & { ok?: string }> {
+  enabled: boolean,
+): Promise<{ error?: string; ok?: string }> {
   const { orgId } = await requireOrg();
 
   const guard = await editableEvent(eventId, orgId);
   if (!guard.ok) return { error: guard.error };
-
-  const enabled = formData.get("autoRegisterEnabled") === "on";
 
   await db
     .update(events)

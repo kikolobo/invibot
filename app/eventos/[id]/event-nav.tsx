@@ -16,12 +16,15 @@ export function EventNav({
   eventId,
   eventName,
   guestCount,
+  pendingCount,
   openQuestions,
   archived,
 }: {
   eventId: string;
   eventName: string;
   guestCount: number;
+  /** Self-registered people the host has not decided on yet. */
+  pendingCount: number;
   /** Guests are waiting on these, so the count follows the organizer around. */
   openQuestions: number;
   archived: boolean;
@@ -34,6 +37,11 @@ export function EventNav({
     // The questionnaire is an editor; an archived event has nothing to do there.
     ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles" }]),
     { href: `${base}/invitados`, label: "Invitados", badge: guestCount },
+    // Only when there is something to decide: a permanently visible zero is a
+    // tab nobody ever needs to open.
+    ...(pendingCount > 0
+      ? [{ href: `${base}/aprobaciones`, label: "Aprobaciones", badge: pendingCount }]
+      : []),
     { href: `${base}/reporte`, label: "Reporte" },
     {
       href: `${base}/hechos`,

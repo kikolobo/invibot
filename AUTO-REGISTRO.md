@@ -184,7 +184,27 @@ y nadie se entera: `deliver()` bloquea los números suprimidos.
 - **El nombre del anfitrión en el link** sale del evento, no de la organización:
   dos eventos pueden tener anfitriones distintos.
 
-## Lo que falta
+## Las pantallas
 
-La pantalla de aprobación no existe, y es donde el anfitrión realmente vive en
-esta función. Es la mayor parte del trabajo.
+**Generales** tiene el interruptor y la liga para copiar. Prenderlo es
+inmediato; apagarlo pregunta antes y dice lo único que importa: *«Personas
+registradas seguirán en el estado previo a deshabilitar esta opción. No son
+eliminados de la lista automáticamente.»* Nadie se borra, pero «desactivar» se
+lee como si sí.
+
+**Al crear el evento** aparece la misma opción, apagada por omisión. El código
+se genera de todos modos: es del evento para siempre, así que una liga
+compartida hoy sigue sirviendo si se apaga y se vuelve a prender.
+
+**Aprobaciones** es su propia sección, debajo de Invitados, y sólo aparece en el
+menú cuando hay algo que decidir. Ahí se selecciona en bloque y se aprueba o se
+rechaza. El nombre se corrige tocándolo: llegan como la persona los escribió en
+su teléfono o como se llama su WhatsApp — «Kiko 🎧», «Mamá», el nombre de un
+negocio — y el momento de arreglarlo es antes de que salga la invitación.
+
+Aprobar mueve a la persona a Invitados. Los rechazados quedan plegados al final,
+con la opción de aprobarlos después: la decisión se toma rápido y a veces mal.
+
+⚠️ **Invitados cuenta sólo aprobados**, y el número del menú también. Quien se
+registró solo todavía no es invitado, y una lista que los mezclara haría que
+cada total significara dos cosas.

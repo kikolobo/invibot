@@ -139,6 +139,23 @@ export function NuevoForm() {
         </label>
 
         <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            name="autoRegisterEnabled"
+            className="mt-1 size-4 accent-[var(--accent)]"
+          />
+          <span>
+            <span className="text-[0.95rem] font-medium text-ink">
+              Habilitar autorregistro con liga de WhatsApp
+            </span>
+            <span className="block text-[0.82rem] text-ink-muted">
+              Compartes una liga en tus grupos y quien la abre se registra solo. Nadie
+              recibe invitación hasta que tú lo apruebes.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3">
           <input type="checkbox" name="qrEnabled" className="mt-1 size-4 accent-[var(--accent)]" />
           <span>
             <span className="text-[0.95rem] font-medium text-ink">

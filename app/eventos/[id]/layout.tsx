@@ -24,10 +24,17 @@ export default async function EventLayout({
   });
   if (!event) notFound();
 
+  // The badge counts guests, so it counts approved ones: someone who registered
+  // themselves is not on the list until the host says so.
   const [{ guestCount }] = await db
     .select({ guestCount: count() })
     .from(guests)
-    .where(eq(guests.eventId, id));
+    .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "approved")));
+
+  const [{ pendingCount }] = await db
+    .select({ pendingCount: count() })
+    .from(guests)
+    .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "pending")));
 
   const [{ openQuestions }] = await db
     .select({ openQuestions: count() })
@@ -43,6 +50,7 @@ export default async function EventLayout({
         eventId={event.id}
         eventName={event.name}
         guestCount={guestCount}
+        pendingCount={pendingCount}
         openQuestions={openQuestions}
         archived={event.archivedAt !== null}
       />

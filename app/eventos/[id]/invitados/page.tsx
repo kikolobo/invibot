@@ -53,8 +53,11 @@ export default async function Invitados({
     })
     .from(guests)
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))
-    .where(eq(guests.eventId, id))
+    // Approved only. Someone who registered themselves is not a guest yet, and
+    // showing them here would make every count on this table mean two things.
+    .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "approved")))
     .orderBy(asc(guestGroups.sortOrder), asc(guests.fullName));
+
 
   const groups = await listGroups(id);
   const archived = event.archivedAt !== null;

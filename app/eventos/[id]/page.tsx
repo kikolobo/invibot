@@ -9,7 +9,9 @@ import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { r2FromEnv } from "@/lib/storage/r2";
+import { registrationLink } from "@/lib/guests/auto-register";
 import { EventCard } from "./event-card";
+import { AutoRegister } from "./auto-register";
 import { ArchiveEvent } from "./archive-event";
 
 export const metadata = { title: "Evento" };
@@ -60,6 +62,12 @@ export default async function EventoPage({
     .select({ invitedCount: count() })
     .from(guests)
     .where(and(eq(guests.eventId, id), ne(guests.inviteStatus, "pending")));
+
+  // Only for the badge on the panel; the list itself lives in Invitados.
+  const [{ pendingCount }] = await db
+    .select({ pendingCount: count() })
+    .from(guests)
+    .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "pending")));
 
   const archived = event.archivedAt !== null;
 
@@ -157,6 +165,15 @@ export default async function EventoPage({
           </div>
         )}
 
+
+        {!archived && (
+          <AutoRegister
+            eventId={event.id}
+            enabled={event.autoRegisterEnabled}
+            link={registrationLink(event)}
+            pendingCount={pendingCount}
+          />
+        )}
 
         {!archived && (
           <EventCard
