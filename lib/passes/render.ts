@@ -1,14 +1,23 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import QRCode from "qrcode";
+import opentype from "opentype.js";
 import sharp from "sharp";
 
 /**
  * Draws the pass a guest shows at the door.
  *
- * Deliberately plain. This is read by a phone screen in a dark entrance by
+ * Deliberately plain: this is read off a phone screen in a dark entrance by
  * someone holding a scanner, so the code is large, the quiet zone is real, and
- * nothing decorative sits near it. The name is there so a human can check the
- * two match; the warning is there because a code that gets forwarded to four
- * friends is not a pass.
+ * nothing decorative sits near it. The name lets a human check the two match;
+ * the warning is there because a code forwarded to four friends is not a pass.
+ *
+ * Every glyph is converted to a path before rendering. The first version used
+ * SVG <text> with font-family: Helvetica, which worked on a Mac and produced a
+ * row of empty boxes in production — a serverless runtime has no system fonts,
+ * so the renderer had nothing to resolve the family to. Outlines remove the
+ * question entirely: there is no font to find at render time, and the pass
+ * looks the same everywhere.
  */
 
 const WIDTH = 760;
@@ -19,13 +28,62 @@ const INK = "#1a1a1a";
 const MUTED = "#8a8178";
 const PAPER = "#ffffff";
 
-/** XML-escapes a name before it goes into an SVG. "Ana & José" must not break the document. */
-const xml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+/**
+ * Read once per process. The file is ~740 KB and parsing it on every pass would
+ * be the slowest thing in the send path by a wide margin.
+ */
+let cached: opentype.Font | null = null;
+
+function font(): opentype.Font {
+  if (cached) return cached;
+  // Resolved from the project root rather than the module, because the compiled
+  // module does not live where the source does. `next.config.ts` keeps this
+  // file in the deployment bundle.
+  const file = path.join(process.cwd(), "lib/passes/fonts/DejaVuSans.ttf");
+  cached = opentype.parse(
+    // A Buffer's underlying ArrayBuffer can be a slice of a larger pool, so the
+    // byte range matters: handing over the whole pool parses garbage.
+    readFileSync(file).buffer.slice(0) as ArrayBuffer,
+  );
+  return cached;
+}
+
+/**
+ * One line of text as an SVG path, centred on `x`.
+ *
+ * Laid out a glyph at a time rather than through `getPath`, which routes every
+ * string through opentype.js's shaping engine — and that engine cannot read
+ * every lookup table DejaVu ships ("lookupType: 6 substFormat: 2 is not yet
+ * supported") and throws before drawing anything. Walking the characters
+ * touches none of it. Ligatures and kerning are lost, which on a name and a
+ * one-line warning is nothing to miss.
+ */
+function measure(parsed: opentype.Font, text: string, size: number): number {
+  const scale = size / parsed.unitsPerEm;
+  let width = 0;
+  for (const character of text) {
+    width += parsed.charToGlyph(character).advanceWidth * scale;
+  }
+  return width;
+}
+
+function line(text: string, x: number, y: number, size: number, fill: string): string {
+  const parsed = font();
+  const scale = size / parsed.unitsPerEm;
+  let cursor = x - measure(parsed, text, size) / 2;
+
+  const parts: string[] = [];
+  for (const character of text) {
+    const glyph = parsed.charToGlyph(character);
+    const data = glyph.getPath(cursor, y, size).toPathData(2);
+    // A space has an advance and no outline; skipping the empty `d` keeps the
+    // document from filling with useless nodes.
+    if (data) parts.push(data);
+    cursor += glyph.advanceWidth * scale;
+  }
+
+  return `<path d="${parts.join(" ")}" fill="${fill}" />`;
+}
 
 /** Long names shrink rather than run off the card. */
 function nameSize(name: string): number {
@@ -53,14 +111,12 @@ export async function renderPass(input: {
   const nameY = top + QR_SIZE + 78;
   const warnY = nameY + 40;
   const height = warnY + 60;
+  const centre = WIDTH / 2;
 
   const text = `<svg width="${WIDTH}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${WIDTH / 2}" y="56" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"
-        font-size="24" fill="${MUTED}" letter-spacing="1.5">${xml(input.eventName.toUpperCase())}</text>
-  <text x="${WIDTH / 2}" y="${nameY}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"
-        font-size="${nameSize(input.label)}" fill="${INK}">${xml(input.label)}</text>
-  <text x="${WIDTH / 2}" y="${warnY}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"
-        font-size="21" fill="${MUTED}">Código único por invitado, no lo compartas</text>
+${line(input.eventName.toUpperCase(), centre, 56, 22, MUTED)}
+${line(input.label, centre, nameY, nameSize(input.label), INK)}
+${line("Código único por invitado, no lo compartas", centre, warnY, 20, MUTED)}
 </svg>`;
 
   return sharp({
