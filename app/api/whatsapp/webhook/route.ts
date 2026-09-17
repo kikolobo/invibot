@@ -22,6 +22,7 @@ import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/wh
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
 import { buildComponents } from "@/lib/whatsapp/templates";
+import { configFromEnv, markRead } from "@/lib/whatsapp/client";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 
 type GuestRow = typeof guests.$inferSelect;
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
 
   const { messages, statuses } = parseWebhook(payload);
 
-  const answerable: { guest: GuestRow; intent: GuestIntent; at: Date }[] = [];
+  const answerable: { guest: GuestRow; intent: GuestIntent; at: Date; wamid: string }[] = [];
 
   try {
     for (const status of statuses) await recordStatus(status);
@@ -100,9 +101,9 @@ export async function POST(request: Request) {
   // which is where this belongs the moment a reply needs retries or ordering.
   if (answerable.length > 0) {
     after(async () => {
-      for (const { guest, intent, at } of answerable) {
+      for (const { guest, intent, at, wamid } of answerable) {
         try {
-          await respond(guest, intent, at);
+          await respond(guest, intent, at, wamid);
         } catch (error) {
           console.error("[whatsapp] reply failed", guest.id, intent, error);
         }
@@ -229,7 +230,7 @@ async function resolveGuest(message: InboundMessage): Promise<GuestRow | null> {
 
 async function recordInbound(
   message: InboundMessage,
-): Promise<{ guest: GuestRow; intent: GuestIntent; at: Date } | null> {
+): Promise<{ guest: GuestRow; intent: GuestIntent; at: Date; wamid: string } | null> {
   if (!message.wamid || !message.from) return null;
 
   const guest = await resolveGuest(message);
@@ -299,7 +300,7 @@ async function recordInbound(
 
   const intent = parseIntent(message);
   await applyIntent(guest, intent, message.timestamp);
-  return { guest, intent, at: message.timestamp };
+  return { guest, intent, at: message.timestamp, wamid: message.wamid };
 }
 
 /**
@@ -307,11 +308,22 @@ async function recordInbound(
  * open — which a button tap always leaves open, and which costs nothing inside
  * a service conversation — and the approved template only as the fallback.
  */
-async function respond(guest: GuestRow, intent: GuestIntent, at: Date): Promise<void> {
+async function respond(
+  guest: GuestRow,
+  intent: GuestIntent,
+  at: Date,
+  wamid: string,
+): Promise<void> {
   // Anything the button vocabulary does not cover goes to the assistant: a
   // question, or words that mean yes without saying it. Until now this was
   // silence, which is the single worst thing to send someone who wrote to you.
   if (intent === "unknown" || intent === "question") {
+    // Before the model runs, not after: the bubble is the answer to "did that
+    // even send?", and it is worth nothing once the reply has arrived. It also
+    // marks the message read, so the guest sees both at once.
+    const config = configFromEnv();
+    if (config) await markRead(config, wamid, true);
+
     const answer = await answerGuest(guest, at);
     if (!answer) return;
 

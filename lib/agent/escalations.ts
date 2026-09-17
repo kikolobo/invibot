@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { normalizeQuestion } from "@/lib/events/facts";
 import { sendTextToGuest } from "@/lib/whatsapp/send";
+import { relayedAnswer } from "@/lib/whatsapp/replies";
 
 /**
  * Answering what the assistant could not.
@@ -69,7 +70,11 @@ export async function answerEscalation(
   const unreachable: string[] = [];
 
   for (const guest of recipients) {
-    const outcome = await sendTextToGuest(guest.id, answer, "custom");
+    const outcome = await sendTextToGuest(
+      guest.id,
+      relayedAnswer(escalation.questionText, answer),
+      "custom",
+    );
     if (outcome.ok) {
       delivered++;
     } else {

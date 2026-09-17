@@ -54,9 +54,10 @@ export default async function Hechos({
       {pending.length > 0 && (
         <section className="mt-8 rounded-xl border border-accent/30 bg-accent/5 p-5">
           <h2 className="font-display text-xl text-ink">
-            {pending.length === 1
-              ? "Una pregunta sin contestar"
-              : `${pending.length} preguntas sin contestar`}
+            Dudas de invitados
+            <span className="ml-2 text-[0.9rem] font-normal text-ink-muted">
+              {pending.length === 1 ? "1 sin contestar" : `${pending.length} sin contestar`}
+            </span>
           </h2>
           <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
             Un invitado preguntó esto y le dijimos que te lo consultábamos. Al contestar,

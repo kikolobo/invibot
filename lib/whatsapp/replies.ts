@@ -42,3 +42,16 @@ export function declineReply(facts: ReplyFacts): string {
     "Si tus planes cambian, escríbeme por aquí.",
   ].join("\n");
 }
+
+
+/**
+ * An answer arriving after the fact, for a question asked hours ago.
+ *
+ * It repeats the question on purpose. The reply lands cold in a thread the
+ * guest has scrolled past, and an answer with no question attached — "No, no
+ * se pueden" — reads as a non sequitur or, worse, as an answer to something
+ * else they asked.
+ */
+export function relayedAnswer(question: string, answer: string): string {
+  return [`Ya tengo respuesta 🙌`, "", `Preguntaste: ${question}`, "", answer].join("\n");
+}

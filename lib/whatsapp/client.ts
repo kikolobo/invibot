@@ -203,7 +203,21 @@ export function sendTemplate(
 }
 
 /** Marks an inbound message read, so the guest sees the blue ticks. */
-export async function markRead(config: WhatsAppConfig, messageId: string): Promise<void> {
+/**
+ * Marks a message read, and optionally shows the typing bubble.
+ *
+ * One call does both — Meta hangs the typing indicator off the read receipt.
+ * It runs for up to 25 seconds or until the next message is sent, whichever
+ * comes first, so it is fired the moment we know we intend to answer rather
+ * than after the model has finished thinking. A guest who wrote a real question
+ * otherwise watches nothing happen for several seconds and assumes they are
+ * talking to a machine that ignored them.
+ */
+export async function markRead(
+  config: WhatsAppConfig,
+  messageId: string,
+  typing = false,
+): Promise<void> {
   await fetch(
     `https://graph.facebook.com/${GRAPH_VERSION}/${config.phoneNumberId}/messages`,
     {
@@ -216,9 +230,10 @@ export async function markRead(config: WhatsAppConfig, messageId: string): Promi
         messaging_product: "whatsapp",
         status: "read",
         message_id: messageId,
+        ...(typing ? { typing_indicator: { type: "text" } } : {}),
       }),
     },
   ).catch(() => {
-    // Read receipts are cosmetic; never fail a turn over one.
+    // Read receipts and typing bubbles are cosmetic; never fail a turn over one.
   });
 }
