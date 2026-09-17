@@ -23,6 +23,12 @@ export async function GET() {
     WHATSAPP_ACCESS_TOKEN: present("WHATSAPP_ACCESS_TOKEN"),
     WHATSAPP_APP_SECRET: present("WHATSAPP_APP_SECRET"),
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: present("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),
+    // Character counts rather than values: a trailing space on a copied secret
+    // is invisible in a dashboard and has already cost this project an evening.
+    R2_ACCOUNT_ID: present("R2_ACCOUNT_ID"),
+    R2_ACCESS_KEY_ID: present("R2_ACCESS_KEY_ID"),
+    R2_SECRET_ACCESS_KEY: present("R2_SECRET_ACCESS_KEY"),
+    R2_BUCKET: process.env.R2_BUCKET ?? "MISSING",
   };
 
   let database: string;
