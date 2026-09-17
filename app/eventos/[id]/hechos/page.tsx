@@ -4,7 +4,11 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, eventFacts } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
-import { listOpenEscalations, waitingGuestNames } from "@/lib/agent/escalations";
+import {
+  listOpenEscalations,
+  waitingGuestNames,
+  askersOfFact,
+} from "@/lib/agent/escalations";
 import { AnswerEscalation } from "./answer-escalation";
 import { EditAnswer } from "./edit-answer";
 
@@ -39,6 +43,17 @@ export default async function Preguntas({
     .then((rows) => rows.filter((fact) => fact.key === null));
 
   const pending = await listOpenEscalations(id);
+
+  // Who asked, for both lists. An answered question keeps the link back to the
+  // escalation it came from, so the names survive being answered.
+  const answeredAskers = new Map(
+    await Promise.all(
+      answered.map(
+        async (fact) =>
+          [fact.id, await askersOfFact(fact.originEscalationId)] as const,
+      ),
+    ),
+  );
 
   // Resolved here rather than in the component so the list can say who is
   // asking without a round trip per question.
@@ -106,6 +121,7 @@ export default async function Preguntas({
                 factId={fact.id}
                 question={fact.question}
                 answer={fact.answer}
+                askedBy={answeredAskers.get(fact.id) ?? []}
               />
             ))}
           </ul>

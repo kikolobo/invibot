@@ -10,6 +10,7 @@ import {
 } from "@/lib/agent/escalations";
 import { Textarea } from "@/components/ui/field";
 import { buttonStyles } from "./buttons";
+import { AskedBy } from "./asked-by";
 
 /**
  * One unanswered question, with the three things an organizer can do about it.
@@ -39,7 +40,6 @@ export function AnswerEscalation({
   const [closing, startClosing] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const [showWaiting, setShowWaiting] = useState(false);
 
   const busy = pending || closing;
 
@@ -61,26 +61,16 @@ export function AnswerEscalation({
 
   return (
     <li className="border-t border-line pt-4">
-      <p className="text-[0.95rem] text-ink">{question}</p>
+      <p className="text-[0.95rem] text-ink">
+        {question}
+        <AskedBy names={waiting} />
+      </p>
 
-      <button
-        type="button"
-        onClick={() => setShowWaiting((open) => !open)}
-        aria-expanded={showWaiting}
-        className="mt-1 text-[0.8rem] text-ink-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
-      >
+      <p className="mt-1 text-[0.8rem] text-ink-muted">
         {waiting.length === 1
           ? "1 invitado espera la respuesta"
           : `${waiting.length} invitados esperan la respuesta`}
-      </button>
-
-      {showWaiting && waiting.length > 0 && (
-        <ul className="mt-1 text-[0.8rem] text-ink-soft">
-          {waiting.map((name) => (
-            <li key={name}>{name}</li>
-          ))}
-        </ul>
-      )}
+      </p>
 
       <form action={formAction} className="mt-3">
         <Textarea

@@ -9,6 +9,7 @@ import { r2FromEnv } from "@/lib/storage/r2";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
 import { QrSettings } from "./qr-settings";
+import { EditBasics } from "./edit-basics";
 import { EventCard } from "./event-card";
 import { ArchiveEvent } from "./archive-event";
 
@@ -22,11 +23,17 @@ const dateFmt = new Intl.DateTimeFormat("es-MX", {
 });
 const timeFmt = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit" });
 
+/**
+ * Where the event is, in words an organizer can act on.
+ *
+ * "Borrador" was the first label and it reads as "borrado" at a glance — the
+ * wrong word entirely for an event whose invitations simply have not gone out.
+ */
 const statusLabels: Record<string, string> = {
-  draft: "Borrador",
-  ready: "Lista",
+  draft: "Sin enviar",
+  ready: "Lista para enviar",
   sending: "Enviando",
-  live: "En curso",
+  live: "Invitaciones enviadas",
   closed: "Cerrado",
   cancelled: "Cancelado",
 };
@@ -56,6 +63,13 @@ export default async function EventoPage({
     .where(and(eq(guests.eventId, id), ne(guests.inviteStatus, "pending")));
 
   const archived = event.archivedAt !== null;
+
+  // Rendered in the event's own timezone so the form shows the hour the
+  // organizer meant, not the server's idea of it.
+  const localForForm = new TZDate(event.startsAt, event.timezone);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const formDate = `${localForForm.getFullYear()}-${pad(localForForm.getMonth() + 1)}-${pad(localForForm.getDate())}`;
+  const formTime = `${pad(localForForm.getHours())}:${pad(localForForm.getMinutes())}`;
 
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
@@ -121,6 +135,17 @@ export default async function EventoPage({
               invitedCount={invitedCount}
             />
             <QrSettings eventId={event.id} enabled={event.qrEnabled} />
+            <EditBasics
+              eventId={event.id}
+              hostNames={event.hostNames}
+              date={formDate}
+              time={formTime}
+              venueName={event.venueName}
+              venueAddress={event.venueAddress}
+              venueCity={event.venueCity}
+              rsvpRequired={event.rsvpRequired}
+              invitedCount={invitedCount}
+            />
           </>
         )}
 

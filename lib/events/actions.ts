@@ -507,3 +507,77 @@ export async function setQrEnabled(
       : "Listo. Ya no enviaremos códigos nuevos.",
   };
 }
+
+
+const basicsEditSchema = z.object({
+  hostNames: z.string().trim().max(120).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha"),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Elige una hora"),
+  venueName: z.string().trim().max(160).optional(),
+  venueAddress: z.string().trim().max(300).optional(),
+  venueCity: z.string().trim().max(120).optional(),
+  rsvpRequired: z.boolean().default(true),
+});
+
+/**
+ * Editing the things the invitation says.
+ *
+ * Venues move and dates shift, and until now the only way to correct either was
+ * to start the event over. The assistant reads these straight off the event, so
+ * a change here is a change to what it tells guests from the next message on —
+ * but it cannot reach the invitations already on their phones, which is why the
+ * form says so when any have gone out.
+ */
+export async function updateEventBasics(
+  eventId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+  const event = guard.event;
+
+  const parsed = basicsEditSchema.safeParse({
+    hostNames: formData.get("hostNames") || undefined,
+    date: String(formData.get("date") ?? ""),
+    time: String(formData.get("time") ?? ""),
+    venueName: formData.get("venueName") || undefined,
+    venueAddress: formData.get("venueAddress") || undefined,
+    venueCity: formData.get("venueCity") || undefined,
+    rsvpRequired: formData.get("rsvpRequired") === "on",
+  });
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? "form");
+      fieldErrors[key] ??= issue.message;
+    }
+    return { fieldErrors };
+  }
+
+  const v = parsed.data;
+  // The event keeps its own timezone: "7 PM" means seven where the party is,
+  // and editing the date should not quietly reinterpret it somewhere else.
+  const startsAt = zonedToInstant(v.date, v.time, event.timezone);
+
+  await db
+    .update(events)
+    .set({
+      hostNames: v.hostNames ?? null,
+      startsAt,
+      venueName: v.venueName ?? null,
+      venueAddress: v.venueAddress ?? null,
+      venueCity: v.venueCity ?? null,
+      rsvpRequired: v.rsvpRequired,
+      updatedAt: new Date(),
+    })
+    .where(eq(events.id, eventId));
+
+  revalidatePath(`/eventos/${eventId}`);
+  revalidatePath(`/eventos/${eventId}/simulador`);
+  revalidatePath(`/eventos/${eventId}/reporte`);
+  return { ok: "Actualizado." };
+}

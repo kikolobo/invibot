@@ -224,3 +224,13 @@ export async function waitingGuestNames(guestIds: string[]): Promise<string[]> {
     .where(inArray(guests.id, guestIds));
   return rows.map((row) => row.fullName);
 }
+
+
+/** The names behind a fact, via the escalation it was created from. */
+export async function askersOfFact(originEscalationId: string | null): Promise<string[]> {
+  if (!originEscalationId) return [];
+  const escalation = await db.query.escalations.findFirst({
+    where: eq(escalations.id, originEscalationId),
+  });
+  return waitingGuestNames(escalation?.waitingGuestIds ?? []);
+}

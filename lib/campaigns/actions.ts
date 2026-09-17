@@ -3,7 +3,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { campaigns, guests } from "@/db/schema";
+import { campaigns, guests, events } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { buildComponents } from "@/lib/whatsapp/templates";
@@ -167,6 +167,18 @@ export async function sendInvitations(
       );
 
     const sent = outcomes.filter((outcome) => outcome.ok).length;
+
+    // The event's own status had never moved off "draft" — not when
+    // invitations went out, not when guests confirmed. An event with
+    // invitations on people's phones is not a draft, and the overview was
+    // saying it was.
+    if (sent > 0 && (plan.event.status === "draft" || plan.event.status === "ready")) {
+      await db
+        .update(events)
+        .set({ status: "live", publishedAt: plan.event.publishedAt ?? new Date() })
+        .where(eq(events.id, eventId));
+    }
+
     await db
       .update(campaigns)
       .set({

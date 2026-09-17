@@ -9,6 +9,7 @@ import {
 } from "@/lib/events/answers";
 import { Textarea } from "@/components/ui/field";
 import { buttonStyles } from "./buttons";
+import { AskedBy } from "./asked-by";
 
 /**
  * One learned answer, editable in place.
@@ -21,13 +22,15 @@ export function EditAnswer({
   eventId,
   question,
   answer,
-  /** Catalogue answers carry their key; learned ones carry the fact id. */
   factId,
+  askedBy,
 }: {
   eventId: string;
   question: string;
   answer: string;
   factId: string;
+  /** Everyone who asked this, for the "i" beside the question. */
+  askedBy: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [closing, startClosing] = useTransition();
@@ -65,7 +68,10 @@ export function EditAnswer({
   if (!open) {
     return (
       <li className="group border-t border-line pt-4">
-        <p className="text-[0.9rem] text-ink-muted">{question}</p>
+        <p className="text-[0.9rem] text-ink-muted">
+          {question}
+          <AskedBy names={askedBy} />
+        </p>
         <div className="mt-1 flex items-baseline gap-3">
           <p className="min-w-0 whitespace-pre-line text-ink">{answer}</p>
           <button
@@ -83,7 +89,10 @@ export function EditAnswer({
 
   return (
     <li className="border-t border-line pt-4">
-      <p className="text-[0.9rem] text-ink-muted">{question}</p>
+      <p className="text-[0.9rem] text-ink-muted">
+        {question}
+        <AskedBy names={askedBy} />
+      </p>
       <form action={formAction} className="mt-2">
         <Textarea name="value" rows={2} defaultValue={answer} />
 
