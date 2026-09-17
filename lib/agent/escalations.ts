@@ -8,7 +8,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { normalizeQuestion } from "@/lib/events/facts";
 import { sendTextToGuest } from "@/lib/whatsapp/send";
-import { relayedAnswer } from "@/lib/whatsapp/replies";
+import { relayedAnswer, unavailableAnswer } from "@/lib/whatsapp/replies";
 
 /**
  * Answering what the assistant could not.
@@ -21,6 +21,51 @@ import { relayedAnswer } from "@/lib/whatsapp/replies";
  */
 
 export type AnswerState = { error?: string; ok?: string };
+
+/**
+ * Sends one message to everyone waiting on a question.
+ *
+ * Shared by answering and by declining to answer: both are outcomes the people
+ * who asked were promised, and a relay that lives in only one of them is how
+ * the other quietly stops telling anyone.
+ */
+async function relayToWaiting(
+  waitingGuestIds: string[],
+  message: string,
+): Promise<{ told: number; unreachable: string[] }> {
+  let told = 0;
+  const unreachable: string[] = [];
+
+  for (const guestId of waitingGuestIds) {
+    const guest = await db.query.guests.findFirst({ where: eq(guests.id, guestId) });
+    if (!guest) continue;
+
+    const outcome = await sendTextToGuest(guest.id, message, "custom");
+    if (outcome.ok) {
+      told++;
+    } else {
+      // Most often the 24-hour window closed while the organizer was away.
+      // There is no approved template for an arbitrary answer, so this one
+      // cannot be delivered — saying so beats pretending.
+      unreachable.push(guest.firstName ?? guest.fullName);
+      console.error("[escalation] could not relay", guest.id, outcome.reason);
+    }
+  }
+
+  return { told, unreachable };
+}
+
+/** How the outcome reads back to the organizer. */
+function relayNote(told: number, unreachable: string[]): string {
+  return [
+    told > 0 ? `Le avisamos a ${told} ${told === 1 ? "persona" : "personas"}.` : null,
+    unreachable.length > 0
+      ? `No pudimos avisarle a ${unreachable.join(", ")}: pasaron más de 24 horas desde su mensaje y WhatsApp ya no nos deja escribirles.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export async function answerEscalation(
   eventId: string,
@@ -61,30 +106,10 @@ export async function answerEscalation(
 
   // Only the people who asked. `waitingGuestIds` is exactly that set — guests
   // who sent this same question — never the guest list.
-  const waiting = escalation.waitingGuestIds ?? [];
-  const recipients = waiting.length
-    ? await db.select().from(guests).where(inArray(guests.id, waiting))
-    : [];
-
-  let delivered = 0;
-  const unreachable: string[] = [];
-
-  for (const guest of recipients) {
-    const outcome = await sendTextToGuest(
-      guest.id,
-      relayedAnswer(escalation.questionText, answer),
-      "custom",
-    );
-    if (outcome.ok) {
-      delivered++;
-    } else {
-      // Most often the 24-hour window closed while the organizer was away.
-      // There is no approved template for an arbitrary answer, so this one
-      // cannot be delivered — saying so is better than pretending.
-      unreachable.push(guest.firstName ?? guest.fullName);
-      console.error("[escalation] could not relay", guest.id, outcome.reason);
-    }
-  }
+  const relay = await relayToWaiting(
+    escalation.waitingGuestIds ?? [],
+    relayedAnswer(escalation.questionText, answer),
+  );
 
   await db
     .update(escalations)
@@ -99,16 +124,9 @@ export async function answerEscalation(
   revalidatePath(`/eventos/${eventId}`);
   revalidatePath(`/eventos/${eventId}/hechos`);
 
-  const parts = [
-    delivered > 0
-      ? `Le avisamos a ${delivered} ${delivered === 1 ? "persona" : "personas"}.`
-      : null,
-    unreachable.length > 0
-      ? `No pudimos avisarle a ${unreachable.join(", ")}: pasaron más de 24 horas desde su mensaje y WhatsApp ya no nos deja escribirles.`
-      : null,
-  ].filter(Boolean);
-
-  return { ok: `Guardado. El asistente ya sabe contestarlo. ${parts.join(" ")}`.trim() };
+  return {
+    ok: `Guardado. El asistente ya sabe contestarlo. ${relayNote(relay.told, relay.unreachable)}`.trim(),
+  };
 }
 
 /** Dismisses a question without answering it — a joke, a duplicate, a wrong number. */
@@ -178,6 +196,11 @@ export async function declineToAnswer(
     })
     .returning({ id: eventFacts.id });
 
+  const relay = await relayToWaiting(
+    escalation.waitingGuestIds ?? [],
+    unavailableAnswer(escalation.questionText, NOT_PUBLIC),
+  );
+
   await db
     .update(escalations)
     .set({
@@ -189,7 +212,9 @@ export async function declineToAnswer(
     .where(eq(escalations.id, escalation.id));
 
   revalidatePath(`/eventos/${eventId}/hechos`);
-  return { ok: "Listo. El asistente contestará que no es información pública." };
+  return {
+    ok: `Listo. El asistente contestará que no es información pública. ${relayNote(relay.told, relay.unreachable)}`.trim(),
+  };
 }
 
 /** Who is waiting on an answer, for the organizer to see before writing one. */

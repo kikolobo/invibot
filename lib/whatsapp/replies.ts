@@ -73,3 +73,23 @@ export function updatedAnswer(question: string, answer: string): string {
     `La respuesta correcta es: ${answer}`,
   ].join("\n");
 }
+
+
+/**
+ * The organizer declined to answer.
+ *
+ * It does not pretend to be an answer — "ya tengo respuesta" followed by a
+ * refusal reads worse than the refusal alone — and it closes the loop, because
+ * the guest was told someone would get back to them.
+ */
+export function unavailableAnswer(question: string, reason: string): string {
+  return [
+    "Sobre lo que preguntaste 🙏",
+    "",
+    question,
+    "",
+    reason,
+    "",
+    "Cualquier otra duda, aquí estoy.",
+  ].join("\n");
+}
