@@ -137,3 +137,67 @@ export async function listOpenEscalations(eventId: string) {
     .where(and(eq(escalations.eventId, eventId), eq(escalations.status, "open")))
     .orderBy(desc(escalations.createdAt));
 }
+
+
+/** What the assistant will say from then on when an organizer declines to answer. */
+const NOT_PUBLIC = "Esa información no está disponible al público.";
+
+/**
+ * Closing a question by declining to answer it.
+ *
+ * Different from dismissing: dismissing throws the question away, and the next
+ * guest to ask it starts the same loop again. This records the refusal as
+ * knowledge, so the assistant answers it itself from then on instead of asking
+ * again — which is the point of a question ever reaching this page.
+ */
+export async function declineToAnswer(
+  eventId: string,
+  escalationId: string,
+): Promise<AnswerState> {
+  const { orgId } = await requireOrg();
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
+  const escalation = await db.query.escalations.findFirst({
+    where: and(eq(escalations.id, escalationId), eq(escalations.eventId, eventId)),
+  });
+  if (!escalation) return { error: "No encontramos esa pregunta." };
+  if (escalation.status === "answered") return { error: "Esa pregunta ya fue contestada." };
+
+  const [fact] = await db
+    .insert(eventFacts)
+    .values({
+      eventId,
+      question: escalation.questionText,
+      answer: NOT_PUBLIC,
+      questionNormalized: normalizeQuestion(escalation.questionText),
+      source: "organizer",
+      visibility: "public",
+      originEscalationId: escalation.id,
+    })
+    .returning({ id: eventFacts.id });
+
+  await db
+    .update(escalations)
+    .set({
+      status: "answered",
+      answerText: NOT_PUBLIC,
+      answeredAt: new Date(),
+      resultingFactId: fact.id,
+    })
+    .where(eq(escalations.id, escalation.id));
+
+  revalidatePath(`/eventos/${eventId}/hechos`);
+  return { ok: "Listo. El asistente contestará que no es información pública." };
+}
+
+/** Who is waiting on an answer, for the organizer to see before writing one. */
+export async function waitingGuestNames(guestIds: string[]): Promise<string[]> {
+  if (guestIds.length === 0) return [];
+  const rows = await db
+    .select({ fullName: guests.fullName })
+    .from(guests)
+    .where(inArray(guests.id, guestIds));
+  return rows.map((row) => row.fullName);
+}

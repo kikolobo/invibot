@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, eventFacts } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
-import { listOpenEscalations } from "@/lib/agent/escalations";
+import { listOpenEscalations, waitingGuestNames } from "@/lib/agent/escalations";
 import { AnswerEscalation } from "./answer-escalation";
 import { EditAnswer } from "./edit-answer";
 
@@ -39,6 +39,17 @@ export default async function Preguntas({
     .then((rows) => rows.filter((fact) => fact.key === null));
 
   const pending = await listOpenEscalations(id);
+
+  // Resolved here rather than in the component so the list can say who is
+  // asking without a round trip per question.
+  const askers = new Map(
+    await Promise.all(
+      pending.map(
+        async (item) =>
+          [item.id, await waitingGuestNames(item.waitingGuestIds)] as const,
+      ),
+    ),
+  );
   const archived = event.archivedAt !== null;
 
   return (
@@ -74,7 +85,7 @@ export default async function Preguntas({
                 eventId={event.id}
                 escalationId={item.id}
                 question={item.questionText}
-                waiting={item.waitingGuestIds.length}
+                waiting={askers.get(item.id) ?? []}
               />
             ))}
           </ul>
