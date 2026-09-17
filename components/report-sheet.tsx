@@ -24,15 +24,17 @@ export function ReportSheet({
   filterLabel,
   total,
   seats,
-  grouped,
+  grouping,
 }: {
   event: typeof events.$inferSelect;
   sections: ReportSection[];
   filterLabel: string;
   total: number;
   seats: number;
-  grouped: boolean;
+  grouping: "no" | "grupo" | "mesa";
 }) {
+  // A group or a table gets its name; otherwise the initial does the work.
+  const named = grouping !== "no";
   return (
     <article className="report-sheet">
       <header className="border-b border-line pb-4">
@@ -52,7 +54,7 @@ export function ReportSheet({
       ) : (
         sections.map((section) => (
           <section key={section.heading} className="report-section mt-7">
-            {grouped ? (
+            {named ? (
               <div className="flex items-center gap-3">
                 <h3 className="font-display text-lg text-ink">{section.heading}</h3>
                 <span className="h-px flex-1 bg-line" />
@@ -93,7 +95,7 @@ export function ReportSheet({
                     <span className="shrink-0 text-[0.85rem] text-ink-soft">
                       {seatCount >= 2 ? `${seatCount} personas` : seatCount === 1 ? "1" : "—"}
                     </span>
-                    {guest.tableNumber && (
+                    {guest.tableNumber && grouping !== "mesa" && (
                       <span className="w-20 shrink-0 text-right text-[0.85rem] text-ink-soft">
                         Mesa {guest.tableNumber}
                       </span>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { filters, orders } from "@/lib/reports/guest-report";
+import { filters, groupings, orders } from "@/lib/reports/guest-report";
 import type { readShape } from "@/lib/reports/load";
 
 /**
@@ -41,7 +41,7 @@ export function ReportControls({
     filtro: shape.filter,
     orden: shape.order,
     dir: shape.direction,
-    agrupar: shape.grouped ? "1" : "0",
+    agrupar: shape.grouping,
   })}`;
 
   return (
@@ -70,55 +70,52 @@ export function ReportControls({
         </select>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-5">
-        <div className="flex flex-wrap items-end gap-6">
-          <div>
-            <p className="eyebrow">Ordenar por</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {Object.entries(orders).map(([key, label]) => (
-                <Link key={key} href={hrefWith("orden", key)} scroll={false} className={pill(shape.order === key)}>
-                  {label}
-                </Link>
-              ))}
-              <Link
-                href={hrefWith("dir", shape.direction === "asc" ? "desc" : "asc")}
-                scroll={false}
-                className={pill(false)}
-                title={shape.direction === "asc" ? "A → Z" : "Z → A"}
-              >
-                {shape.direction === "asc" ? "A → Z" : "Z → A"}
-              </Link>
-            </div>
-          </div>
-
-          <Link
-            href={hrefWith("agrupar", shape.grouped ? "0" : "1")}
-            scroll={false}
-            className="flex items-center gap-2 pb-1 text-[0.88rem] text-ink-soft transition-colors hover:text-ink"
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <div>
+          <label className="eyebrow block" htmlFor="agrupar">
+            Agrupar
+          </label>
+          <select
+            id="agrupar"
+            value={shape.grouping}
+            onChange={(event) =>
+              router.push(hrefWith("agrupar", event.target.value), { scroll: false })
+            }
+            className="mt-2 rounded-lg border border-line bg-white px-3 py-2 text-[0.9rem] text-ink outline-none transition-colors focus:border-accent"
           >
-            <span
-              className={`grid size-4 place-items-center rounded border ${
-                shape.grouped ? "border-accent bg-accent text-paper" : "border-line"
-              }`}
-              aria-hidden="true"
+            {Object.entries(groupings).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <p className="eyebrow">Ordenar por</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Object.entries(orders).map(([key, label]) => (
+              <Link key={key} href={hrefWith("orden", key)} scroll={false} className={pill(shape.order === key)}>
+                {label}
+              </Link>
+            ))}
+            <Link
+              href={hrefWith("dir", shape.direction === "asc" ? "desc" : "asc")}
+              scroll={false}
+              className={pill(false)}
             >
-              {shape.grouped && (
-                <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M2.5 6.5 5 9l4.5-5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </span>
-            Por grupo
-          </Link>
+              {shape.direction === "asc" ? "A → Z" : "Z → A"}
+            </Link>
+          </div>
         </div>
 
         <Link
           href={printHref}
           target="_blank"
           rel="noopener"
-          className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper"
+          className="rounded-full bg-accent px-4 py-1.5 text-[0.82rem] text-paper"
         >
-          Imprimir o guardar PDF
+          Imprimir
         </Link>
       </div>
     </div>

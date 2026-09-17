@@ -36,7 +36,7 @@ export default async function Imprimir({
         filterLabel={report.filterLabel}
         total={report.total}
         seats={report.seats}
-        grouped={report.shape.grouped}
+        grouping={report.shape.grouping}
       />
     </div>
   );

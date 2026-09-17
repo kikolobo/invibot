@@ -40,7 +40,7 @@ export default async function Reporte({
           filterLabel={report.filterLabel}
           total={report.total}
           seats={report.seats}
-          grouped={report.shape.grouped}
+          grouping={report.shape.grouping}
         />
       </div>
     </div>

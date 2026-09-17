@@ -7,11 +7,13 @@ import {
   filters,
   isFilter,
   isOrder,
+  isGrouping,
   seatsOf,
   summarize,
   type Direction,
   type FilterKey,
   type OrderKey,
+  type GroupKey,
 } from "./guest-report";
 
 /**
@@ -29,7 +31,12 @@ export function readShape(query: ReportQuery) {
     filter: (isFilter(rawFilter) ? rawFilter : "confirmados") as FilterKey,
     order: (isOrder(rawOrder) ? rawOrder : "nombre") as OrderKey,
     direction: (query.dir === "desc" ? "desc" : "asc") as Direction,
-    grouped: query.agrupar === "1",
+    // "1" is the old checkbox's value; links shared before this existed still work.
+    grouping: (query.agrupar === "1"
+      ? "grupo"
+      : isGrouping(String(query.agrupar ?? "no"))
+        ? String(query.agrupar)
+        : "no") as GroupKey,
   };
 }
 

@@ -38,8 +38,21 @@ export type FilterKey = keyof typeof filters;
 export const orders = {
   nombre: "Nombre",
   apellido: "Apellido",
-  mesa: "Mesa",
 } as const;
+
+/**
+ * How the list is divided. Independent of the ordering, which runs inside
+ * whatever division is chosen — grouped by table and read alphabetically is a
+ * seating chart, and both halves of that are separate decisions.
+ */
+export const groupings = {
+  no: "Sin agrupar",
+  grupo: "Por grupo",
+  mesa: "Por mesa",
+} as const;
+
+export type GroupKey = keyof typeof groupings;
+export const isGrouping = (value: string): value is GroupKey => value in groupings;
 
 export type OrderKey = keyof typeof orders;
 export type Direction = "asc" | "desc";
@@ -47,8 +60,7 @@ export type Direction = "asc" | "desc";
 export type ReportShape = {
   order: OrderKey;
   direction: Direction;
-  /** Sections by group instead of by initial letter. */
-  grouped: boolean;
+  grouping: GroupKey;
 };
 
 export const isFilter = (value: string): value is FilterKey => value in filters;
@@ -128,53 +140,45 @@ export function buildSections(guests: ReportGuest[], shape: ReportShape): Report
   const nameOf = (guest: ReportGuest) =>
     shape.order === "apellido" ? surnameOf(guest) : given(guest);
 
-  // Tables sort as numbers, not as text: otherwise table 10 lands between 1
-  // and 2. Anyone unseated sorts last whichever way the list runs — they are
-  // the ones still to place, and they belong together at the end.
-  const tableOf = (guest: ReportGuest) =>
-    guest.tableNumber ? Number.parseInt(guest.tableNumber, 10) : Number.NaN;
-
+  // Ordering always runs on the name; the grouping only decides which pile a
+  // guest lands in. So "por mesa, por apellido" is a seating chart read the way
+  // a seating chart is read.
   const sorted = [...guests].sort((a, b) => {
-    if (shape.order === "mesa") {
-      const left = tableOf(a);
-      const right = tableOf(b);
-      const leftMissing = Number.isNaN(left);
-      const rightMissing = Number.isNaN(right);
-      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
-      if (!leftMissing && left !== right) return (left - right) * sign;
-      // Within one table, alphabetical — a seating chart is read by name.
-      return sortKey(given(a)).localeCompare(sortKey(given(b)), "es");
-    }
-
     const primary = sortKey(nameOf(a)).localeCompare(sortKey(nameOf(b)), "es");
     if (primary !== 0) return primary * sign;
     // A stable second key, so two Lobos keep a predictable order.
     return sortKey(given(a)).localeCompare(sortKey(given(b)), "es") * sign;
   });
 
+  const headingOf = (guest: ReportGuest) => {
+    if (shape.grouping === "grupo") return guest.groupName ?? "Sin grupo";
+    if (shape.grouping === "mesa") {
+      return guest.tableNumber ? `Mesa ${guest.tableNumber}` : "Sin mesa";
+    }
+    return initial(nameOf(guest));
+  };
+
   const sections = new Map<string, ReportGuest[]>();
   for (const guest of sorted) {
-    const heading = shape.grouped
-      ? (guest.groupName ?? "Sin grupo")
-      : shape.order === "mesa"
-        ? (guest.tableNumber ? `Mesa ${guest.tableNumber}` : "Sin mesa")
-        : initial(nameOf(guest));
+    const heading = headingOf(guest);
     const bucket = sections.get(heading);
     if (bucket) bucket.push(guest);
     else sections.set(heading, [guest]);
   }
 
-  // Leftovers sort last whichever way the list runs: "Sin grupo" is not a group
-  // and "#" is not a letter, and putting either first buries the real content.
-  const last = shape.grouped ? "Sin grupo" : shape.order === "mesa" ? "Sin mesa" : "#";
+  // Leftovers sort last whichever way the list runs: unseated guests and names
+  // that start with a digit are the ones still to deal with, and burying the
+  // real content behind them helps nobody.
+  const last =
+    shape.grouping === "grupo" ? "Sin grupo" : shape.grouping === "mesa" ? "Sin mesa" : "#";
 
   return [...sections.entries()]
     .map(([heading, list]) => ({ heading, guests: list }))
     .sort((a, b) => {
       if (a.heading === last) return 1;
       if (b.heading === last) return -1;
-      // Table headings are numbers wearing a word; "Mesa 10" after "Mesa 9".
-      if (!shape.grouped && shape.order === "mesa") {
+      // Table headings are numbers wearing a word: Mesa 10 follows Mesa 9.
+      if (shape.grouping === "mesa") {
         const left = Number.parseInt(a.heading.replace(/\D/g, ""), 10);
         const right = Number.parseInt(b.heading.replace(/\D/g, ""), 10);
         return (left - right) * sign;
@@ -182,7 +186,6 @@ export function buildSections(guests: ReportGuest[], shape: ReportShape): Report
       return sortKey(a.heading).localeCompare(sortKey(b.heading), "es") * sign;
     });
 }
-
 
 /** An invitation that actually left: queued and failed never reached a phone. */
 const wasSent = (guest: ReportGuest) =>
