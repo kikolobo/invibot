@@ -41,3 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Local-only record of secrets that no service will show us again. Never
+# committed, never deployed — Vercel builds from git, so this never leaves the
+# laptop. Not a substitute for the password manager; a second copy of things
+# whose loss cannot be undone.
+SECRETS.local.md

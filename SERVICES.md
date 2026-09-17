@@ -201,8 +201,12 @@ is configured alongside it and not yet switched on — see "Two numbers" below.
   `131009` (invalid parameter) means the number can send; anything else is the
   real problem, named.
 - **⚠️ Registering sets a two-step PIN that Meta will never show you again.**
-  It is required to re-register the number anywhere later. It is not in this
-  repo and must not be: it lives in the password manager.
+  It is required to re-register the number anywhere later, and `is_pin_enabled`
+  only says whether one exists, never which. It is not in this repo and must
+  not be: it lives in the password manager, with a local copy in
+  `SECRETS.local.md` — untracked, gitignored, and on one laptop only. If it is
+  lost, two-step verification has to be turned off in WhatsApp Manager and the
+  number registered again with a new one.
 - **⚠️ `health_status` on a phone number describes the number, not your app's
   right to use it.** It read `can_send_message: AVAILABLE` at every level while
   every send was being rejected with `(#200)`. Trust the probe above instead.
