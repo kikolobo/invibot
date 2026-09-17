@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests } from "@/db/schema";
+import { events, guests, escalations } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { EventNav } from "./event-nav";
 
@@ -29,12 +29,18 @@ export default async function EventLayout({
     .from(guests)
     .where(eq(guests.eventId, id));
 
+  const [{ openQuestions }] = await db
+    .select({ openQuestions: count() })
+    .from(escalations)
+    .where(and(eq(escalations.eventId, id), eq(escalations.status, "open")));
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10 sm:flex-row sm:gap-12 sm:px-10 sm:py-12">
       <EventNav
         eventId={event.id}
         eventName={event.name}
         guestCount={guestCount}
+        openQuestions={openQuestions}
         archived={event.archivedAt !== null}
       />
       <div className="min-w-0 flex-1">{children}</div>

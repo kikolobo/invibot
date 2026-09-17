@@ -1,14 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, count, eq, ne } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
-import { events, eventFacts, guests } from "@/db/schema";
+import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
-import { questionsFor } from "@/lib/events/questions";
 import { r2FromEnv } from "@/lib/storage/r2";
-import { openEscalations } from "@/lib/agent/respond";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
 import { EventCard } from "./event-card";
@@ -46,12 +43,6 @@ export default async function EventoPage({
   });
   if (!event) notFound();
 
-  const facts = await db
-    .select()
-    .from(eventFacts)
-    .where(and(eq(eventFacts.eventId, id), eq(eventFacts.isActive, true)))
-    .orderBy(asc(eventFacts.createdAt));
-
   const [{ guestCount }] = await db
     .select({ guestCount: count() })
     .from(guests)
@@ -65,15 +56,8 @@ export default async function EventoPage({
 
   const archived = event.archivedAt !== null;
 
-  // The assistant tells guests it asked the organizer. This is where being
-  // asked actually happens, so it sits above everything else on the page.
-  const pending = await openEscalations(id);
-
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
-  const answerable = questionsFor(event.kind).filter((q) => q.feedsAgent).length;
-  const publicFacts = facts.filter((f) => f.visibility === "public");
-  const internalFacts = facts.filter((f) => f.visibility === "internal");
 
   return (
     <>
@@ -92,33 +76,6 @@ export default async function EventoPage({
 
         {archived && (
           <ArchiveEvent eventId={event.id} archived guestCount={guestCount} />
-        )}
-
-        {pending.length > 0 && (
-          <section className="mt-8 rounded-xl border border-accent/30 bg-accent/5 p-5">
-            <p className="font-display text-lg text-ink">
-              {pending.length === 1
-                ? "Un invitado preguntó algo que no sé contestar"
-                : `${pending.length} preguntas que no sé contestar`}
-            </p>
-            <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-              Le dije que te lo consultaba. Contéstalas en los detalles del evento y el
-              asistente podrá responderlas solo de aquí en adelante.
-            </p>
-            <ul className="mt-4 space-y-2">
-              {pending.map((item) => (
-                <li key={item.id} className="text-[0.9rem] text-ink">
-                  {item.questionText}
-                  {item.waitingGuestIds.length > 1 && (
-                    <span className="text-ink-muted">
-                      {" "}
-                      · {item.waitingGuestIds.length} esperan la respuesta
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
         )}
 
         <dl className="mt-8 grid gap-x-8 gap-y-4 border-y border-line py-6 sm:grid-cols-2">
@@ -176,64 +133,6 @@ export default async function EventoPage({
         )}
 
 
-        <section className="mt-12">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-display text-2xl text-ink">
-              Lo que el asistente ya sabe
-            </h2>
-            {!archived && (
-              <Link
-                href={`/eventos/${event.id}/detalles`}
-                className="text-[0.85rem] text-accent hover:underline"
-              >
-                Editar
-              </Link>
-            )}
-          </div>
-          <p className="mt-2 text-[0.9rem] text-ink-muted">
-            {publicFacts.length} de {answerable} preguntas contestadas. Las que
-            falten, el asistente te las preguntará cuando un invitado las haga.
-          </p>
-
-          {publicFacts.length === 0 ? (
-            <p className="mt-6 rounded-xl border border-dashed border-line bg-paper-deep p-6 text-center text-ink-muted">
-              Todavía no has contestado nada.
-              {!archived && (
-                <>
-                  {" "}
-                  <Link
-                    href={`/eventos/${event.id}/detalles`}
-                    className="text-accent hover:underline"
-                  >
-                    Empieza aquí
-                  </Link>
-                </>
-              )}
-            </p>
-          ) : (
-            <ul className="mt-6 space-y-4">
-              {publicFacts.map((fact) => (
-                <li key={fact.id} className="border-t border-line pt-4">
-                  <p className="text-[0.9rem] text-ink-muted">{fact.question}</p>
-                  <p className="mt-1 text-ink">{fact.answer}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {internalFacts.length > 0 && (
-            <div className="mt-10 rounded-xl border border-line bg-paper-deep p-5">
-              <p className="eyebrow">Sólo para ti</p>
-              <ul className="mt-3 space-y-2">
-                {internalFacts.map((fact) => (
-                  <li key={fact.id} className="text-[0.9rem] text-ink-soft">
-                    {fact.answer}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
 
 
       </div>

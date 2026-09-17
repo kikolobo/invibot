@@ -16,11 +16,14 @@ export function EventNav({
   eventId,
   eventName,
   guestCount,
+  openQuestions,
   archived,
 }: {
   eventId: string;
   eventName: string;
   guestCount: number;
+  /** Guests are waiting on these, so the count follows the organizer around. */
+  openQuestions: number;
   archived: boolean;
 }) {
   const pathname = usePathname();
@@ -31,6 +34,14 @@ export function EventNav({
     // The questionnaire is an editor; an archived event has nothing to do there.
     ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles del evento" }]),
     { href: `${base}/invitados`, label: "Lista de invitados", badge: guestCount },
+    {
+      href: `${base}/hechos`,
+      label: "Lo que sabe",
+      badge: openQuestions,
+      // A plain count reads as "how many facts"; this one means "somebody is
+      // waiting on you", so it is coloured rather than quiet.
+      urgent: openQuestions > 0,
+    },
     // Available on an archived event too: it reads, it does not change anything.
     { href: `${base}/simulador`, label: "Simulador WhatsApp" },
   ];
@@ -63,7 +74,15 @@ export function EventNav({
               >
                 {link.label}
                 {link.badge !== undefined && link.badge > 0 && (
-                  <span className="text-[0.78rem] text-ink-muted">{link.badge}</span>
+                  <span
+                    className={
+                      "urgent" in link && link.urgent
+                        ? "rounded-full bg-accent px-1.5 py-0.5 text-[0.7rem] font-medium leading-none text-paper"
+                        : "text-[0.78rem] text-ink-muted"
+                    }
+                  >
+                    {link.badge}
+                  </span>
                 )}
               </Link>
             </li>
