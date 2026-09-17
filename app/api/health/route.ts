@@ -18,7 +18,7 @@ export async function GET() {
   const describe = (profile: "test" | "production") => {
     const config = whatsappConfig(profile);
     return config
-      ? `number ${config.phoneNumberId} · WABA ${config.wabaId ?? "MISSING"} · token ${config.accessToken.length} chars`
+      ? `number ${config.phoneNumberId} · WABA ${config.wabaId ?? "MISSING"} · dials ${config.displayPhone ?? "MISSING"} · token ${config.accessToken.length} chars`
       : "NOT CONFIGURED";
   };
 
