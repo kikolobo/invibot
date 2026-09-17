@@ -8,52 +8,61 @@ refleja la verdad.
 
 ---
 
-## 0. Pasar al número real — **esperando la revisión de Meta**
+## 0. Pasar al número real — **el número ya sirve; falta prenderlo**
 
-El código ya maneja los dos números a la vez y lo de Meta ya está hecho. Falta
-sólo lo de Vercel, y que Meta apruebe.
+El número real quedó registrado y probado el 2026-09-17. Lo que falta es una
+variable en Vercel y una prueba de punta a punta.
 
-Hecho el 2026-09-17:
+El par bueno es:
 
-- `WHATSAPP_PROFILE` elige entre `test` y `production`; sin variable, `test`
-  (a propósito: un entorno despistado cae en el número que no cuesta nada).
-- Las respuestas salen por el número al que el invitado escribió, no por el
-  perfil activo. Un número que no reconocemos se guarda y no se contesta.
-- Los media ids ya se guardan con el número que los creó
-  (`events.card_media_phone_number_id`). Un handle del otro número sólo puede
-  fallar, y en silencio.
-- La app `InviBot` ya está suscrita al WABA de producción. Antes los webhooks
-  de ese número iban únicamente a tres apps de Twilio. **Las de Twilio siguen
-  ahí** — sólo se pueden quitar desde la consola de Twilio, nuestra app no
-  puede borrar la suscripción de otra. Francisco dijo que ese número ya no hace
-  nada en Twilio, así que conviene quitarlas para que no reciban copia.
-- Las ocho plantillas ya se crearon en el WABA de producción. Nacieron con el
-  pie correcto (`Powered by InviBot.com`), así que el pendiente #1 no aplica
-  ahí.
-- Las cinco variables nuevas ya están en Vercel (`WHATSAPP_TEST_*`,
-  `WHATSAPP_PROD_*` y `WHATSAPP_PROFILE=test`) y el código ya está
-  desplegado. `/api/health` confirma los dos números. Vercel las guardó como
-  *sensitive*, así que no se pueden volver a leer desde el dashboard ni con
-  `vercel env pull` — `/api/health` es la única forma de verificarlas.
+| | |
+|---|---|
+| Número | `+1 619-304-5456` |
+| Phone number id | `1317996261394909` |
+| WABA | `150259448162128` «InviBot.com» |
+
+⚠️ **El mismo número aparece dos veces en Meta.** El id viejo
+`135995746264538`, en el WABA `154263271092631` («Movic's InviBot»), es el que
+estaba amarrado a Twilio. Sigue diciendo `CONNECTED` y **no es el que se usa**.
+Ahí quedaron ocho plantillas de más; no estorban.
+
+Hecho:
+
+- Los dos números conviven. `WHATSAPP_PROFILE` elige cuál abre conversaciones;
+  sin variable, `test`. Las respuestas salen siempre por el número al que el
+  invitado escribió, así que un número que no reconocemos se guarda y no se
+  contesta.
+- El número está registrado en la Cloud API bajo nuestra app: `CONNECTED`,
+  calidad GREEN, y el sondeo de permisos responde `131009` igual que el de
+  prueba. Para llegar ahí hubo que **apagar la verificación en dos pasos** en
+  WhatsApp Manager — no hay API para eso — y luego correr
+  `scripts/whatsapp-register-number.mts`.
+- El PIN de dos pasos que quedó al registrar **no está en este repo y no debe
+  estarlo**. Está en el gestor de contraseñas. Sin él no se puede volver a
+  registrar el número en ningún lado.
+- Las ocho plantillas ya están en el WABA bueno, y el webhook del WABA bueno
+  sólo tiene a `InviBot` — nada de Twilio.
+- Vercel ya trae los ids nuevos y está desplegado. Sigue en
+  `WHATSAPP_PROFILE=test`, así que produce igual que siempre, pero ya reconoce
+  el número nuevo si algo entra por ahí.
 
 Falta:
 
-1. **Esperar a `consulta_organizador`.** Siete de las ocho ya quedaron
-   `APPROVED` el mismo 2026-09-17; falta esa, que es la que le pregunta al
-   anfitrión lo que un invitado preguntó. No está en el camino del invitado,
-   pero sin ella una escalación se queda sin salir.
+1. **Esperar las tres plantillas que siguen en revisión** — `confirmacion_rsvp`,
+   `aviso_cambio_evento` y `consulta_organizador`. `invitacion_evento` ya está
+   aprobada, así que se puede probar desde ahora; `confirmacion_rsvp` sólo hace
+   falta cuando un invitado confirma con la ventana de 24 horas ya cerrada.
    `npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts --profile production`
-2. **Prender producción:** `WHATSAPP_PROFILE=production` en Vercel,
-   redesplegar, y `/api/health` debe decir
-   `WHATSAPP_SENDING_AS: number 135995746264538`. Para regresar, se borra la
-   variable y se vuelve a desplegar: sin ella el perfil es `test`.
-3. **Probar en vivo con un invitado de prueba** antes de cualquier lista real:
-   una invitación, una respuesta libre, y que llegue la tarjeta (la primera vez
-   se vuelve a subir sola, porque el handle viejo era del número de prueba).
-
-⚠️ `code_verification_status` del número real dice `EXPIRED`. No parece
-bloquear nada — está `CONNECTED`, `LIVE` y con calidad GREEN — pero si un envío
-falla sin explicación, empieza por ahí.
+2. **Probar de punta a punta** con `.env.local` en `production` y el servidor
+   local: mandar la invitación desde la app, contestar desde el celular (eso
+   llega a invibot.com, no a la laptop), y verificar respuesta, tarjeta y pase.
+   La tarjeta se vuelve a subir sola la primera vez.
+3. **Prender producción:** `WHATSAPP_PROFILE=production` en Vercel y
+   redesplegar. `/api/health` debe decir
+   `WHATSAPP_SENDING_AS: number 1317996261394909`. Para regresar se borra la
+   variable y se vuelve a desplegar.
+4. **Regresar `.env.local` a `test`** cuando se acabe la prueba, o todo envío
+   local sale por el número real.
 
 ⚠️ El número real es `+1 619-304-5456`, de San Diego. Francisco lo dio por
 bueno por ahora: el costo lo fija el país de quien recibe, no el del remitente.

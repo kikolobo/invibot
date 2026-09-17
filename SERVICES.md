@@ -165,33 +165,59 @@ is configured alongside it and not yet switched on — see "Two numbers" below.
   | | test | production |
   | --- | --- | --- |
   | Number | `+1 555-074-3275` (Meta's) | `+1 619-304-5456` |
-  | Phone number id | `140921972434962` | `135995746264538` |
-  | WABA | `126496910555795` Test | `154263271092631` Movic's InviBot |
-  | Templates | 8 approved | 8 submitted 2026-09-17, in review |
+  | Phone number id | `140921972434962` | `1317996261394909` |
+  | WABA | `126496910555795` Test | `150259448162128` InviBot.com |
+  | Templates | 8 approved | 8 submitted 2026-09-17 |
   | Recipients | 5 allow-listed | anybody |
+
+  **The same physical number exists twice at Meta.** `135995746264538` on WABA
+  `154263271092631` ("Movic's InviBot") is the abandoned Twilio-linked entry —
+  it still reads `CONNECTED` and it is *not* the one to use. The live pair is
+  the one in the table. Eight templates were created on the dead WABA before
+  this was understood; they are harmless and can be ignored.
 
   Inbound is routed by `metadata.phone_number_id`, not by the profile: both
   numbers deliver to the same webhook, and a reply always goes out on the number
   the guest wrote to. A number matching neither profile is recorded and left
   unanswered.
 
-- **⚠️ Templates do not cross WABAs.** The eight approved templates exist only
-  on the test WABA. The live WABA has none, so the production profile can open
-  no conversation at all until they are created there and approved again.
-  Every template script takes `--profile production` and prints which WABA it
-  is about to touch.
+- **⚠️ Templates do not cross WABAs.** A template is approved per WABA, so
+  moving to a different WABA means creating all eight again and waiting for
+  review again. Every template script takes `--profile production` and prints
+  which WABA it is about to touch. Approval has twice taken an afternoon, not
+  days — most of the eight land within the hour.
+- **⚠️ A number must be *registered* to the app that sends from it.** Three
+  distinct failures, in the order they were hit on 2026-09-17, each with a
+  different fix:
+
+  | Error | Means | Fix |
+  | --- | --- | --- |
+  | `(#200) You do not have the necessary permissions` | the number is registered to somebody else's app (a BSP's) | release it there, or attach the number to your own WABA |
+  | `(#133010) Account not registered` | the number is on your WABA but never registered | `scripts/whatsapp-register-number.mts --profile production --pin NNNNNN --apply` |
+  | `(#100) Cannot Create Certificate / two-factor authentication` | two-step verification is on for that number | turn it off in WhatsApp Manager — **there is no API for this** — then register |
+
+  The probe that tells these apart without sending anything or billing a cent:
+  POST a read receipt with a bogus wamid to `/{phone_number_id}/messages`.
+  `131009` (invalid parameter) means the number can send; anything else is the
+  real problem, named.
+- **⚠️ Registering sets a two-step PIN that Meta will never show you again.**
+  It is required to re-register the number anywhere later. It is not in this
+  repo and must not be: it lives in the password manager.
+- **⚠️ `health_status` on a phone number describes the number, not your app's
+  right to use it.** It read `can_send_message: AVAILABLE` at every level while
+  every send was being rejected with `(#200)`. Trust the probe above instead.
 - **⚠️ Media ids do not cross numbers.** A card or pass uploaded by one number
   is rejected by the other, and the failure is silent — the confirmation goes
   out and the image simply never arrives. `events.card_media_phone_number_id`
   records which number minted the cached handle so the other one re-uploads.
-- **⚠️ The live WABA also delivers to Twilio.** It arrived subscribed to three
-  Twilio apps and not to us; `InviBot` was subscribed on 2026-09-17, and
-  Twilio's three are still there. A subscription can only be removed by the app
-  that owns it, so those have to go from Twilio's own console.
-  `scripts/whatsapp-subscribe-webhook.mts --profile production` shows and sets
-  ours. The subscription is per-WABA and is the piece that is easy to forget:
-  without it a number sends perfectly and delivers nothing inbound, which looks
-  exactly like guests ignoring us.
+- **⚠️ Webhook subscription is per-WABA and easy to forget.** Without it a
+  number sends perfectly and delivers nothing inbound, which looks exactly like
+  guests ignoring us. `scripts/whatsapp-subscribe-webhook.mts --profile
+  production` shows and sets ours. The live WABA `150259448162128` has `InviBot`
+  and nothing else. The abandoned `154263271092631` still carries three Twilio
+  apps; a subscription can only be removed by the app that owns it, so those
+  would have to go from Twilio's own console — moot now that we do not use that
+  WABA.
 - **Env vars:** see the Vercel table above.
 - `scripts/whatsapp-accounts.mts` prints the whole picture read-only — every
   WABA in the portfolio, its numbers, its subscribed apps and its templates.
