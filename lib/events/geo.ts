@@ -81,6 +81,51 @@ export async function coordsFromShortLink(url: string): Promise<Coords | null> {
 }
 
 /**
+ * Google's own answer for an address, without an API key.
+ *
+ * The embed page Google serves for `?q=<address>&output=embed` carries the
+ * resolved place as a `[lat,lng]` pair in its body — the same geocoder behind
+ * the Maps link we hand guests, which is precise where Nominatim is not: for
+ * one San Pedro address the two disagree by 818 metres, which is the
+ * difference between a driveway and the wrong block.
+ *
+ * Undocumented and therefore not to be relied on alone: in testing it answered
+ * for some addresses and returned a stub for others, so every caller falls
+ * through to Nominatim. Set GOOGLE_MAPS_API_KEY and none of this runs — the
+ * real Geocoding API answers every time.
+ */
+export async function coordsFromGoogleSearch(query: string): Promise<Coords | null> {
+  try {
+    const url = `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+    const response = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
+        "accept-language": "es-MX,es;q=0.9",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    const body = await response.text();
+
+    // The pair is the whole signal. When Google resolves the address it writes
+    // the place as `[lat,lng]`; when it cannot, the response carries only a
+    // camera centroid — 9 km off for one CDMX address I checked — and no pair
+    // at all. So its absence means "Google is not sure", which is exactly the
+    // case where guessing is worse than falling through. (Do not gate on body
+    // size: the confident answers are the *small* responses, around 2.4 KB.)
+    const match = body.match(/\[(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/);
+    if (!match) return null;
+
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Geocodes a written address through OpenStreetMap's Nominatim.
  *
  * Chosen because it needs no API key and no billing account — this runs once
@@ -118,6 +163,25 @@ export async function geocodeAddress(query: string): Promise<Coords | null> {
 }
 
 /**
+ * The same address with the colonia dropped.
+ *
+ * Google resolves "Avenida Manuel Gomez Morin 901, San Pedro, Garza Garcia,
+ * Nuevo León, México" to the door and refuses the identical string with
+ * "Colonia Carrizalejo" in the middle — the neighbourhood is how a Mexican
+ * writes an address and a nuisance to a geocoder that indexes streets. Tried
+ * only as a second attempt, never in place of what the organizer wrote.
+ */
+function withoutColonia(query: string): string | null {
+  const kept = query
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part && !/^col(onia)?\b\.?/i.test(part));
+
+  const simplified = kept.join(", ");
+  return simplified && simplified !== query ? simplified : null;
+}
+
+/**
  * The event's pin, resolved from whatever the organizer gave us.
  *
  * Returns null rather than guessing. A location message with the wrong dot on
@@ -141,5 +205,25 @@ export async function resolveCoords(
   }
 
   const query = venueQuery(event);
-  return query ? geocodeAddress(query) : null;
+  if (!query) return null;
+
+  const simplified = withoutColonia(query);
+
+  // Google first, and twice: it is the geocoder the guest's own maps app
+  // agrees with, and the one whose link the organizer has already checked
+  // against reality. Nominatim is the backstop — for one San Pedro address the
+  // two disagree by 818 metres, and Google is the one that is right.
+  for (const attempt of [query, simplified]) {
+    if (!attempt) continue;
+    const coords = await coordsFromGoogleSearch(attempt);
+    if (coords) return coords;
+  }
+
+  for (const attempt of [query, simplified]) {
+    if (!attempt) continue;
+    const coords = await geocodeAddress(attempt);
+    if (coords) return coords;
+  }
+
+  return null;
 }
