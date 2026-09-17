@@ -113,7 +113,7 @@ export function ReportControls({
           href={printHref}
           target="_blank"
           rel="noopener"
-          className="rounded-full bg-accent px-4 py-1.5 text-[0.82rem] text-paper"
+          className="h-fit self-end rounded-full bg-accent px-4 py-1 text-[0.82rem] leading-5 text-paper"
         >
           Imprimir
         </Link>

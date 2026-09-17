@@ -37,7 +37,7 @@ export function EventNav({
     { href: `${base}/reporte`, label: "Reporte" },
     {
       href: `${base}/hechos`,
-      label: "Lo que sabe",
+      label: "Preguntas",
       badge: openQuestions,
       // A plain count reads as "how many facts"; this one means "somebody is
       // waiting on you", so it is coloured rather than quiet.
