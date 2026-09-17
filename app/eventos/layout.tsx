@@ -16,7 +16,7 @@ export default async function EventosLayout({
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-paper text-ink">
-      <header className="flex items-center justify-between gap-4 border-b border-line px-6 py-4 sm:px-10">
+      <header className="print-hide flex items-center justify-between gap-4 border-b border-line px-6 py-4 sm:px-10">
         <Link
           href="/eventos"
           className="font-display text-2xl tracking-tight text-ink transition-colors hover:text-accent"

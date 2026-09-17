@@ -34,6 +34,7 @@ export function EventNav({
     // The questionnaire is an editor; an archived event has nothing to do there.
     ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles del evento" }]),
     { href: `${base}/invitados`, label: "Lista de invitados", badge: guestCount },
+    { href: `${base}/reportes`, label: "Reportes" },
     {
       href: `${base}/hechos`,
       label: "Lo que sabe",
@@ -47,7 +48,7 @@ export function EventNav({
   ];
 
   return (
-    <nav className="shrink-0 sm:w-52">
+    <nav className="print-hide shrink-0 sm:w-52">
       <p className="truncate font-display text-lg text-ink" title={eventName}>
         {eventName}
       </p>

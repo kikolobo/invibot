@@ -66,3 +66,50 @@ body {
   text-transform: uppercase;
   color: var(--ink-muted);
 }
+
+/*
+ * Printing the door list.
+ *
+ * The browser's own "Save as PDF" rather than a PDF library: it needs no
+ * dependency, runs anywhere, and renders the same typography the page already
+ * uses. What it costs is a print dialog instead of a download button.
+ *
+ * The screen version sits in a card; on paper the card *is* the page, so the
+ * frame comes off and the margins come from @page.
+ */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .print-sheet {
+    margin: 0 !important;
+    border: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* A letter or a group should not be orphaned at the foot of a page. */
+  .print-section {
+    break-inside: avoid;
+  }
+
+  /* Long sections may split, but never right after their heading. */
+  .print-section > div:first-child {
+    break-after: avoid;
+  }
+
+  li {
+    break-inside: avoid;
+  }
+}
