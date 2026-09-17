@@ -25,6 +25,15 @@ const dateFmt = new Intl.DateTimeFormat("es-MX", {
 });
 const timeFmt = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit" });
 
+const statusLabels: Record<string, string> = {
+  draft: "Borrador",
+  ready: "Lista",
+  sending: "Enviando",
+  live: "En curso",
+  closed: "Cerrado",
+  cancelled: "Cancelado",
+};
+
 export default async function EventoPage({
   params,
 }: {
@@ -113,22 +122,38 @@ export default async function EventoPage({
               {event.maxPartySize > 1 && (
                 <span className="text-ink-soft"> · con acompañante</span>
               )}
-              {!archived && (
-                <span className="block">
-                  <PartySettings
-                    eventId={event.id}
-                    allowPlusOnes={event.allowPlusOnes}
-                    invitedCount={invitedCount}
-                  />
-                </span>
-              )}
             </dd>
           </div>
           <div>
             <dt className="eyebrow">Estado</dt>
-            <dd className="mt-1 text-ink">Borrador</dd>
+            <dd className="mt-1 text-ink">
+              {archived ? "Archivado" : statusLabels[event.status]}
+            </dd>
           </div>
         </dl>
+
+        {!archived && (
+          <PartySettings
+            eventId={event.id}
+            allowPlusOnes={event.allowPlusOnes}
+            invitedCount={invitedCount}
+          />
+        )}
+
+        <Link
+          href={`/eventos/${event.id}/invitados`}
+          className="mt-12 block rounded-xl border border-line bg-paper-deep p-6 transition-colors hover:border-accent"
+        >
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="font-display text-xl text-ink">Invitados</p>
+            <span className="font-display text-2xl text-accent">{guestCount}</span>
+          </div>
+          <p className="mt-2 leading-relaxed text-ink-soft">
+            {guestCount === 0
+              ? "Agrega tu lista de invitados o impórtala desde una hoja de cálculo."
+              : "Administra tu lista y revisa quién ha confirmado."}
+          </p>
+        </Link>
 
         {!archived && (
           <EventCard
@@ -146,7 +171,7 @@ export default async function EventoPage({
             eventName={event.name}
             eventVars={eventVariables(event)}
             guestName={previewName}
-            hasCompanionVersion={event.maxPartySize > 1}
+            withCompanion={event.maxPartySize > 1}
             cardSrc={
               event.cardR2Key
                 ? `/api/eventos/${event.id}/card?v=${event.cardUploadedAt?.getTime() ?? 0}`
@@ -214,29 +239,10 @@ export default async function EventoPage({
           )}
         </section>
 
-        <Link
-          href={`/eventos/${event.id}/invitados`}
-          className="mt-12 block rounded-xl border border-line bg-paper-deep p-6 transition-colors hover:border-accent"
-        >
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="font-display text-xl text-ink">Invitados</p>
-            <span className="font-display text-2xl text-accent">{guestCount}</span>
-          </div>
-          <p className="mt-2 leading-relaxed text-ink-soft">
-            {guestCount === 0
-              ? "Agrega tu lista de invitados o impórtala desde una hoja de cálculo."
-              : "Administra tu lista y revisa quién ha confirmado."}
-          </p>
-        </Link>
 
         {!archived && (
           <ArchiveEvent eventId={event.id} archived={false} guestCount={guestCount} />
         )}
-
-        <div className="mt-5 rounded-xl border border-dashed border-line p-6">
-          <p className="font-display text-xl text-ink-muted">Diseño de la invitación</p>
-          <p className="mt-2 leading-relaxed text-ink-muted">Todavía no está listo.</p>
-        </div>
       </div>
     </>
   );
