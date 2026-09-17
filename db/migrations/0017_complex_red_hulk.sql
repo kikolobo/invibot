@@ -1,0 +1,1 @@
+ALTER TYPE "public"."send_kind" ADD VALUE 'auto_register' BEFORE 'custom';

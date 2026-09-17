@@ -30,6 +30,14 @@ export type WhatsAppConfig = {
   phoneNumberId: string;
   /** Needed to read or edit templates. Never needed to send. */
   wabaId: string | null;
+  /**
+   * The number as a human dials it, digits only — `16193045456`.
+   *
+   * Nothing about sending needs this: Graph addresses a number by its id. It
+   * exists for `wa.me` links, which are the one place we hand the number to a
+   * person rather than to Meta, and the id is useless there.
+   */
+  displayPhone: string | null;
   accessToken: string;
 };
 
@@ -81,7 +89,14 @@ export function whatsappConfig(
   const accessToken = read(`${prefix}ACCESS_TOKEN`, "WHATSAPP_ACCESS_TOKEN");
   if (!phoneNumberId || !accessToken) return null;
 
-  return { profile, phoneNumberId, wabaId: field("WABA_ID"), accessToken };
+  return {
+    profile,
+    phoneNumberId,
+    wabaId: field("WABA_ID"),
+    // Tolerant of "+52 55 1234 5678" in the environment; wa.me wants bare digits.
+    displayPhone: field("DISPLAY_PHONE")?.replace(/\D/g, "") ?? null,
+    accessToken,
+  };
 }
 
 /**

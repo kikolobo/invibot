@@ -27,6 +27,7 @@ export type Invitee = {
   firstName: string | null;
   phoneE164: string | null;
   optedOut: boolean;
+  approvalStatus: string;
   inviteStatus: string;
   groupName: string | null;
   partySizeAllowed: number;
@@ -123,6 +124,11 @@ export function partitionInvitees(
 }
 
 function skipReasonFor(guest: Invitee, suppressedPhones: Set<string>): SkipReason | null {
+  // Shown as skipped rather than filtered out of the query: a host who shared
+  // the registration link is counting the people who signed up, and a plan that
+  // silently omits them reads as if the registrations were lost.
+  if (guest.approvalStatus === "pending") return "not_approved";
+  if (guest.approvalStatus === "rejected") return "rejected";
   if (!guest.phoneE164) return "no_phone";
   if (guest.optedOut) return "opted_out";
   if (variantsOf(guest.phoneE164).some((variant) => suppressedPhones.has(variant))) {
@@ -159,6 +165,7 @@ export async function invitationPlan(
       firstName: guests.firstName,
       phoneE164: guests.phoneE164,
       optedOut: guests.optedOut,
+      approvalStatus: guests.approvalStatus,
       inviteStatus: guests.inviteStatus,
       groupName: guestGroups.name,
       partySizeAllowed: guests.partySizeAllowed,

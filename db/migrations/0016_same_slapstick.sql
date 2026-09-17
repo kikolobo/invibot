@@ -1,0 +1,1 @@
+ALTER TABLE "guests" ADD COLUMN "registration_notice_at" timestamp with time zone;

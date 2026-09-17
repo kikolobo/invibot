@@ -13,7 +13,16 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { events } from "./events";
-import { rsvpStatus, inviteStatus, guestEventType, guestEventSource, passStatus } from "./enums";
+import {
+  rsvpStatus,
+  inviteStatus,
+  approvalStatus,
+  guestSource,
+  pendingQuestion,
+  guestEventType,
+  guestEventSource,
+  passStatus,
+} from "./enums";
 
 /**
  * The controlled vocabulary of groups for one event. `normalizedName` is the
@@ -93,6 +102,40 @@ export const guests = pgTable(
 
     /** Signed token for the microsite. No guest accounts, no passwords, no login. */
     accessToken: text("access_token").notNull(),
+
+    /**
+     * Whether the host has let this guest in. See the enum for why this is not
+     * folded into `inviteStatus`.
+     *
+     * A `pending` guest is invisible to everything that sends: no invitation,
+     * no assistant, no RSVP. `rejected` is answered with silence rather than a
+     * refusal — there is no version of "no" worth putting on someone's phone.
+     */
+    approvalStatus: approvalStatus("approval_status").notNull().default("approved"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    /** How they got here. `self` means they used the auto-registro link. */
+    source: guestSource("source").notNull().default("manual"),
+
+    /**
+     * A question we asked them while unapproved, and are waiting on.
+     *
+     * Read before `parseIntent`, never after: "sí" means yes to whatever we
+     * asked, and only means "I am coming" when we asked nothing. Stale ones
+     * expire — someone who answers a name question two days later is starting
+     * a new conversation, not finishing an old one.
+     */
+    pendingQuestion: pendingQuestion("pending_question"),
+    pendingQuestionAt: timestamp("pending_question_at", { withTimezone: true }),
+    /**
+     * The last time we said anything to them about their registration.
+     *
+     * One timestamp serving two rules that turn out to be the same rule:
+     * do not repeat "tu registro aún no está procesado" to someone pestering
+     * us, and do not send it at all to someone whose "gracias" arrives a minute
+     * after the Save the Date. In both cases they were told recently and
+     * saying it again only makes us look broken.
+     */
+    registrationNoticeAt: timestamp("registration_notice_at", { withTimezone: true }),
 
     optedOut: boolean("opted_out").notNull().default(false),
     optedOutAt: timestamp("opted_out_at", { withTimezone: true }),

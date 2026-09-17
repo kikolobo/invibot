@@ -8,7 +8,7 @@ import { guests, guestGroups, suppressions } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import type { EventKind } from "@/lib/events/kinds";
-import { normalizePhone } from "@/lib/phone";
+import { normalizePhone, variantsOf } from "@/lib/phone";
 import { parseGuestList, hasError, type ParsedGuest } from "./import";
 import { recordGuestEvent } from "./history";
 import { cleanGroupName, normalizeGroupName, suggestedGroups } from "./groups";
@@ -334,6 +334,65 @@ export async function deleteGuests(eventId: string, guestIds: string[]) {
     .where(and(eq(guests.eventId, eventId), inArray(guests.id, guestIds)));
 
   revalidatePath(`/eventos/${eventId}/invitados`);
+}
+
+/**
+ * Letting self-registered guests in, or not.
+ *
+ * Bulk from the start: a host pastes the link into one group and comes back to
+ * forty pending rows, and approving those one at a time is not a feature, it is
+ * a punishment.
+ *
+ * Approving lifts a previous opt-out for *this event only*. Somebody who once
+ * replied BAJA and has now written to us from their own number asking to come
+ * has plainly changed their mind, and that message is stronger evidence of
+ * consent than any checkbox — but `deliver()` blocks suppressed numbers, so
+ * without this the approval would succeed and the invitation would silently
+ * never arrive. The global suppression list is left alone: consent was given
+ * for this party, not for everything we might ever send.
+ */
+export async function setGuestApproval(
+  eventId: string,
+  guestIds: string[],
+  approved: boolean,
+) {
+  const event = await ownedEvent(eventId);
+  if (!event || guestIds.length === 0) return;
+
+  const rows = await db
+    .update(guests)
+    .set({
+      approvalStatus: approved ? "approved" : "rejected",
+      approvedAt: approved ? new Date() : null,
+      // Whatever we were waiting to be told no longer matters: the host has
+      // decided, and a stale question would read the next message as an answer.
+      pendingQuestion: null,
+      pendingQuestionAt: null,
+      ...(approved ? { optedOut: false, optedOutAt: null } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(guests.eventId, eventId), inArray(guests.id, guestIds)))
+    .returning({ id: guests.id, phoneE164: guests.phoneE164, fullName: guests.fullName });
+
+  if (approved) {
+    const phones = rows.flatMap((row) => (row.phoneE164 ? variantsOf(row.phoneE164) : []));
+    if (phones.length > 0) {
+      await db.delete(suppressions).where(inArray(suppressions.phoneE164, phones));
+    }
+  }
+
+  for (const row of rows) {
+    await recordGuestEvent({
+      guestId: row.id,
+      eventId,
+      type: approved ? "approved" : "rejected",
+      source: "organizer",
+      at: new Date(),
+    });
+  }
+
+  revalidatePath(`/eventos/${eventId}/invitados`);
+  revalidatePath(`/eventos/${eventId}`);
 }
 
 export type ImportPreview = {

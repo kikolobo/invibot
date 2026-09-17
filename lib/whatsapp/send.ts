@@ -35,6 +35,7 @@ import {
 export type SendFailureReason =
   | "not_found"
   | "no_phone"
+  | "not_approved"
   | "opted_out"
   | "suppressed"
   | "window_closed"
@@ -172,6 +173,21 @@ async function deliver(
   const guest = await db.query.guests.findFirst({ where: eq(guests.id, input.guestId) });
   if (!guest) return fail("not_found", `No guest ${input.guestId}`);
   if (!guest.phoneE164) return fail("no_phone", `Guest ${guest.fullName} has no phone number`);
+
+  // The approval gate, enforced where it cannot be forgotten. `recipients.ts`
+  // shows the organizer an honest count, but this is what actually stops an
+  // invitation reaching someone the host never let in — including through any
+  // future call site that has not thought about auto-registro at all.
+  //
+  // The single exception is auto-registro's own fixed replies, which exist to
+  // talk to exactly these guests and say nothing about the event beyond its
+  // name and date.
+  if (guest.approvalStatus !== "approved" && input.kind !== "auto_register") {
+    return fail(
+      "not_approved",
+      `${guest.fullName} is ${guest.approvalStatus}; only auto_register messages may be sent`,
+    );
+  }
 
   if (guest.optedOut) return fail("opted_out", `${guest.fullName} opted out of this event`);
 

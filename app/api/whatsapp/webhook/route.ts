@@ -24,7 +24,8 @@ import { answerGuest } from "@/lib/agent/respond";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { sendPasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
-import { configForPhoneNumberId, markRead, type WhatsAppConfig } from "@/lib/whatsapp/client";
+import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
+import { handleAutoRegistro, type RegistrationAction } from "@/lib/guests/registration";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
 
 type GuestRow = typeof guests.$inferSelect;
@@ -254,6 +255,28 @@ type Answerable = {
 async function recordInbound(message: InboundMessage): Promise<Answerable | null> {
   if (!message.wamid || !message.from) return null;
 
+  const fromPhoneE164 = `+${message.from.replace(/^\+/, "")}`;
+
+  // Auto-registro runs first, and the order is the feature rather than a
+  // preference. A registration code has to beat `resolveGuest`, or someone who
+  // is already a guest of another of this host's events gets filed into that
+  // event's thread instead of registering for the new one — and the link is
+  // pasted into groups full of exactly those people. A pending question has to
+  // beat `parseIntent`, or "sí" to "¿actualizo tu nombre?" is recorded as
+  // confirming attendance by someone the host has not approved.
+  const registration = await handleAutoRegistro({
+    fromPhoneE164,
+    text: message.text,
+    profileName: message.profileName,
+  });
+
+  if (registration.kind !== "none") {
+    await completeRegistration(message, registration, fromPhoneE164);
+    // Never answerable: nothing on this path goes near the assistant, which is
+    // what keeps the venue away from someone the host has not let in.
+    return null;
+  }
+
   const guest = await resolveGuest(message);
   if (!guest) {
     // Keep it rather than dropping it: this is a forwarded invitation, a guest
@@ -334,6 +357,53 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
   }
 
   return { guest, intent, at: message.timestamp, wamid: message.wamid, config };
+}
+
+/**
+ * Carries out whatever the auto-registro rules decided.
+ *
+ * Idempotent on the wamid like every other write here, because Meta redelivers:
+ * without it a retried webhook sends the Save the Date twice. Creating the
+ * guest twice is already impossible — `(event, phone)` is unique — but saying
+ * the same thing twice is not.
+ */
+async function completeRegistration(
+  message: InboundMessage,
+  action: Exclude<RegistrationAction, { kind: "none" }>,
+  fromPhoneE164: string,
+): Promise<void> {
+  const [row] = await db
+    .insert(unmatchedInbound)
+    .values({
+      phoneNumberId: message.phoneNumberId,
+      fromPhone: fromPhoneE164,
+      profileName: message.profileName,
+      body: message.text,
+      providerMessageId: message.wamid,
+      raw: message.raw as never,
+      receivedAt: message.timestamp,
+      resolvedGuestId: action.kind === "reply" ? action.guestId : null,
+    })
+    .onConflictDoNothing({ target: unmatchedInbound.providerMessageId })
+    .returning();
+
+  // Already seen. Re-registering is harmless; re-replying is not.
+  if (!row) return;
+
+  if (action.kind === "silent") return;
+
+  if (action.kind === "reply") {
+    const outcome = await sendTextToGuest(action.guestId, action.text, "auto_register");
+    if (!outcome.ok) console.error("[auto-registro] reply failed", action.guestId, outcome);
+    return;
+  }
+
+  // No guest row to bill it to — a closed event never creates one — so this is
+  // the one place the client is called directly. There is nothing to ledger.
+  const config = configForPhoneNumberId(message.phoneNumberId);
+  if (!config) return;
+  const result = await sendText(config, fromPhoneE164, action.text);
+  if (!result.ok) console.error("[auto-registro] closed-event reply failed", result.title);
 }
 
 /**

@@ -62,6 +62,25 @@ export const events = pgTable(
      */
     mapsCode: text("maps_code").unique(),
 
+    /**
+     * Auto-registro: guests put themselves on the list and the host approves.
+     *
+     * Off is the default, and turning it off later only stops new
+     * registrations — everyone already pending stays pending. The guest-facing
+     * effect of "off" and of a closed event is identical, which is why there is
+     * one switch and one message rather than two of each.
+     */
+    autoRegisterEnabled: boolean("auto_register_enabled").notNull().default(false),
+    /**
+     * The tail of the link the host shares: invibot.com/r/{registrationCode}.
+     *
+     * Unique globally, not per organizer: with several events registering at
+     * once this code is the *only* thing routing an inbound message to an
+     * event. Alphanumeric rather than digits so a mangled code fails to resolve
+     * instead of quietly resolving to somebody else's party.
+     */
+    registrationCode: text("registration_code").unique(),
+
     // Behaviour-driving fields live as columns, not in `details`.
     rsvpRequired: boolean("rsvp_required").notNull().default(true),
     rsvpDeadline: timestamp("rsvp_deadline", { withTimezone: true }),

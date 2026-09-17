@@ -29,6 +29,36 @@ export const inviteStatus = pgEnum("invite_status", [
   "failed",
 ]);
 
+/**
+ * Whether the host has let this guest in.
+ *
+ * A separate axis from `inviteStatus`, which is the delivery pipeline Meta
+ * writes to. Sharing one column would have the host's decision and Meta's
+ * receipts overwriting each other.
+ *
+ * Defaults to `approved` because that is what adding someone to your own guest
+ * list means. Only self-registration sets `pending`, and it does so explicitly
+ * — one place to get right, rather than every import and manual add having to
+ * remember to say `approved`.
+ */
+export const approvalStatus = pgEnum("approval_status", [
+  "approved",
+  "pending",
+  "rejected",
+]);
+
+/** How the guest got onto the list. `self` is auto-registro. */
+export const guestSource = pgEnum("guest_source", ["manual", "self"]);
+
+/**
+ * A question we asked an unapproved registrant and are waiting on.
+ *
+ * It exists so the *next* message from that number can be read as an answer
+ * rather than run through `parseIntent` — where "sí" to "¿actualizo tu
+ * nombre?" would otherwise be recorded as confirming attendance.
+ */
+export const pendingQuestion = pgEnum("pending_question", ["name", "name_update"]);
+
 export const channel = pgEnum("channel", ["whatsapp", "sms", "email"]);
 
 export const sendKind = pgEnum("send_kind", [
@@ -38,6 +68,12 @@ export const sendKind = pgEnum("send_kind", [
   "rsvp_confirmation",
   "logistics",
   "organizer_relay",
+  /**
+   * The fixed replies of auto-registro. Its own kind because it is the only
+   * thing a guest the host has not approved may ever be sent, and `deliver()`
+   * enforces exactly that.
+   */
+  "auto_register",
   "custom",
 ]);
 
@@ -110,6 +146,10 @@ export const guestEventType = pgEnum("guest_event_type", [
   "declined",
   "opted_out",
   "party_size_changed",
+  /** Auto-registro: they put themselves on the list, and what the host decided. */
+  "self_registered",
+  "approved",
+  "rejected",
 ]);
 
 /** A pass is never edited back to life: cancelling revokes it and confirming mints a new one. */

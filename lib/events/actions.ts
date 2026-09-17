@@ -15,6 +15,7 @@ import { resolveCoords } from "./geo";
 import { partySizeFor } from "./party";
 import { diffEvent } from "./changes";
 import { editableEvent } from "./guard";
+import { newRegistrationCode } from "@/lib/guests/auto-register";
 import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
 import { answersToFacts, setPath } from "./facts";
@@ -287,6 +288,47 @@ export async function updatePartySettings(
   return { ok: `Listo.${note}` };
 }
 
+
+/**
+ * Turning auto-registro on and off.
+ *
+ * The code is minted once and kept forever after, even while the feature is
+ * off: it is pasted into group chats that outlive the event, and a code that
+ * changed on every toggle would turn links the host already shared into dead
+ * ones. Off stops new registrations and nothing else — everyone already pending
+ * stays pending, which is why the guest-facing effect of "off" and of a closed
+ * event is the same sentence.
+ */
+export async function updateAutoRegister(
+  eventId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
+  const enabled = formData.get("autoRegisterEnabled") === "on";
+
+  await db
+    .update(events)
+    .set({
+      autoRegisterEnabled: enabled,
+      registrationCode: guard.event.registrationCode ?? newRegistrationCode(),
+      updatedAt: new Date(),
+    })
+    .where(eq(events.id, eventId));
+
+  revalidatePath(`/eventos/${eventId}`);
+  revalidatePath(`/eventos/${eventId}/invitados`);
+
+  return {
+    ok: enabled
+      ? "Auto-registro activado. Comparte el link con tus invitados."
+      : "Auto-registro desactivado. Los registros pendientes siguen ahí.",
+  };
+}
 
 /**
  * Renaming an event.

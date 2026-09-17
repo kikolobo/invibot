@@ -10,7 +10,9 @@ export type SkipReason =
   | "opted_out"
   | "suppressed"
   | "already_invited"
-  | "in_flight";
+  | "in_flight"
+  | "not_approved"
+  | "rejected";
 
 export const skipLabels: Record<SkipReason, string> = {
   no_phone: "Sin teléfono",
@@ -18,6 +20,8 @@ export const skipLabels: Record<SkipReason, string> = {
   suppressed: "En la lista de bajas",
   already_invited: "Ya tiene su invitación",
   in_flight: "Enviándose ahora",
+  not_approved: "Falta aprobarlo",
+  rejected: "Rechazado",
 };
 
 export type MissingField = "hostNames" | "venue";
