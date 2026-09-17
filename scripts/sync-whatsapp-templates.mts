@@ -3,9 +3,11 @@
  * already have.
  *
  * Approval is manual and takes anywhere from minutes to days, so this is safe
- * to re-run: existing names are reported and skipped, never resubmitted. An
- * approved template cannot be edited in place — change the copy and you submit
- * a new name.
+ * to re-run: existing names are reported and skipped, never resubmitted.
+ *
+ * To change the copy of a template Meta already has, use
+ * `update-whatsapp-templates.mts` — an approved template can be edited in
+ * place, once a day. Submitting a new name is only for a new message.
  *
  *   npx tsx scripts/sync-whatsapp-templates.mts [--dry-run]
  */
