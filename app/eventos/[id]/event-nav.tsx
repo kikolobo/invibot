@@ -31,6 +31,8 @@ export function EventNav({
     // The questionnaire is an editor; an archived event has nothing to do there.
     ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles del evento" }]),
     { href: `${base}/invitados`, label: "Lista de invitados", badge: guestCount },
+    // Available on an archived event too: it reads, it does not change anything.
+    { href: `${base}/simulador`, label: "Simulador WhatsApp" },
   ];
 
   return (

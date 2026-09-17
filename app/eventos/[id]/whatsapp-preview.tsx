@@ -65,14 +65,8 @@ export function WhatsAppPreview({
     withCompanion ? (["solo", "plus_one", "no"][index] as Answer) : index === 1 ? "no" : "solo";
 
   return (
-    <section className="mt-12">
-      <h2 className="font-display text-2xl text-ink">Cómo se ve en WhatsApp</h2>
-      <p className="mt-2 max-w-prose text-[0.9rem] leading-relaxed text-ink-muted">
-        Esto es exactamente lo que enviamos. Toca una respuesta para ver qué recibe
-        después.
-      </p>
-
-      <div className="mt-5 max-w-[22rem] overflow-hidden rounded-2xl border border-line shadow-sm">
+    <div>
+      <div className="max-w-[22rem] overflow-hidden rounded-2xl border border-line shadow-sm">
         <div className="flex items-center gap-2.5 bg-[#075e54] px-3.5 py-2.5">
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/25 text-[0.7rem] font-medium text-white">
             {(eventName[0] ?? "?").toUpperCase()}
@@ -124,11 +118,11 @@ export function WhatsAppPreview({
         </div>
       </div>
 
-      <p className="mt-3 max-w-prose text-[0.82rem] leading-relaxed text-ink-muted">
+      <p className="mt-4 max-w-prose text-[0.85rem] leading-relaxed text-ink-muted">
         Quien escriba con sus propias palabras en vez de tocar un botón todavía no
         recibe respuesta automática.
       </p>
-    </section>
+    </div>
   );
 }
 
