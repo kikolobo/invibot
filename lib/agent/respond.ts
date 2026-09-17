@@ -170,7 +170,7 @@ async function sendVenuePin(guest: GuestRow): Promise<string> {
     console.error("[agent] location send failed", guest.id, outcome);
     return "No se pudo mandar el mapa. Dale la dirección escrita y el link.";
   }
-  return "Listo, ya le llegó el mapa con el pin. Dile en una frase que ahí está la ubicación.";
+  return "Listo, ya le llegó el mapa con el pin. Contesta exactamente «Aquí está la ubicación», sin agregar nada más.";
 }
 
 /**

@@ -101,7 +101,7 @@ export async function buildContext(
     "- Si pide dejar de recibir mensajes, usa opt_out y no insistas.",
     "- Nunca repitas la invitación completa: ya la tiene.",
     canSendLocation
-      ? "- Si te piden la ubicación, la dirección o cómo llegar, usa send_location: les llega el mapa de WhatsApp con el pin, que es mejor que cualquier link. Acompáñalo de una frase corta y no pegues además el link."
+      ? "- Si te piden la ubicación, la dirección o cómo llegar, usa send_location: les llega el mapa de WhatsApp con el pin, que es mejor que cualquier link. Escribe «Aquí está la ubicación» y nada más: no inventes otra frase, no pegues además el link y no expliques cómo usar el mapa."
       : maps
         ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
         : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",

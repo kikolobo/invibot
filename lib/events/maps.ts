@@ -69,22 +69,23 @@ export function guestMapsLink(event: ShortFields): string | null {
 export const newMapsCode = customAlphabet("abcdefghjkmnpqrstuvwxyz23456789", 6);
 
 /**
- * The address as a human would type it into the search box.
+ * The address, and only the address.
  *
- * The street address wins over the venue name when both exist — "Gomez Morin,
- * Gomez Morin 901" is the same thing twice, and this string is read by guests
- * inside a WhatsApp message, where every character is visible.
+ * The venue name is deliberately excluded. "Hacienda San Pedro" is what the
+ * party is called, not where it is: a geocoder handed both will happily match
+ * the name against a business three states away and return a pin someone
+ * drives to. The street, city, state and country are the parts that identify
+ * a place on earth.
+ *
+ * So an event with no street address gets no map, no pin and no link — which
+ * is the honest outcome. A search for a venue name is a guess wearing the
+ * costume of an address.
  */
 export function venueQuery(event: VenueFields): string | null {
   const street = event.venueAddress?.trim();
-  const named = event.venueName?.trim();
-  const city = event.venueCity?.trim();
+  if (!street) return null;
 
-  // A country alone is not an address — and `venueCountry` defaults to MX, so
-  // an event with no venue yet would otherwise search for "México".
-  if (!street && !named && !city) return null;
-
-  return [street || named, city, event.venueState?.trim(), countryLabel(event.venueCountry)]
+  return [street, event.venueCity?.trim(), event.venueState?.trim(), countryLabel(event.venueCountry)]
     .filter((part): part is string => Boolean(part))
     .join(", ");
 }

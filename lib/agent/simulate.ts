@@ -79,7 +79,7 @@ export async function simulateReply(
       case "opt_out":
         return "Registrado. No se le enviarán más mensajes.";
       case "send_location":
-        return "Listo, ya le llegó el mapa con el pin. Dile en una frase que ahí está la ubicación.";
+        return "Listo, ya le llegó el mapa con el pin. Contesta exactamente «Aquí está la ubicación», sin agregar nada más.";
       case "escalate_question":
         return "Enviado al anfitrión. Avísale al invitado que le confirmas en cuanto sepas.";
     }

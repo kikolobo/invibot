@@ -122,6 +122,7 @@ export const cases: EvalCase[] = [
     pin: true,
     expectTools: ["send_location"],
     forbidTools: ["escalate_question"],
+    expectText: ["aquí está la ubicación"],
     because:
       "A native map card is the answer to «¿dónde es?». Pasting a link instead is a worse version of something we already have.",
   },
