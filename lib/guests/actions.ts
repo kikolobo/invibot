@@ -269,6 +269,7 @@ export async function updateGuest(
       groupId: await resolveGroup(eventId, String(formData.get("group") ?? "")),
       isVip: formData.get("isVip") === "on",
       tableNumber: tableNumber.value,
+      notes: String(formData.get("notes") ?? "").trim() || null,
       partySizeAllowed,
       rsvpStatus: rsvpStatus as typeof guest.rsvpStatus,
       // Set when the organizer records an answer, cleared when they take it

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import QRCode from "qrcode";
-import opentype from "opentype.js";
+import { parse, type Font } from "opentype.js";
 import sharp from "sharp";
 
 /**
@@ -32,15 +32,15 @@ const PAPER = "#ffffff";
  * Read once per process. The file is ~740 KB and parsing it on every pass would
  * be the slowest thing in the send path by a wide margin.
  */
-let cached: opentype.Font | null = null;
+let cached: Font | null = null;
 
-function font(): opentype.Font {
+function font(): Font {
   if (cached) return cached;
   // Resolved from the project root rather than the module, because the compiled
   // module does not live where the source does. `next.config.ts` keeps this
   // file in the deployment bundle.
   const file = path.join(process.cwd(), "lib/passes/fonts/DejaVuSans.ttf");
-  cached = opentype.parse(
+  cached = parse(
     // A Buffer's underlying ArrayBuffer can be a slice of a larger pool, so the
     // byte range matters: handing over the whole pool parses garbage.
     readFileSync(file).buffer.slice(0) as ArrayBuffer,
@@ -58,11 +58,13 @@ function font(): opentype.Font {
  * touches none of it. Ligatures and kerning are lost, which on a name and a
  * one-line warning is nothing to miss.
  */
-function measure(parsed: opentype.Font, text: string, size: number): number {
+function measure(parsed: Font, text: string, size: number): number {
   const scale = size / parsed.unitsPerEm;
   let width = 0;
   for (const character of text) {
-    width += parsed.charToGlyph(character).advanceWidth * scale;
+    // `advanceWidth` is optional in the typings; a glyph without one occupies
+    // no space, which is the right answer for the handful that lack it.
+    width += (parsed.charToGlyph(character).advanceWidth ?? 0) * scale;
   }
   return width;
 }
@@ -79,7 +81,7 @@ function line(text: string, x: number, y: number, size: number, fill: string): s
     // A space has an advance and no outline; skipping the empty `d` keeps the
     // document from filling with useless nodes.
     if (data) parts.push(data);
-    cursor += glyph.advanceWidth * scale;
+    cursor += (glyph.advanceWidth ?? 0) * scale;
   }
 
   return `<path d="${parts.join(" ")}" fill="${fill}" />`;

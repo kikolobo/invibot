@@ -18,6 +18,7 @@ export type GuestRow = {
   partySizeConfirmed: number | null;
   isVip: boolean;
   tableNumber: string | null;
+  notes: string | null;
   rsvpStatus: string;
   inviteStatus: string;
 };

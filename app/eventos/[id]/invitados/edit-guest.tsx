@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateGuest, type GuestActionState } from "@/lib/guests/actions";
-import { Input } from "@/components/ui/field";
+import { Input, Textarea } from "@/components/ui/field";
 import { Combobox } from "@/components/ui/combobox";
 import type { GuestRow } from "./guest-table";
 import { MAX_PARTY_SIZE } from "@/lib/events/party";
@@ -154,6 +154,19 @@ export function EditGuest({
           Para confirmar dos personas, primero marca que puede traer acompañante.
         </p>
       )}
+
+      <label className="mt-3 block text-[0.88rem] text-ink-soft">
+        Notas
+        <Textarea
+          name="notes"
+          rows={2}
+          defaultValue={guest.notes ?? ""}
+          placeholder="Alergias, cómo llegó a la lista, lo que sea"
+        />
+        <span className="mt-1 block text-[0.78rem] text-ink-muted">
+          Sólo para ti. El asistente nunca las lee ni las repite.
+        </span>
+      </label>
 
       {guest.inviteStatus !== "pending" && (
         <p className="mt-3 text-[0.8rem] leading-relaxed text-ink-muted">
