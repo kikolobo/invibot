@@ -35,7 +35,10 @@ export default async function EventLayout({
     .where(and(eq(escalations.eventId, id), eq(escalations.status, "open")));
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10 sm:flex-row sm:gap-12 sm:px-10 sm:py-12">
+    // Wider than the rest of the app on purpose: these pages carry tables —
+    // the guest list and the report — and a column sized for prose made them
+    // fight for room that the page had spare.
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 sm:flex-row sm:gap-10 sm:px-8 sm:py-12">
       <EventNav
         eventId={event.id}
         eventName={event.name}
