@@ -14,6 +14,9 @@ export type ReportGuest = {
   inviteStatus: string;
   isVip: boolean;
   tableNumber: string | null;
+  phoneE164: string | null;
+  email: string | null;
+  notes: string | null;
   partySizeConfirmed: number | null;
   partySizeAllowed: number;
 };
@@ -52,6 +55,45 @@ export const groupings = {
 } as const;
 
 export type GroupKey = keyof typeof groupings;
+
+/**
+ * Columns the organizer can turn on. The name is not among them: a list of
+ * anonymous table numbers is not a list.
+ *
+ * Split into two lines when rendered — the door reads the first (who, how many,
+ * which table) and the second carries everything you only need once someone is
+ * standing in front of you.
+ */
+export const reportFields = {
+  personas: "Personas",
+  mesa: "Mesa",
+  vip: "VIP",
+  grupo: "Grupo",
+  telefono: "Teléfono",
+  correo: "Correo",
+  notas: "Notas",
+} as const;
+
+export type FieldKey = keyof typeof reportFields;
+
+/** What a door list needs before anyone asks for more. */
+const DEFAULT_FIELDS: FieldKey[] = ["personas", "mesa", "vip", "grupo"];
+
+/**
+ * Reads the chosen columns.
+ *
+ * An absent parameter means the defaults; an empty one means the organizer
+ * turned everything off, which is a real choice — a sheet of nothing but names
+ * is what a coat check wants.
+ */
+export function readFields(raw: string | string[] | undefined): FieldKey[] {
+  if (raw === undefined) return DEFAULT_FIELDS;
+  const value = Array.isArray(raw) ? raw.join(",") : raw;
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part): part is FieldKey => part in reportFields);
+}
 export const isGrouping = (value: string): value is GroupKey => value in groupings;
 
 export type OrderKey = keyof typeof orders;

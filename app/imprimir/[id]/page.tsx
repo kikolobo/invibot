@@ -37,6 +37,7 @@ export default async function Imprimir({
         total={report.total}
         seats={report.seats}
         grouping={report.shape.grouping}
+          fields={report.shape.fields}
       />
     </div>
   );

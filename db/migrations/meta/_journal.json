@@ -85,6 +85,13 @@
       "when": 1789634204847,
       "tag": "0011_shocking_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789635722067,
+      "tag": "0012_lying_shockwave",
+      "breakpoints": true
     }
   ]
 }

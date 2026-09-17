@@ -198,3 +198,40 @@ export const designRenders = pgTable(
       .nullsNotDistinct(),
   ],
 );
+
+
+/**
+ * A saved way of looking at the guest list.
+ *
+ * Stored per user rather than per event: two organizers sharing an event read
+ * it differently, and the door list one of them prints is not the other's
+ * seating chart.
+ *
+ * `name` is null for the implicit "however you left it", which is the only row
+ * written today. Named rows are the same shape, which is why the parameters are
+ * kept as sent rather than as columns — saving a second format later is an
+ * insert, not a migration.
+ */
+export const reportPresets = pgTable(
+  "report_presets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    /** Null is the implicit last-used view; a string is a format the user named. */
+    name: text("name"),
+    /** The query string, as sent: { filtro, orden, dir, agrupar, campos }. */
+    params: jsonb("params").$type<Record<string, string>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // NULLS NOT DISTINCT so there is exactly one implicit view per user and
+    // event; named formats sit alongside it.
+    unique("report_presets_user_event_name_key")
+      .on(t.userId, t.eventId, t.name)
+      .nullsNotDistinct(),
+  ],
+);

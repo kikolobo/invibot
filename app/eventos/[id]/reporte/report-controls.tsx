@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { filters, groupings, orders } from "@/lib/reports/guest-report";
+import { filters, groupings, orders, reportFields } from "@/lib/reports/guest-report";
+import { saveReportPreset } from "@/lib/reports/presets";
 import type { readShape } from "@/lib/reports/load";
 
 /**
@@ -20,6 +22,7 @@ export function ReportControls({
   shape: ReturnType<typeof readShape>;
 }) {
   const router = useRouter();
+  const [configuring, setConfiguring] = useState(false);
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -37,12 +40,32 @@ export function ReportControls({
     }`;
 
   // The print view reads exactly the parameters shown here.
-  const printHref = `/imprimir/${eventId}?${new URLSearchParams({
+  const current = {
     filtro: shape.filter,
     orden: shape.order,
     dir: shape.direction,
     agrupar: shape.grouping,
-  })}`;
+    campos: shape.fields.join(","),
+  };
+
+  const printHref = `/imprimir/${eventId}?${new URLSearchParams(current)}`;
+
+  // Remembered after the fact, not before: the page has already rendered what
+  // the organizer asked for, so a failed write costs a preference and nothing
+  // else. Keyed on the serialised view so it writes once per change.
+  const signature = new URLSearchParams(current).toString();
+  useEffect(() => {
+    void saveReportPreset(eventId, Object.fromEntries(new URLSearchParams(signature)));
+  }, [eventId, signature]);
+
+  const toggleField = (key: string) => {
+    const next = shape.fields.includes(key as never)
+      ? shape.fields.filter((field) => field !== key)
+      : [...shape.fields, key as never];
+    // An empty string is meaningful — it means every column is off — so it is
+    // sent rather than omitted, which would fall back to the defaults.
+    return hrefWith("campos", next.join(","));
+  };
 
   return (
     <div>
@@ -117,6 +140,69 @@ export function ReportControls({
         >
           Imprimir
         </Link>
+      </div>
+
+      <div className="mt-5 border-t border-line pt-4">
+        <button
+          type="button"
+          onClick={() => setConfiguring((open) => !open)}
+          aria-expanded={configuring}
+          className="inline-flex items-center gap-1.5 text-[0.85rem] text-ink-muted transition-colors hover:text-accent"
+        >
+          <svg
+            viewBox="0 0 12 12"
+            className={`size-3 transition-transform ${configuring ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden="true"
+          >
+            <path d="M4.5 2.5 8 6l-3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Configurar
+          <span className="text-ink-muted/70">
+            ({shape.fields.length} {shape.fields.length === 1 ? "dato" : "datos"})
+          </span>
+        </button>
+
+        {configuring && (
+          <div className="mt-3">
+            <p className="text-[0.82rem] leading-relaxed text-ink-muted">
+              Qué mostramos de cada invitado. El nombre siempre va.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(reportFields).map(([key, label]) => {
+                const active = shape.fields.includes(key as never);
+                return (
+                  <Link
+                    key={key}
+                    href={toggleField(key)}
+                    scroll={false}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[0.82rem] transition-colors ${
+                      active
+                        ? "border-accent bg-accent text-paper"
+                        : "border-line text-ink-soft hover:border-accent"
+                    }`}
+                  >
+                    <span
+                      className={`grid size-3.5 place-items-center rounded-[3px] border ${
+                        active ? "border-paper/60" : "border-line"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {active && (
+                        <svg viewBox="0 0 12 12" className="size-2.5" fill="none" stroke="currentColor" strokeWidth="2.4">
+                          <path d="M2.5 6.5 5 9l4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

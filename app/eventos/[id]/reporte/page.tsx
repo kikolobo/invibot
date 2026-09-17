@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireOrg } from "@/lib/auth/session";
 import { loadReport, type ReportQuery } from "@/lib/reports/load";
+import { loadReportPreset } from "@/lib/reports/presets";
 import { ReportSheet } from "@/components/report-sheet";
 import { ReportControls } from "./report-controls";
 import { ReportSummary } from "./report-summary";
@@ -18,7 +19,9 @@ export default async function Reporte({
   const query = await searchParams;
   const { orgId } = await requireOrg();
 
-  const report = await loadReport(id, orgId, query);
+  // Arriving with no parameters means "however I left it", not "the defaults".
+  const saved = Object.keys(query).length === 0 ? await loadReportPreset(id) : null;
+  const report = await loadReport(id, orgId, saved ?? query);
   if (!report) notFound();
 
   return (
@@ -41,6 +44,7 @@ export default async function Reporte({
           total={report.total}
           seats={report.seats}
           grouping={report.shape.grouping}
+          fields={report.shape.fields}
         />
       </div>
     </div>

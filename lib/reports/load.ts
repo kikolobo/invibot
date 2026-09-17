@@ -8,6 +8,7 @@ import {
   isFilter,
   isOrder,
   isGrouping,
+  readFields,
   seatsOf,
   summarize,
   type Direction,
@@ -27,16 +28,21 @@ export type ReportQuery = Record<string, string | string[] | undefined>;
 export function readShape(query: ReportQuery) {
   const rawFilter = String(query.filtro ?? "confirmados");
   const rawOrder = String(query.orden ?? "nombre");
+
+  // Read once, then validate the value that was read. Testing a fallback and
+  // returning the raw parameter is how `agrupar` became the string "undefined"
+  // — harmless on screen, because no <option> matched and the browser showed
+  // the first, and then written into the saved view as if it meant something.
+  const rawGrouping =
+    // "1" is the old checkbox's value; links shared before this existed still work.
+    query.agrupar === "1" ? "grupo" : String(query.agrupar ?? "no");
+
   return {
     filter: (isFilter(rawFilter) ? rawFilter : "confirmados") as FilterKey,
     order: (isOrder(rawOrder) ? rawOrder : "nombre") as OrderKey,
     direction: (query.dir === "desc" ? "desc" : "asc") as Direction,
-    // "1" is the old checkbox's value; links shared before this existed still work.
-    grouping: (query.agrupar === "1"
-      ? "grupo"
-      : isGrouping(String(query.agrupar ?? "no"))
-        ? String(query.agrupar)
-        : "no") as GroupKey,
+    fields: readFields(query.campos),
+    grouping: (isGrouping(rawGrouping) ? rawGrouping : "no") as GroupKey,
   };
 }
 
@@ -58,6 +64,9 @@ export async function loadReport(eventId: string, orgId: string, query: ReportQu
       inviteStatus: guests.inviteStatus,
       isVip: guests.isVip,
       tableNumber: guests.tableNumber,
+      phoneE164: guests.phoneE164,
+      email: guests.email,
+      notes: guests.notes,
       partySizeConfirmed: guests.partySizeConfirmed,
       partySizeAllowed: guests.partySizeAllowed,
     })

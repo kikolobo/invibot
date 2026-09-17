@@ -1,7 +1,8 @@
 import { TZDate } from "@date-fns/tz";
 import type { events } from "@/db/schema";
 import { formatEventWhere } from "@/lib/events/format";
-import { seatsOf, type ReportSection } from "@/lib/reports/guest-report";
+import { seatsOf, type FieldKey, type ReportSection } from "@/lib/reports/guest-report";
+import { formatPhone } from "@/lib/phone";
 
 /**
  * The printed sheet itself.
@@ -25,6 +26,7 @@ export function ReportSheet({
   total,
   seats,
   grouping,
+  fields,
 }: {
   event: typeof events.$inferSelect;
   sections: ReportSection[];
@@ -32,7 +34,9 @@ export function ReportSheet({
   total: number;
   seats: number;
   grouping: "no" | "grupo" | "mesa";
+  fields: FieldKey[];
 }) {
+  const on = (field: FieldKey) => fields.includes(field);
   // A group or a table gets its name; otherwise the initial does the work.
   const named = grouping !== "no";
   return (
@@ -72,33 +76,50 @@ export function ReportSheet({
             <ul className="mt-3">
               {section.guests.map((guest) => {
                 const seatCount = seatsOf(guest);
+                const secondary = [
+                  on("grupo") && grouping !== "grupo" ? guest.groupName : null,
+                  on("telefono") && guest.phoneE164 ? formatPhone(guest.phoneE164) : null,
+                  on("correo") ? guest.email : null,
+                  on("notas") ? guest.notes : null,
+                ].filter(Boolean) as string[];
                 return (
                   <li
                     key={guest.id}
-                    className="flex items-baseline gap-3 border-b border-line/50 py-1.5 last:border-0"
+                    className="break-inside-avoid border-b border-line/50 py-1.5 last:border-0"
                   >
-                    {/* Something to tick with a pen at the door. */}
-                    <span className="size-4 shrink-0 self-center rounded-[3px] border border-ink-muted/50" />
-                    <span className="text-ink">{guest.fullName}</span>
-                    {guest.isVip && (
-                      // "V", never "VIP": a guest glancing at the list at the
-                      // door should not be able to read who was ranked above
-                      // them.
-                      <span
-                        className="grid size-4 shrink-0 select-none place-items-center self-center rounded-full border border-accent text-[0.62rem] font-medium leading-none text-accent"
-                        aria-hidden="true"
-                      >
-                        V
-                      </span>
-                    )}
-                    <span className="mx-2 flex-1 border-b border-dotted border-line/80" />
-                    <span className="shrink-0 text-[0.85rem] text-ink-soft">
-                      {seatCount >= 2 ? `${seatCount} personas` : seatCount === 1 ? "1" : "—"}
-                    </span>
-                    {guest.tableNumber && grouping !== "mesa" && (
-                      <span className="w-20 shrink-0 text-right text-[0.85rem] text-ink-soft">
-                        Mesa {guest.tableNumber}
-                      </span>
+                    <div className="flex items-baseline gap-3">
+                      {/* Something to tick with a pen at the door. */}
+                      <span className="size-4 shrink-0 self-center rounded-[3px] border border-ink-muted/50" />
+                      <span className="text-ink">{guest.fullName}</span>
+                      {on("vip") && guest.isVip && (
+                        // "V", never "VIP": a guest glancing at the list at the
+                        // door should not be able to read who was ranked above
+                        // them.
+                        <span
+                          className="grid size-4 shrink-0 select-none place-items-center self-center rounded-full border border-accent text-[0.62rem] font-medium leading-none text-accent"
+                          aria-hidden="true"
+                        >
+                          V
+                        </span>
+                      )}
+                      <span className="mx-2 flex-1 border-b border-dotted border-line/80" />
+                      {on("personas") && (
+                        <span className="shrink-0 text-[0.85rem] text-ink-soft">
+                          {seatCount >= 2 ? `${seatCount} personas` : seatCount === 1 ? "1" : "—"}
+                        </span>
+                      )}
+                      {on("mesa") && grouping !== "mesa" && guest.tableNumber && (
+                        <span className="w-20 shrink-0 text-right text-[0.85rem] text-ink-soft">
+                          Mesa {guest.tableNumber}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Everything you only need once someone is in front of you. */}
+                    {secondary.length > 0 && (
+                      <p className="ml-7 text-[0.78rem] leading-relaxed text-ink-muted">
+                        {secondary.join(" · ")}
+                      </p>
                     )}
                   </li>
                 );
