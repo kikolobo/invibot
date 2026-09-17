@@ -29,7 +29,7 @@ export function RenameEvent({ eventId, name }: { eventId: string; name: string }
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="mt-2 shrink-0 text-[0.85rem] text-accent hover:underline"
+          className="mt-3 inline-flex shrink-0 items-center rounded-full border border-line px-3 py-1 text-[0.8rem] text-ink-soft transition-colors hover:border-accent hover:text-accent"
           aria-label="Cambiar el nombre del evento"
         >
           Cambiar

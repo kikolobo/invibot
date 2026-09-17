@@ -117,12 +117,14 @@ export default async function EventoPage({
                 </span>
               )}
               {!archived && (
-                <PartySettings
-                  eventId={event.id}
-                  allowPlusOnes={event.allowPlusOnes}
-                  maxPartySize={event.maxPartySize}
-                  invitedCount={invitedCount}
-                />
+                <span className="block">
+                  <PartySettings
+                    eventId={event.id}
+                    allowPlusOnes={event.allowPlusOnes}
+                    maxPartySize={event.maxPartySize}
+                    invitedCount={invitedCount}
+                  />
+                </span>
               )}
             </dd>
           </div>

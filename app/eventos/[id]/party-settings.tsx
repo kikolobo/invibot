@@ -35,7 +35,7 @@ export function PartySettings({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1 text-[0.85rem] text-accent hover:underline"
+        className="mt-3 inline-flex items-center rounded-full border border-line px-3 py-1 text-[0.8rem] text-ink-soft transition-colors hover:border-accent hover:text-accent"
       >
         {initialAllow ? "Cambiar acompañantes" : "Permitir acompañantes"}
       </button>
