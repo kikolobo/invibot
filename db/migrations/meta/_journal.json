@@ -71,6 +71,13 @@
       "when": 1789632862270,
       "tag": "0009_oval_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789633192877,
+      "tag": "0010_massive_hardball",
+      "breakpoints": true
     }
   ]
 }

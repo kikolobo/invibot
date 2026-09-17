@@ -148,6 +148,28 @@ export async function addGuest(
   return { ok: `${fullName} agregado.` };
 }
 
+/**
+ * Reads the table field, or says why it will not.
+ *
+ * Normalised rather than stored as typed: "0005" and "5" are one table, and
+ * keeping both spellings means the same table sorts in two places and counts
+ * twice in any report built on it later. Table 0 does not exist on any floor
+ * plan, so a field of zeroes is a typo, not a table.
+ */
+function readTable(input: FormDataEntryValue | null): { value: string | null } | { error: string } {
+  const raw = String(input ?? "").trim();
+  if (!raw) return { value: null };
+
+  if (!/^\d{1,5}$/.test(raw)) {
+    return { error: "La mesa debe ser un número de hasta 5 dígitos." };
+  }
+
+  const normalized = String(Number.parseInt(raw, 10));
+  if (normalized === "0") return { error: "La mesa no puede ser 0." };
+
+  return { value: normalized };
+}
+
 /** The states an organizer may set by hand. Waitlist has no UI yet. */
 const settableRsvp = new Set(["no_response", "confirmed", "declined", "maybe"]);
 
@@ -210,13 +232,8 @@ export async function updateGuest(
     }
   }
 
-  // Digits only, up to five. A table called "12A" is a real thing, but the
-  // field was asked for as numeric and a silent reinterpretation is worse than
-  // a refusal the organizer can see.
-  const rawTable = String(formData.get("tableNumber") ?? "").trim();
-  if (rawTable && !/^\d{1,5}$/.test(rawTable)) {
-    return { error: "La mesa debe ser un número de hasta 5 dígitos." };
-  }
+  const tableNumber = readTable(formData.get("tableNumber"));
+  if ("error" in tableNumber) return { error: tableNumber.error };
 
   const requestedRsvp = String(formData.get("rsvpStatus") ?? guest.rsvpStatus);
   const rsvpStatus = settableRsvp.has(requestedRsvp) ? requestedRsvp : guest.rsvpStatus;
@@ -245,7 +262,7 @@ export async function updateGuest(
       email,
       groupId: await resolveGroup(eventId, String(formData.get("group") ?? "")),
       isVip: formData.get("isVip") === "on",
-      tableNumber: rawTable || null,
+      tableNumber: tableNumber.value,
       partySizeAllowed,
       rsvpStatus: rsvpStatus as typeof guest.rsvpStatus,
       // Set when the organizer records an answer, cleared when they take it

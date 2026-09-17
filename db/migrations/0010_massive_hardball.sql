@@ -1,0 +1,1 @@
+ALTER TABLE "guests" ADD CONSTRAINT "guests_table_number_format" CHECK ("guests"."table_number" IS NULL OR "guests"."table_number" ~ '^[1-9][0-9]{0,4}$');

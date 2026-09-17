@@ -83,7 +83,7 @@ export function EditGuest({
             defaultValue={guest.tableNumber ?? ""}
             inputMode="numeric"
             maxLength={5}
-            pattern="\\d*"
+            pattern="[0-9]*"
             placeholder="—"
             className="max-w-24"
           />

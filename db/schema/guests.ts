@@ -8,8 +8,9 @@ import {
   uuid,
   uniqueIndex,
   index,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { events } from "./events";
 import { rsvpStatus, inviteStatus, guestEventType, guestEventSource } from "./enums";
 
@@ -102,6 +103,12 @@ export const guests = pgTable(
     // Default NULLS DISTINCT: unique among real phone numbers, unlimited email-only guests.
     uniqueIndex("guests_event_phone_key").on(t.eventId, t.phoneE164),
     uniqueIndex("guests_access_token_key").on(t.accessToken),
+    // Enforced here as well as in the action: a form is one way in, and the
+    // column should not depend on every future caller remembering the rule.
+    check(
+      "guests_table_number_format",
+      sql`${t.tableNumber} IS NULL OR ${t.tableNumber} ~ '^[1-9][0-9]{0,4}$'`,
+    ),
     index("guests_event_idx").on(t.eventId),
     index("guests_rsvp_idx").on(t.eventId, t.rsvpStatus),
   ],
