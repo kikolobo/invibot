@@ -27,23 +27,27 @@ Hecho el 2026-09-17:
   ahí** — sólo se pueden quitar desde la consola de Twilio, nuestra app no
   puede borrar la suscripción de otra. Francisco dijo que ese número ya no hace
   nada en Twilio, así que conviene quitarlas para que no reciban copia.
-- Las ocho plantillas ya se crearon en el WABA de producción y están en
-  `PENDING`. Nacieron con el pie correcto (`Powered by InviBot.com`), así que
-  el pendiente #1 no aplica ahí.
+- Las ocho plantillas ya se crearon en el WABA de producción. Nacieron con el
+  pie correcto (`Powered by InviBot.com`), así que el pendiente #1 no aplica
+  ahí.
+- Las cinco variables nuevas ya están en Vercel (`WHATSAPP_TEST_*`,
+  `WHATSAPP_PROD_*` y `WHATSAPP_PROFILE=test`) y el código ya está
+  desplegado. `/api/health` confirma los dos números. Vercel las guardó como
+  *sensitive*, así que no se pueden volver a leer desde el dashboard ni con
+  `vercel env pull` — `/api/health` es la única forma de verificarlas.
 
 Falta:
 
-1. **Esperar la aprobación.** Minutos a días. Mientras estén en `PENDING` el
-   perfil de producción no puede abrir ninguna conversación.
+1. **Esperar a `consulta_organizador`.** Siete de las ocho ya quedaron
+   `APPROVED` el mismo 2026-09-17; falta esa, que es la que le pregunta al
+   anfitrión lo que un invitado preguntó. No está en el camino del invitado,
+   pero sin ella una escalación se queda sin salir.
    `npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts --profile production`
-2. **Poner las variables en Vercel y redesplegar:** `WHATSAPP_TEST_PHONE_NUMBER_ID`,
-   `WHATSAPP_TEST_WABA_ID`, `WHATSAPP_PROD_PHONE_NUMBER_ID`,
-   `WHATSAPP_PROD_WABA_ID`, `WHATSAPP_PROFILE`. Los nombres viejos sin prefijo
-   siguen sirviendo como respaldo del perfil `test`, así que el orden no
-   importa y no hay ventana rota.
-3. **Prender producción:** `WHATSAPP_PROFILE=production` en Vercel, redesplegar,
-   y `/api/health` debe decir `WHATSAPP_SENDING_AS: number 135995746264538`.
-4. **Probar en vivo con un invitado de prueba** antes de cualquier lista real:
+2. **Prender producción:** `WHATSAPP_PROFILE=production` en Vercel,
+   redesplegar, y `/api/health` debe decir
+   `WHATSAPP_SENDING_AS: number 135995746264538`. Para regresar, se borra la
+   variable y se vuelve a desplegar: sin ella el perfil es `test`.
+3. **Probar en vivo con un invitado de prueba** antes de cualquier lista real:
    una invitación, una respuesta libre, y que llegue la tarjeta (la primera vez
    se vuelve a subir sola, porque el handle viejo era del número de prueba).
 
