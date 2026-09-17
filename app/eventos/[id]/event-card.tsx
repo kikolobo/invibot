@@ -33,6 +33,19 @@ export function EventCard({
   );
   const [removing, startRemoving] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
+  // The native file input renders "Choose File / No file chosen" in the
+  // browser's own language and cannot be relabelled, so it is hidden behind a
+  // label and the chosen name is shown by us.
+  const [chosen, setChosen] = useState<string | null>(null);
+
+  // Cleared during render rather than in an effect: a successful upload has
+  // already replaced what the picker was holding, and an effect here would
+  // render the stale filename once before wiping it.
+  const [seenOk, setSeenOk] = useState(state.ok);
+  if (state.ok !== seenOk) {
+    setSeenOk(state.ok);
+    if (state.ok) setChosen(null);
+  }
 
   // Busts the browser cache when a card is replaced at the same URL.
   const src = `/api/eventos/${eventId}/card?v=${uploadedAt?.getTime() ?? 0}`;
@@ -88,13 +101,26 @@ export function EventCard({
       )}
 
       <form action={formAction} className="mt-5">
-        <input
-          type="file"
-          name="card"
-          accept="image/jpeg,image/png"
-          disabled={!storageReady || pending}
-          className="block w-full text-[0.88rem] text-ink-soft file:mr-4 file:rounded-full file:border-0 file:bg-accent file:px-4 file:py-2 file:text-[0.85rem] file:text-paper disabled:opacity-50"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <label
+            className={`inline-flex items-center rounded-full border border-line px-4 py-2 text-[0.85rem] transition-colors ${
+              !storageReady || pending
+                ? "cursor-not-allowed text-ink-muted opacity-50"
+                : "cursor-pointer text-ink-soft hover:border-accent hover:text-accent"
+            }`}
+          >
+            <input
+              type="file"
+              name="card"
+              accept="image/jpeg,image/png"
+              disabled={!storageReady || pending}
+              onChange={(e) => setChosen(e.target.files?.[0]?.name ?? null)}
+              className="sr-only"
+            />
+            {hasCard ? "Elegir otra imagen" : "Elegir imagen"}
+          </label>
+          {chosen && <span className="text-[0.85rem] text-ink-soft">{chosen}</span>}
+        </div>
         <p className="mt-2 text-[0.82rem] text-ink-muted">JPG o PNG, hasta 5 MB.</p>
 
         {invitedCount > 0 && !hasCard && (
@@ -108,13 +134,15 @@ export function EventCard({
         {state.error && <p className="mt-3 text-[0.88rem] text-accent">{state.error}</p>}
         {state.ok && <p className="mt-3 text-[0.88rem] text-ink-soft">{state.ok}</p>}
 
-        <button
-          type="submit"
-          disabled={!storageReady || pending}
-          className="mt-4 rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
-        >
-          {pending ? "Subiendo…" : hasCard ? "Reemplazar" : "Subir"}
-        </button>
+        {chosen && (
+          <button
+            type="submit"
+            disabled={!storageReady || pending}
+            className="mt-4 rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          >
+            {pending ? "Subiendo…" : hasCard ? "Reemplazar" : "Subir"}
+          </button>
+        )}
       </form>
     </section>
   );
