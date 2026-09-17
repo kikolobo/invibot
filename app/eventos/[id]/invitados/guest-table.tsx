@@ -41,6 +41,7 @@ export type InviteContext = {
 
 export function GuestTable({
   eventId,
+  eventName,
   rows,
   invite,
   groups,
@@ -48,6 +49,7 @@ export function GuestTable({
   archived = false,
 }: {
   eventId: string;
+  eventName: string;
   rows: GuestRow[];
   invite: InviteContext;
   groups: string[];
@@ -161,6 +163,7 @@ export function GuestTable({
       {sending && (
         <SendInvitations
           eventId={eventId}
+          eventName={eventName}
           eventVars={invite.eventVars}
           missing={invite.missing}
           eligible={invite.eligible}

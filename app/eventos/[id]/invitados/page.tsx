@@ -125,6 +125,7 @@ export default async function Invitados({
       <div className="mt-3">
         <GuestTable
           eventId={event.id}
+          eventName={event.name}
           rows={rows}
           invite={invite}
           groups={groups}

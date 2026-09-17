@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { sendInvitations, type InviteReport } from "@/lib/campaigns/actions";
 import { skipLabels, missingLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
 import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
+import { Bubble, Phone } from "../chat-bubble";
 
 /**
  * The confirmation step before the only paid thing this app does.
@@ -16,6 +17,7 @@ import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 
 export type InvitePanelProps = {
   eventId: string;
+  eventName: string;
   /** The four event-level template values, shared by every recipient. */
   eventVars: string[];
   missing: MissingField[];
@@ -29,6 +31,7 @@ export type InvitePanelProps = {
 
 export function SendInvitations({
   eventId,
+  eventName,
   eventVars,
   missing,
   eligible,
@@ -114,32 +117,49 @@ export function SendInvitations({
               ? `Invitar a ${recipients[0].fullName}`
               : `Invitar a ${recipients.length} personas`}
           </p>
-          <p className="mt-1 text-[0.85rem] text-ink-muted">
-            Se envía por WhatsApp y no se puede cancelar una vez enviado.
+          <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+            {recipients.length === 1
+              ? "Se envía por WhatsApp y no se puede cancelar una vez enviado."
+              : "Apruebas el formato una vez y salen todas. Se envían por WhatsApp y no se pueden cancelar una vez enviadas."}
             {plusOnes > 0 &&
               ` ${plusOnes} ${plusOnes === 1 ? "recibe" : "reciben"} la versión con acompañante.`}
           </p>
 
           {preview && (
             <div className="mt-4">
-              <p className="eyebrow">Así lo va a recibir</p>
-              <div className="mt-2 max-w-md rounded-xl rounded-tl-sm bg-paper-deep p-4 text-[0.9rem] leading-relaxed text-ink">
-                {preview.header && <p className="font-medium">{preview.header}</p>}
-                <p className="mt-1 whitespace-pre-line">{preview.body}</p>
-                {preview.footer && (
-                  <p className="mt-3 text-[0.8rem] text-ink-muted">{preview.footer}</p>
-                )}
-                <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
-                  {preview.buttons.map((label) => (
-                    <span
-                      key={label}
-                      className="rounded-full border border-line px-3 py-1 text-[0.8rem] text-accent"
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
+              <p className="eyebrow">Así se va a ver</p>
+              {/*
+                The same phone as the simulator, from the same components. An
+                organizer who checked the wording there should not have to
+                decide whether this differently-shaped box is the same message.
+              */}
+              <div className="mt-2">
+                <Phone title={eventName}>
+                  <Bubble from="them">
+                    {preview.header && <p className="font-semibold">{preview.header}</p>}
+                    <p className="mt-1 whitespace-pre-line">{preview.body}</p>
+                    {preview.footer && (
+                      <p className="mt-2 text-[0.72rem] text-black/45">{preview.footer}</p>
+                    )}
+                    <div className="-mx-2.5 -mb-1 mt-2 border-t border-black/10">
+                      {preview.buttons.map((label) => (
+                        <span
+                          key={label}
+                          className="block border-b border-black/10 px-2 py-1.5 text-center text-[0.8rem] text-[#00a5f4] last:border-0"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </Bubble>
+                </Phone>
               </div>
+              {recipients.length > 1 && (
+                <p className="mt-2 max-w-md text-[0.8rem] leading-relaxed text-ink-muted">
+                  Cada quien lo recibe con su propio nombre. Aquí se ve el de{" "}
+                  {eligible[recipients[0].id].greeting}.
+                </p>
+              )}
             </div>
           )}
 
