@@ -115,6 +115,15 @@ export const guests = pgTable(
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     /** How they got here. `self` means they used the auto-registro link. */
     source: guestSource("source").notNull().default("manual"),
+    /**
+     * Whether this name came from the person themselves.
+     *
+     * False when we fell back to their WhatsApp profile name, which is a handle
+     * — "FL", "Kiko 🎧", "Mamá" — and not what they would put on a guest list.
+     * A provisional name is replaced the moment they tell us a real one; a name
+     * they actually gave is never overwritten without asking.
+     */
+    nameFromGuest: boolean("name_from_guest").notNull().default(true),
 
     /**
      * A question we asked them while unapproved, and are waiting on.

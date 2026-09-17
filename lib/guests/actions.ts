@@ -413,7 +413,8 @@ export async function renameGuest(eventId: string, guestId: string, fullName: st
 
   await db
     .update(guests)
-    .set({ fullName: name, firstName: name.split(" ")[0], updatedAt: new Date() })
+    // A host typing a name has settled it: nothing should silently replace it.
+    .set({ fullName: name, firstName: name.split(" ")[0], nameFromGuest: true, updatedAt: new Date() })
     .where(and(eq(guests.eventId, eventId), eq(guests.id, guestId)));
 
   revalidatePath(`/eventos/${eventId}/aprobaciones`);

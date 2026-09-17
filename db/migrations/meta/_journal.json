@@ -134,6 +134,13 @@
       "when": 1789686832465,
       "tag": "0018_dapper_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789687765324,
+      "tag": "0019_late_legion",
+      "breakpoints": true
     }
   ]
 }

@@ -138,10 +138,13 @@ async function existingGuest(
     };
   }
 
-  // Pending. A different name means they are correcting themselves, which is
-  // worth asking about rather than silently overwriting what the host may have
+  // Pending, and they told us a name. If all we hold is their WhatsApp handle,
+  // take theirs — there is nothing to ask about, we were only ever guessing.
+  // If they gave us a name before and are now giving a different one, that is a
+  // correction and worth confirming before overwriting what the host may have
   // already tidied up.
   if (name && name.toLowerCase() !== guest.fullName.toLowerCase()) {
+    if (!guest.nameFromGuest) return await adoptName(guest, event, name);
     return await askNameUpdate(guest, name);
   }
   return await noticeOnce(guest, COPY.pending);
@@ -173,6 +176,9 @@ async function register(
       accessToken: nanoid(24),
       approvalStatus: "pending",
       source: "self",
+      // `name` is what they typed; the fallback is their WhatsApp handle, which
+      // is a placeholder to replace at the first opportunity.
+      nameFromGuest: name !== null,
       // Asked for now, answered next message. Written in the same statement as
       // the guest so a crash between the two cannot leave a guest nobody asked.
       pendingQuestion: name ? null : "name",
@@ -222,6 +228,7 @@ async function answerQuestion(
       .set({
         fullName: name,
         firstName: name.split(/\s+/)[0],
+        nameFromGuest: true,
         pendingQuestion: null,
         pendingQuestionAt: null,
         registrationNoticeAt: new Date(),
@@ -263,6 +270,31 @@ async function noticeOnce(guest: GuestRow, text: string): Promise<RegistrationAc
     .set({ registrationNoticeAt: new Date() })
     .where(eq(guests.id, guest.id));
   return { kind: "reply", guestId: guest.id, text };
+}
+
+/**
+ * Replacing a placeholder with the real thing, and acknowledging the
+ * registration in the same breath: this is the first moment we know who they
+ * are, so it is the first moment the Save the Date is honest.
+ */
+async function adoptName(
+  guest: GuestRow,
+  event: EventRow,
+  name: string,
+): Promise<RegistrationAction> {
+  await db
+    .update(guests)
+    .set({
+      fullName: name,
+      firstName: name.split(/\s+/)[0],
+      nameFromGuest: true,
+      pendingQuestion: null,
+      pendingQuestionAt: null,
+      registrationNoticeAt: new Date(),
+    })
+    .where(eq(guests.id, guest.id));
+
+  return { kind: "reply", guestId: guest.id, text: COPY.registered(event) };
 }
 
 async function askNameUpdate(guest: GuestRow, name: string): Promise<RegistrationAction> {
