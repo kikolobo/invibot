@@ -25,10 +25,23 @@ export const mealSchema = z.enum([
   "none",
   "canapes",
   "brunch",
+  "breakfast",
   "lunch",
   "dinner",
+  "snack",
   "dessert_only",
+  "breakfast_lunch",
+  "lunch_dinner",
+  "breakfast_lunch_dinner",
 ]);
+
+/**
+ * Diet questions are three-way on purpose. "No sé todavía" is a real answer
+ * from an organizer who has not talked to the caterer, and it is not the same
+ * as "no" — `renderAnswer` drops "undecided" so the assistant escalates to the
+ * organizer instead of telling a coeliac guest there is nothing for them.
+ */
+export const dietSchema = z.enum(["yes", "no", "undecided"]);
 
 export const drinksSchema = z.enum([
   "open_bar",
@@ -85,6 +98,12 @@ export const eventDetailsSchema = z.object({
   /** e.g. "Recomendamos Uber o taxi, el estacionamiento es limitado." */
   transportSuggestion: z.string().max(500).nullable().default(null),
   meal: mealSchema.default("none"),
+  /** Free text about the menu, for anything the options cannot express. */
+  menuNotes: z.string().max(800).nullable().default(null),
+  menuVegan: dietSchema.default("undecided"),
+  menuVegetarian: dietSchema.default("undecided"),
+  menuGlutenFree: dietSchema.default("undecided"),
+  menuHealthy: dietSchema.default("undecided"),
   drinks: drinksSchema.default("none"),
   attire: attireSchema.default("casual"),
   attireNote: z.string().max(500).nullable().default(null),

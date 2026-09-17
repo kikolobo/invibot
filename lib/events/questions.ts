@@ -77,6 +77,58 @@ const isOutdoor = (a: Answers) =>
   a["setting"] === "outdoor" || a["setting"] === "both";
 
 /** Asked for every event kind. */
+/**
+ * The four diet questions, which differ only in wording.
+ *
+ * Three-way rather than yes/no: an organizer who has not asked the caterer yet
+ * should be able to say so, and "no sé" escalates to them when a guest asks
+ * rather than the assistant answering "no" on their behalf. Telling someone
+ * coeliac there is nothing for them, wrongly, is the failure worth designing
+ * against.
+ */
+const dietQuestions: Question[] = [
+  {
+    key: "menuVegan",
+    es: "¿Hay opción vegana?",
+    en: "Is there a vegan option?",
+    factEs: "¿Hay comida vegana?",
+  },
+  {
+    key: "menuVegetarian",
+    es: "¿Hay opción vegetariana?",
+    en: "Is there a vegetarian option?",
+    factEs: "¿Hay comida vegetariana?",
+  },
+  {
+    key: "menuGlutenFree",
+    es: "¿Hay opción sin gluten?",
+    en: "Is there a gluten-free option?",
+    factEs: "¿Hay comida sin gluten? Soy celíaco.",
+  },
+  {
+    key: "menuHealthy",
+    es: "¿Hay opción saludable o ligera?",
+    en: "Is there a healthy or light option?",
+    factEs: "¿Hay algo ligero o saludable de comer?",
+  },
+].map((diet) => ({
+  key: diet.key,
+  section: "comida" as const,
+  type: "select" as const,
+  es: diet.es,
+  en: diet.en,
+  options: [
+    { value: "yes", es: "Sí", en: "Yes" },
+    { value: "no", es: "No", en: "No" },
+    { value: "undecided", es: "Todavía no sé", en: "Not sure yet" },
+  ],
+  guestVisible: true,
+  feedsAgent: true,
+  factEs: diet.factEs,
+  // Only worth asking once there is food to ask about.
+  appliesWhen: (a: Answers) => a.meal !== undefined && a.meal !== "none",
+}));
+
 const universal: Question[] = [
   {
     key: "setting",
@@ -197,15 +249,41 @@ const universal: Question[] = [
       { value: "none", es: "No, sólo bebidas", en: "No, drinks only" },
       { value: "canapes", es: "Canapés o botana", en: "Canapés or snacks" },
       { value: "brunch", es: "Brunch", en: "Brunch" },
+      { value: "breakfast", es: "Desayuno", en: "Breakfast" },
       { value: "lunch", es: "Comida", en: "Lunch" },
       { value: "dinner", es: "Cena", en: "Dinner" },
+      { value: "snack", es: "Merienda", en: "Afternoon snack" },
       { value: "dessert_only", es: "Sólo postre", en: "Dessert only" },
+      { value: "breakfast_lunch", es: "Desayuno y comida", en: "Breakfast and lunch" },
+      { value: "lunch_dinner", es: "Comida y cena", en: "Lunch and dinner" },
+      {
+        value: "breakfast_lunch_dinner",
+        es: "Desayuno, comida y cena",
+        en: "Breakfast, lunch and dinner",
+      },
     ],
     guestVisible: true,
     feedsAgent: true,
     factEs: "¿Va a haber comida? ¿Ceno antes de llegar?",
     required: true,
   },
+  {
+    key: "menuNotes",
+    section: "comida",
+    type: "longtext",
+    es: "Datos del menú que quieras que sepa",
+    en: "Anything about the menu the assistant should know",
+    help: {
+      es: "Lo que sirven, de dónde es la comida, si hay algo que un invitado deba saber antes de llegar.",
+      en: "What is being served, and anything a guest should know before arriving.",
+    },
+    guestVisible: true,
+    feedsAgent: true,
+    factEs: "¿Qué van a servir de comer?",
+    // Only worth asking once there is food to describe.
+    appliesWhen: (a) => a.meal !== undefined && a.meal !== "none",
+  },
+  ...dietQuestions,
   {
     key: "drinks",
     section: "comida",
