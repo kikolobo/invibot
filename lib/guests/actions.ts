@@ -10,6 +10,7 @@ import { editableEvent } from "@/lib/events/guard";
 import type { EventKind } from "@/lib/events/kinds";
 import { normalizePhone } from "@/lib/phone";
 import { parseGuestList, hasError, type ParsedGuest } from "./import";
+import { recordGuestEvent } from "./history";
 import { cleanGroupName, normalizeGroupName, suggestedGroups } from "./groups";
 import { MAX_PARTY_SIZE } from "@/lib/events/party";
 
@@ -209,6 +210,14 @@ export async function updateGuest(
     }
   }
 
+  // Digits only, up to five. A table called "12A" is a real thing, but the
+  // field was asked for as numeric and a silent reinterpretation is worse than
+  // a refusal the organizer can see.
+  const rawTable = String(formData.get("tableNumber") ?? "").trim();
+  if (rawTable && !/^\d{1,5}$/.test(rawTable)) {
+    return { error: "La mesa debe ser un número de hasta 5 dígitos." };
+  }
+
   const requestedRsvp = String(formData.get("rsvpStatus") ?? guest.rsvpStatus);
   const rsvpStatus = settableRsvp.has(requestedRsvp) ? requestedRsvp : guest.rsvpStatus;
 
@@ -235,6 +244,8 @@ export async function updateGuest(
       phoneVariants,
       email,
       groupId: await resolveGroup(eventId, String(formData.get("group") ?? "")),
+      isVip: formData.get("isVip") === "on",
+      tableNumber: rawTable || null,
       partySizeAllowed,
       rsvpStatus: rsvpStatus as typeof guest.rsvpStatus,
       // Set when the organizer records an answer, cleared when they take it
@@ -254,6 +265,30 @@ export async function updateGuest(
       updatedAt: new Date(),
     })
     .where(and(eq(guests.id, guestId), eq(guests.eventId, eventId)));
+
+  // Only when the answer actually moved: opening the form and saving it
+  // unchanged is not a guest changing their mind.
+  if (rsvpStatus !== guest.rsvpStatus && rsvpStatus !== "no_response") {
+    await recordGuestEvent({
+      eventId,
+      guestId,
+      type: rsvpStatus === "confirmed" ? "confirmed" : "declined",
+      at: new Date(),
+      source: "organizer",
+      detail: { seats: partySizeConfirmed, from: guest.rsvpStatus },
+    });
+  }
+
+  if (rsvpStatus === "confirmed" && partySizeConfirmed !== guest.partySizeConfirmed) {
+    await recordGuestEvent({
+      eventId,
+      guestId,
+      type: "party_size_changed",
+      at: new Date(),
+      source: "organizer",
+      detail: { from: guest.partySizeConfirmed, to: partySizeConfirmed },
+    });
+  }
 
   revalidatePath(`/eventos/${eventId}/invitados`);
 

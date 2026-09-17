@@ -49,6 +49,8 @@ export async function loadReport(eventId: string, orgId: string, query: ReportQu
       groupName: guestGroups.name,
       rsvpStatus: guests.rsvpStatus,
       inviteStatus: guests.inviteStatus,
+      isVip: guests.isVip,
+      tableNumber: guests.tableNumber,
       partySizeConfirmed: guests.partySizeConfirmed,
       partySizeAllowed: guests.partySizeAllowed,
     })

@@ -92,3 +92,22 @@ export const templateStatus = pgEnum("template_status", [
   "paused",
   "disabled",
 ]);
+
+/**
+ * What happened to a guest, in the order it happened.
+ *
+ * `confirmed` and `declined` can each appear several times for one person —
+ * that is the point of a log rather than a pair of columns.
+ */
+/** Who caused it. A database-enforced vocabulary, not a string anyone can spell three ways. */
+export const guestEventSource = pgEnum("guest_event_source", ["guest", "organizer", "system"]);
+
+export const guestEventType = pgEnum("guest_event_type", [
+  "invited",
+  "delivered",
+  "read",
+  "confirmed",
+  "declined",
+  "opted_out",
+  "party_size_changed",
+]);

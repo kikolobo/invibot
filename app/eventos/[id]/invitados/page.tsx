@@ -45,6 +45,8 @@ export default async function Invitados({
       groupName: guestGroups.name,
       partySizeAllowed: guests.partySizeAllowed,
       partySizeConfirmed: guests.partySizeConfirmed,
+      isVip: guests.isVip,
+      tableNumber: guests.tableNumber,
       rsvpStatus: guests.rsvpStatus,
       inviteStatus: guests.inviteStatus,
     })

@@ -46,6 +46,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       rsvpStatus: guests.rsvpStatus,
       partySizeAllowed: guests.partySizeAllowed,
       partySizeConfirmed: guests.partySizeConfirmed,
+      isVip: guests.isVip,
+      tableNumber: guests.tableNumber,
       optedOut: guests.optedOut,
     })
     .from(guests)
@@ -62,6 +64,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     "Asistencia",
     "Lugares ofrecidos",
     "Confirmados",
+    "Mesa",
+    "VIP",
     "Baja",
   ];
 
@@ -77,6 +81,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       cell(rsvpLabels[row.rsvpStatus] ?? row.rsvpStatus),
       cell(row.partySizeAllowed),
       cell(row.rsvpStatus === "confirmed" ? (row.partySizeConfirmed ?? 1) : ""),
+      cell(row.tableNumber),
+      cell(row.isVip ? "Sí" : ""),
       cell(row.optedOut ? "Sí" : ""),
     ].join(","),
   );

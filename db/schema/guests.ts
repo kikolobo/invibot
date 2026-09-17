@@ -9,8 +9,9 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { events } from "./events";
-import { rsvpStatus, inviteStatus } from "./enums";
+import { rsvpStatus, inviteStatus, guestEventType, guestEventSource } from "./enums";
 
 /**
  * The controlled vocabulary of groups for one event. `normalizedName` is the
@@ -74,6 +75,20 @@ export const guests = pgTable(
     /** Organizer-only notes. Never shown to the guest, never quoted by the agent. */
     notes: text("notes"),
 
+    /**
+     * Organizer-only. Printed as a bare "V" on the door list rather than "VIP",
+     * so a guest reading over someone's shoulder cannot tell what it stands
+     * for — a list that quietly ranks the people on it is worse than no mark.
+     */
+    isVip: boolean("is_vip").notNull().default(false),
+
+    /**
+     * Table assignment. Text rather than an integer: table "07" and table "7"
+     * are the same table to a database and different signs on a floor plan, and
+     * whoever printed the cards decides which. Five characters, digits only.
+     */
+    tableNumber: text("table_number"),
+
     /** Signed token for the microsite. No guest accounts, no passwords, no login. */
     accessToken: text("access_token").notNull(),
 
@@ -114,3 +129,73 @@ export const suppressions = pgTable(
     uniqueIndex("suppressions_email_key").on(t.email),
   ],
 );
+
+
+/**
+ * Everything that has happened to a guest, append-only.
+ *
+ * `guests` holds the current answer; this holds how it was arrived at. A person
+ * who confirms, cancels two weeks later, then asks to come after all is three
+ * rows here and one row there, and only the three can answer "when did they
+ * change their mind" or "how long did the list take to settle".
+ *
+ * Nothing reads it yet. It is written now because the moment a guest decides
+ * something is the one moment it can be recorded — a history cannot be
+ * backfilled once it has been overwritten.
+ */
+export const guestEvents = pgTable(
+  "guest_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    guestId: uuid("guest_id")
+      .notNull()
+      .references(() => guests.id, { onDelete: "cascade" }),
+
+    type: guestEventType("type").notNull(),
+    /**
+     * When it actually happened, not when we wrote it down: WhatsApp gives a
+     * timestamp for every delivery and read, and a webhook can arrive late or
+     * be replayed.
+     */
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    /** Who caused it: the guest, the organizer, or the system. */
+    source: guestEventSource("source").notNull(),
+    /** Seats, the wording that triggered it, an error code — whatever is worth keeping. */
+    detail: jsonb("detail").notNull().default({}),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("guest_events_guest_idx").on(t.guestId, t.at),
+    index("guest_events_event_type_idx").on(t.eventId, t.type),
+  ],
+);
+
+
+/**
+ * Declared so a guest's history loads with the guest:
+ *
+ *   db.query.guests.findFirst({ where: ..., with: { history: true } })
+ *
+ * The alternative — a second query keyed by id everywhere it is needed — is how
+ * a log ends up unused. Drizzle picks these up from the schema the client is
+ * built with, so no call site has to know about the join.
+ */
+export const guestsRelations = relations(guests, ({ one, many }) => ({
+  event: one(events, { fields: [guests.eventId], references: [events.id] }),
+  group: one(guestGroups, { fields: [guests.groupId], references: [guestGroups.id] }),
+  history: many(guestEvents),
+}));
+
+export const guestEventsRelations = relations(guestEvents, ({ one }) => ({
+  guest: one(guests, { fields: [guestEvents.guestId], references: [guests.id] }),
+  event: one(events, { fields: [guestEvents.eventId], references: [events.id] }),
+}));
+
+export const guestGroupsRelations = relations(guestGroups, ({ one, many }) => ({
+  event: one(events, { fields: [guestGroups.eventId], references: [events.id] }),
+  guests: many(guests),
+}));

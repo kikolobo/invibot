@@ -21,6 +21,7 @@ import {
 import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
+import { recordGuestEvent } from "@/lib/guests/history";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configFromEnv, markRead } from "@/lib/whatsapp/client";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
@@ -166,6 +167,18 @@ async function recordStatus(status: Awaited<ReturnType<typeof parseWebhook>>["st
     .update(guests)
     .set({ inviteStatus: next, updatedAt: new Date() })
     .where(eq(guests.id, guest.id));
+
+  // Meta's timestamp, not ours — a webhook can arrive late or be replayed, and
+  // "when did they open it" should mean when they opened it.
+  if (next === "delivered" || next === "read") {
+    await recordGuestEvent({
+      eventId: guest.eventId,
+      guestId: guest.id,
+      type: next,
+      at: status.timestamp,
+      source: "system",
+    });
+  }
 }
 
 /**

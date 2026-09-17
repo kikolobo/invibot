@@ -12,6 +12,8 @@ export type ReportGuest = {
   groupName: string | null;
   rsvpStatus: string;
   inviteStatus: string;
+  isVip: boolean;
+  tableNumber: string | null;
   partySizeConfirmed: number | null;
   partySizeAllowed: number;
 };

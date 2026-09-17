@@ -75,6 +75,31 @@ export function EditGuest({
         />
       </div>
 
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
+          Mesa
+          <Input
+            name="tableNumber"
+            defaultValue={guest.tableNumber ?? ""}
+            inputMode="numeric"
+            maxLength={5}
+            pattern="\\d*"
+            placeholder="—"
+            className="max-w-24"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
+          <input
+            type="checkbox"
+            name="isVip"
+            defaultChecked={guest.isVip}
+            className="size-4 accent-[var(--accent)]"
+          />
+          VIP
+          <span className="text-[0.78rem] text-ink-muted">(sólo tú lo ves)</span>
+        </label>
+      </div>
+
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
           Asistencia

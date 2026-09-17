@@ -1,0 +1,2 @@
+CREATE TYPE "public"."guest_event_source" AS ENUM('guest', 'organizer', 'system');--> statement-breakpoint
+ALTER TABLE "guest_events" ALTER COLUMN "source" SET DATA TYPE "public"."guest_event_source" USING "source"::"public"."guest_event_source";

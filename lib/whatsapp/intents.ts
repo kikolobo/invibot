@@ -4,6 +4,7 @@ import { guests, suppressions } from "@/db/schema/guests";
 import { events } from "@/db/schema/events";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 import { templates } from "./templates";
+import { recordGuestEvent } from "@/lib/guests/history";
 import { confirmationReply, declineReply } from "./replies";
 import type { InboundMessage } from "./webhook";
 
@@ -130,6 +131,18 @@ export async function applyIntent(
         updatedAt: new Date(),
       })
       .where(eq(guests.id, guest.id));
+
+    // Logged with the guest's own timestamp, not now(): this is the record of
+    // when they decided, and someone who confirms, cancels and comes back
+    // leaves three rows rather than overwriting one.
+    await recordGuestEvent({
+      eventId: guest.eventId,
+      guestId: guest.id,
+      type: isConfirmation(intent) ? "confirmed" : "declined",
+      at,
+      source: "guest",
+      detail: seats === undefined ? {} : { seats },
+    });
     return;
   }
 
@@ -146,6 +159,14 @@ export async function applyIntent(
       .update(guests)
       .set({ optedOut: true, optedOutAt: at, updatedAt: new Date() })
       .where(eq(guests.id, guest.id));
+
+    await recordGuestEvent({
+      eventId: guest.eventId,
+      guestId: guest.id,
+      type: "opted_out",
+      at,
+      source: "guest",
+    });
   }
 }
 

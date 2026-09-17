@@ -78,6 +78,22 @@ export function ReportSheet({
                     {/* Something to tick with a pen at the door. */}
                     <span className="size-4 shrink-0 self-center rounded-[3px] border border-ink-muted/50" />
                     <span className="text-ink">{guest.fullName}</span>
+                    {guest.isVip && (
+                      // "V", never "VIP": a guest glancing at the list at the
+                      // door should not be able to read who was ranked above
+                      // them.
+                      <span
+                        className="grid size-4 shrink-0 select-none place-items-center self-center rounded-full border border-accent text-[0.62rem] font-medium leading-none text-accent"
+                        aria-hidden="true"
+                      >
+                        V
+                      </span>
+                    )}
+                    {guest.tableNumber && (
+                      <span className="shrink-0 text-[0.78rem] text-ink-muted">
+                        Mesa {guest.tableNumber}
+                      </span>
+                    )}
                     {!grouped && guest.groupName && (
                       <span className="text-[0.8rem] text-ink-muted">{guest.groupName}</span>
                     )}

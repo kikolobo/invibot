@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { sendTemplateToGuest } from "@/lib/whatsapp/send";
+import { recordGuestEvent } from "@/lib/guests/history";
 import { invitationPlan, invitationVariables, templateForGuest } from "./recipients";
 import { missingLabels } from "./labels";
 
@@ -129,6 +130,17 @@ export async function sendInvitations(
         .update(guests)
         .set({ inviteStatus: outcome.ok ? "sent" : "failed", updatedAt: new Date() })
         .where(eq(guests.id, guest.id));
+
+      if (outcome.ok) {
+        await recordGuestEvent({
+          eventId,
+          guestId: guest.id,
+          type: "invited",
+          at: new Date(),
+          source: "organizer",
+          detail: { template },
+        });
+      }
 
       outcomes.push({
         guestId: guest.id,
