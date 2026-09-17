@@ -11,6 +11,7 @@ import { events, eventFacts, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
 import { newMapsCode } from "./maps";
+import { resolveCoords } from "./geo";
 import { partySizeFor } from "./party";
 import { diffEvent } from "./changes";
 import { editableEvent } from "./guard";
@@ -106,6 +107,18 @@ export async function createEvent(
   }
 
   const v = parsed.data;
+  // Best-effort and never fatal: the pin is what lets the assistant send a
+  // native map card, and an event with no coordinates simply falls back to the
+  // link. Resolved on save so no guest ever waits on a geocoder.
+  const coords = await resolveCoords({
+    venueName: v.venueName ?? null,
+    venueAddress: v.venueAddress ?? null,
+    venueCity: v.venueCity ?? null,
+    venueState: v.venueState ?? null,
+    venueCountry: v.venueCountry ?? null,
+    venueMapsUrl: v.venueMapsUrl ?? null,
+  });
+
   const [created] = await db
     .insert(events)
     .values({
@@ -123,6 +136,8 @@ export async function createEvent(
       venueState: v.venueState ?? null,
       venueCountry: v.venueCountry ?? null,
       venueMapsUrl: v.venueMapsUrl ?? null,
+      venueLat: coords?.lat ?? null,
+      venueLng: coords?.lng ?? null,
       mapsCode: newMapsCode(),
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
@@ -609,6 +624,32 @@ export async function updateEventBasics(
 
   const maxPartySize = partySizeFor(v.allowPlusOnes);
 
+  // Only when the address actually moved: geocoding is a network call, and an
+  // organizer fixing a typo in the event name should not wait on it — nor risk
+  // a transient failure blanking a pin that was already right.
+  const venueMoved =
+    v.venueName !== (event.venueName ?? undefined) ||
+    v.venueAddress !== (event.venueAddress ?? undefined) ||
+    v.venueCity !== (event.venueCity ?? undefined) ||
+    v.venueState !== (event.venueState ?? undefined) ||
+    v.venueCountry !== (event.venueCountry ?? undefined) ||
+    v.venueMapsUrl !== (event.venueMapsUrl ?? undefined);
+
+  // An event saved before coordinates existed has none; resolve those too, or
+  // the pin never appears for anyone who does not happen to move their venue.
+  const needsCoords = venueMoved || event.venueLat === null || event.venueLng === null;
+
+  const coords = needsCoords
+    ? await resolveCoords({
+        venueName: v.venueName ?? null,
+        venueAddress: v.venueAddress ?? null,
+        venueCity: v.venueCity ?? null,
+        venueState: v.venueState ?? null,
+        venueCountry: v.venueCountry ?? null,
+        venueMapsUrl: v.venueMapsUrl ?? null,
+      })
+    : { lat: event.venueLat, lng: event.venueLng };
+
   const [after] = await db
     .update(events)
     .set({
@@ -623,6 +664,8 @@ export async function updateEventBasics(
       venueState: v.venueState ?? null,
       venueCountry: v.venueCountry ?? null,
       venueMapsUrl: v.venueMapsUrl ?? null,
+      venueLat: coords?.lat ?? null,
+      venueLng: coords?.lng ?? null,
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize,

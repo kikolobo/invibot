@@ -129,6 +129,35 @@ export function sendImage(
   });
 }
 
+export type LocationPayload = {
+  latitude: number;
+  longitude: number;
+  /** The venue as the guest knows it — shown in bold on the map card. */
+  name?: string;
+  /** The street line under it. */
+  address?: string;
+};
+
+/**
+ * A native map card: a real pin the guest taps to open their own maps app.
+ *
+ * Same 24-hour window rule as text and images, which is exactly why it suits a
+ * guest who just asked where the party is — their question opened the window.
+ * The invitation itself cannot use this and keeps the short link.
+ */
+export function sendLocation(
+  config: WhatsAppConfig,
+  to: string,
+  location: LocationPayload,
+): Promise<SendResult> {
+  return post(config, {
+    recipient_type: "individual",
+    to: toRecipient(to),
+    type: "location",
+    location,
+  });
+}
+
 export type MediaUploadResult =
   | { ok: true; mediaId: string }
   | { ok: false; title: string; detail?: string };

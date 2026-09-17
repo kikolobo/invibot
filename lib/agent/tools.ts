@@ -14,7 +14,16 @@ export type AgentAction =
   | { tool: "confirm_attendance"; companion: boolean }
   | { tool: "decline_attendance" }
   | { tool: "opt_out" }
-  | { tool: "escalate_question"; question: string };
+  | { tool: "escalate_question"; question: string }
+  | { tool: "send_location" };
+
+const locationTool: Anthropic.Tool = {
+  name: "send_location",
+  description:
+    "Send the venue as a WhatsApp location card — a real pin the guest can tap to navigate. Use it when they ask where the party is, for the address, for the location, or how to get there. Send it once and say one short sentence alongside it; do not also paste a link.",
+  input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+  strict: true,
+};
 
 export const agentTools: Anthropic.Tool[] = [
   {
@@ -68,6 +77,18 @@ export const agentTools: Anthropic.Tool[] = [
 ];
 
 /** Human-readable, for the organizer watching the simulator. */
+/**
+ * What this event's assistant can do.
+ *
+ * The location card is offered only when the event has coordinates. A tool that
+ * always fails teaches the model to stop trusting its own tools, and a guest
+ * asking where the party is would get an apology instead of the link that was
+ * available all along.
+ */
+export function agentToolsFor(options: { canSendLocation: boolean }): Anthropic.Tool[] {
+  return options.canSendLocation ? [...agentTools, locationTool] : agentTools;
+}
+
 export function describeAction(action: AgentAction): string {
   switch (action.tool) {
     case "confirm_attendance":
@@ -78,5 +99,7 @@ export function describeAction(action: AgentAction): string {
       return "Registra: pidió no recibir más mensajes";
     case "escalate_question":
       return `Te preguntaría: “${action.question}”`;
+    case "send_location":
+      return "Manda la ubicación del lugar como mapa de WhatsApp";
   }
 }

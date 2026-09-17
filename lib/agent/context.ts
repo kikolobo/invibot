@@ -1,8 +1,10 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, eventFacts, guests } from "@/db/schema";
+import type Anthropic from "@anthropic-ai/sdk";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 import { eventMapsUrl } from "@/lib/events/maps";
+import { agentToolsFor } from "./tools";
 
 type EventRow = typeof events.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -23,6 +25,8 @@ type GuestRow = typeof guests.$inferSelect;
 export type AgentContext = {
   systemPrompt: string;
   guest: { id: string; name: string; canBringCompanion: boolean };
+  /** What this event's assistant may do — the pin only exists for some events. */
+  tools: Anthropic.Tool[];
 };
 
 const rsvpWords: Record<string, string> = {
@@ -56,6 +60,7 @@ export async function buildContext(
   // goes in the prompt rather than behind a tool: the model needs to recognise
   // "¿me pasas la ubicación?" and answer it, not call something to find out.
   const maps = eventMapsUrl(event);
+  const canSendLocation = Boolean(event.venueLat && event.venueLng);
 
   const knowledge =
     facts.length > 0
@@ -95,14 +100,17 @@ export async function buildContext(
       : "- Su invitación NO incluye acompañante. Aunque te diga que va con su pareja, un amigo o un familiar, jamás uses confirm_attendance con companion=true ni le digas que ambos quedan registrados: registra su lugar y dile que le confirmas con el anfitrión si puede llevar a alguien.",
     "- Si pide dejar de recibir mensajes, usa opt_out y no insistas.",
     "- Nunca repitas la invitación completa: ya la tiene.",
-    maps
-      ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
-      : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",
+    canSendLocation
+      ? "- Si te piden la ubicación, la dirección o cómo llegar, usa send_location: les llega el mapa de WhatsApp con el pin, que es mejor que cualquier link. Acompáñalo de una frase corta y no pegues además el link."
+      : maps
+        ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
+        : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",
     "- Nunca inventes precios, direcciones, horarios ni reglas que no estén arriba.",
   ].join("\n");
 
   return {
     systemPrompt,
     guest: { id: guest.id, name, canBringCompanion },
+    tools: agentToolsFor({ canSendLocation }),
   };
 }

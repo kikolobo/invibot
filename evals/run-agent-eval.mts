@@ -31,12 +31,19 @@ if (!event || !guest) throw new Error("need an event with at least one guest");
 const client = anthropicFromEnv();
 if (!client) throw new Error("ANTHROPIC_API_KEY is not set");
 
-// Two prompts, so a case can pin the guest's seats instead of inheriting
-// whatever the seeded row happens to say today.
-const promptFor = new Map<number, string>();
+// One context per (seats, pin) combination, so a case can state the world it
+// needs instead of inheriting whatever the seeded rows happen to say today —
+// the seeded guest's seats follow the event's +1 setting, and the coordinates
+// depend on whether anyone has saved an address since.
+const contexts = new Map<string, { systemPrompt: string; tools: unknown[] }>();
 for (const seats of [1, 2]) {
-  const { systemPrompt } = await buildContext(event, { ...guest, partySizeAllowed: seats });
-  promptFor.set(seats, systemPrompt);
+  for (const pin of [false, true]) {
+    const context = await buildContext(
+      { ...event, venueLat: pin ? 25.6621 : null, venueLng: pin ? -100.3552 : null },
+      { ...guest, partySizeAllowed: seats },
+    );
+    contexts.set(`${seats}:${pin}`, context);
+  }
 }
 console.log(`event "${event.name}" · guest ${guest.fullName} (pases=${guest.partySizeAllowed})`);
 console.log(`model ${process.env.ANTHROPIC_MODEL ?? "claude-opus-5"}\n`);
@@ -56,10 +63,18 @@ for (const testCase of cases) {
   for (const message of testCase.messages) {
     history.push({ role: "user", content: message });
     const seats = testCase.seats ?? (guest.partySizeAllowed >= 2 ? 2 : 1);
-    const result = await runAgentTurn(client, promptFor.get(seats)!, history, async (action) => {
-      actions.push(action as { tool: string });
-      return "Registrado.";
-    });
+    const pin = testCase.pin ?? Boolean(event.venueLat && event.venueLng);
+    const context = contexts.get(`${seats}:${pin}`)!;
+    const result = await runAgentTurn(
+      client,
+      context.systemPrompt,
+      history,
+      async (action) => {
+        actions.push(action as { tool: string });
+        return "Registrado.";
+      },
+      context.tools as Parameters<typeof runAgentTurn>[4],
+    );
     if ("error" in result) {
       failed = `request failed: ${result.error}`;
       break;

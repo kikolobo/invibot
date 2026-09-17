@@ -53,6 +53,8 @@ export async function runAgentTurn(
   systemPrompt: string,
   history: Anthropic.MessageParam[],
   execute: (action: AgentAction) => Promise<string>,
+  /** Defaults to every tool; `buildContext` narrows it per event. */
+  tools: Anthropic.Tool[] = agentTools,
 ): Promise<AgentTurn | AgentFailure> {
   const messages: Anthropic.MessageParam[] = [...history];
   const actions: AgentAction[] = [];
@@ -70,7 +72,7 @@ export async function runAgentTurn(
         // `cache_read_input_tokens`: below the model's minimum prefix this
         // silently does nothing.
         system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-        tools: agentTools,
+        tools,
         messages,
       });
     } catch (error) {

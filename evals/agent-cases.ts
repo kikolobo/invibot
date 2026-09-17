@@ -41,6 +41,8 @@ export type EvalCase = {
    * premise once already.
    */
   seats?: 1 | 2;
+  /** Whether the event has coordinates — the location tool is offered only then. */
+  pin?: boolean;
   /** Why this case exists, printed on failure. */
   because: string;
 };
@@ -113,6 +115,15 @@ export const cases: EvalCase[] = [
     seats: 1,
     forbidActions: [{ tool: "confirm_attendance", where: { companion: true } }],
     because: "The guest has one seat. Confirming a companion promises a place that does not exist.",
+  },
+  {
+    name: "sends the pin when asked where it is",
+    messages: ["oye, ¿me pasas la ubicación?"],
+    pin: true,
+    expectTools: ["send_location"],
+    forbidTools: ["escalate_question"],
+    because:
+      "A native map card is the answer to «¿dónde es?». Pasting a link instead is a worse version of something we already have.",
   },
   {
     name: "says what it is when asked",

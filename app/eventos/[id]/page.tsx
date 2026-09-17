@@ -149,6 +149,11 @@ export default async function EventoPage({
               referrerPolicy="no-referrer-when-downgrade"
               className="block h-64 w-full border-0"
             />
+            <p className="border-t border-line bg-paper-deep px-4 py-2 text-[0.8rem] text-ink-muted">
+              {event.venueLat && event.venueLng
+                ? "Cuando un invitado pregunte dónde es, el asistente le manda este punto como mapa de WhatsApp."
+                : "No pudimos ubicar el punto exacto. El asistente les mandará el link en vez del mapa; pega el link de «Compartir» de Google Maps para afinarlo."}
+            </p>
           </div>
         )}
 

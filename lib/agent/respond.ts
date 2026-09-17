@@ -3,6 +3,8 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests, conversations, messages, escalations } from "@/db/schema";
 import { applyIntent } from "@/lib/whatsapp/intents";
+import { sendLocationToGuest } from "@/lib/whatsapp/send";
+import { formatEventAddressLines } from "@/lib/events/format";
 import { normalizeQuestion } from "@/lib/events/facts";
 import { buildContext } from "./context";
 import { anthropicFromEnv, runAgentTurn } from "./run";
@@ -69,14 +71,20 @@ export async function answerGuest(guest: GuestRow, at: Date): Promise<AgentReply
   while (history.length > 0 && history[0].role !== "user") history.shift();
   if (history.length === 0 || history[history.length - 1].role !== "user") return null;
 
-  const { systemPrompt } = await buildContext(event, guest);
+  const { systemPrompt, tools } = await buildContext(event, guest);
 
   let confirmed = false;
 
-  const result = await runAgentTurn(client, systemPrompt, history, (action) => {
-    if (action.tool === "confirm_attendance") confirmed = true;
-    return perform(guest, conversation.id, action, at);
-  });
+  const result = await runAgentTurn(
+    client,
+    systemPrompt,
+    history,
+    (action) => {
+      if (action.tool === "confirm_attendance") confirmed = true;
+      return perform(guest, conversation.id, action, at);
+    },
+    tools,
+  );
 
   if ("error" in result) {
     console.error("[agent] turn failed", guest.id, result.error);
@@ -131,7 +139,38 @@ async function perform(
     case "escalate_question":
       await recordEscalation(guest, conversationId, action.question);
       return "Enviado al anfitrión. Avísale al invitado que le confirmas en cuanto sepas.";
+
+    case "send_location":
+      return sendVenuePin(guest);
   }
+}
+
+/**
+ * Puts the venue on the guest's map.
+ *
+ * The coordinates were resolved when the organizer saved the event, so this
+ * costs no lookup. If they are missing the tool was never offered — but the
+ * event can be edited between one message and the next, so the fallback says
+ * what to do rather than leaving the model to invent an address.
+ */
+async function sendVenuePin(guest: GuestRow): Promise<string> {
+  const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+  if (!event?.venueLat || !event?.venueLng) {
+    return "No tenemos el punto exacto. Dale la dirección escrita y el link, sin disculparte de más.";
+  }
+
+  const outcome = await sendLocationToGuest(guest.id, {
+    latitude: event.venueLat,
+    longitude: event.venueLng,
+    name: event.venueName ?? event.name,
+    address: formatEventAddressLines(event).join(", "),
+  });
+
+  if (!outcome.ok) {
+    console.error("[agent] location send failed", guest.id, outcome);
+    return "No se pudo mandar el mapa. Dale la dirección escrita y el link.";
+  }
+  return "Listo, ya le llegó el mapa con el pin. Dile en una frase que ahí está la ubicación.";
 }
 
 /**

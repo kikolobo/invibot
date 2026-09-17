@@ -56,7 +56,7 @@ export async function simulateReply(
     return { error: "Escribe algo primero." };
   }
 
-  const { systemPrompt } = await buildContext(event, guest);
+  const { systemPrompt, tools } = await buildContext(event, guest);
 
   const messages: Anthropic.MessageParam[] = turns.map((turn) => ({
     role: turn.role,
@@ -78,10 +78,12 @@ export async function simulateReply(
         return "Registrado. El invitado queda como que no asistirá.";
       case "opt_out":
         return "Registrado. No se le enviarán más mensajes.";
+      case "send_location":
+        return "Listo, ya le llegó el mapa con el pin. Dile en una frase que ahí está la ubicación.";
       case "escalate_question":
         return "Enviado al anfitrión. Avísale al invitado que le confirmas en cuanto sepas.";
     }
-  });
+  }, tools);
 
   if ("error" in result) return { error: result.error };
 

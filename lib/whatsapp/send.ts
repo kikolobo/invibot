@@ -13,6 +13,8 @@ import {
   sendText,
   sendTemplate,
   sendImage,
+  sendLocation,
+  type LocationPayload,
   type SendResult,
   type TemplateComponent,
 } from "./client";
@@ -102,6 +104,22 @@ export async function sendTemplateToGuest(
     },
     (config, to) =>
       sendTemplate(config, to, template.name, template.language, template.components ?? []),
+  );
+}
+
+/**
+ * A native map card. Free-form, so the guest must have written to us first —
+ * which they have, since this only answers someone asking where the party is.
+ */
+export async function sendLocationToGuest(
+  guestId: string,
+  location: LocationPayload,
+  kind: SendKind = "logistics",
+): Promise<SendOutcome> {
+  const label = [location.name, location.address].filter(Boolean).join(" · ");
+  return deliver(
+    { guestId, kind, requireOpenWindow: true, body: `[location] ${label}`.trim() },
+    (config, to) => sendLocation(config, to, location),
   );
 }
 
