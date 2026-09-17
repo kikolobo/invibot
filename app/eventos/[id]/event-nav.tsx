@@ -30,9 +30,9 @@ export function EventNav({
   const base = `/eventos/${eventId}`;
 
   const links = [
-    { href: base, label: "Resumen" },
+    { href: base, label: "Generales" },
     // The questionnaire is an editor; an archived event has nothing to do there.
-    ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles del evento" }]),
+    ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles" }]),
     { href: `${base}/invitados`, label: "Lista de invitados", badge: guestCount },
     { href: `${base}/reporte`, label: "Reporte" },
     {
