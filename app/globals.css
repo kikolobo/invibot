@@ -91,7 +91,7 @@ body {
     background: #fff !important;
   }
 
-  .print-sheet {
+  .report-sheet {
     margin: 0 !important;
     border: 0 !important;
     padding: 0 !important;
@@ -100,12 +100,12 @@ body {
   }
 
   /* A letter or a group should not be orphaned at the foot of a page. */
-  .print-section {
+  .report-section {
     break-inside: avoid;
   }
 
   /* Long sections may split, but never right after their heading. */
-  .print-section > div:first-child {
+  .report-section > div:first-child {
     break-after: avoid;
   }
 

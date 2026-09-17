@@ -27,13 +27,25 @@ export const filters = {
 
 export type FilterKey = keyof typeof filters;
 
+/**
+ * Grouping and ordering are independent: a list can be grouped by table and
+ * still read alphabetically inside each one. Folding "grupo" into the sort was
+ * a false choice.
+ */
 export const orders = {
   nombre: "Nombre",
   apellido: "Apellido",
-  grupo: "Grupo",
 } as const;
 
 export type OrderKey = keyof typeof orders;
+export type Direction = "asc" | "desc";
+
+export type ReportShape = {
+  order: OrderKey;
+  direction: Direction;
+  /** Sections by group instead of by initial letter. */
+  grouped: boolean;
+};
 
 export const isFilter = (value: string): value is FilterKey => value in filters;
 export const isOrder = (value: string): value is OrderKey => value in orders;
@@ -98,42 +110,44 @@ const initial = (value: string) => {
 
 export type ReportSection = { heading: string; guests: ReportGuest[] };
 
-export function buildSections(guests: ReportGuest[], order: OrderKey): ReportSection[] {
+/**
+ * Splits the list into the sections a reader scans by.
+ *
+ * Grouped, the heading is the group and the ordering runs inside it. Ungrouped,
+ * the heading is the initial of whichever name is being read — which is the
+ * point of the big letter: someone looking for Federico looks under F, not
+ * through ninety rows.
+ */
+export function buildSections(guests: ReportGuest[], shape: ReportShape): ReportSection[] {
+  const sign = shape.direction === "desc" ? -1 : 1;
+
+  const nameOf = (guest: ReportGuest) =>
+    shape.order === "apellido" ? surnameOf(guest) : given(guest);
+
   const sorted = [...guests].sort((a, b) => {
-    if (order === "apellido") {
-      const bySurname = sortKey(surnameOf(a)).localeCompare(sortKey(surnameOf(b)), "es");
-      if (bySurname !== 0) return bySurname;
-    }
-    return sortKey(given(a)).localeCompare(sortKey(given(b)), "es");
+    const primary = sortKey(nameOf(a)).localeCompare(sortKey(nameOf(b)), "es");
+    if (primary !== 0) return primary * sign;
+    // A stable second key, so two Lobos keep a predictable order.
+    return sortKey(given(a)).localeCompare(sortKey(given(b)), "es") * sign;
   });
 
   const sections = new Map<string, ReportGuest[]>();
   for (const guest of sorted) {
-    const heading =
-      order === "grupo"
-        ? (guest.groupName ?? "Sin grupo")
-        : initial(order === "apellido" ? surnameOf(guest) : given(guest));
+    const heading = shape.grouped ? (guest.groupName ?? "Sin grupo") : initial(nameOf(guest));
     const bucket = sections.get(heading);
     if (bucket) bucket.push(guest);
     else sections.set(heading, [guest]);
   }
 
-  const result = [...sections.entries()].map(([heading, list]) => ({ heading, guests: list }));
+  // Leftovers sort last whichever way the list runs: "Sin grupo" is not a group
+  // and "#" is not a letter, and putting either first buries the real content.
+  const last = shape.grouped ? "Sin grupo" : "#";
 
-  if (order === "grupo") {
-    // Alphabetical, but "Sin grupo" last — it is the leftovers, not a group.
-    result.sort((a, b) => {
-      if (a.heading === "Sin grupo") return 1;
-      if (b.heading === "Sin grupo") return -1;
-      return sortKey(a.heading).localeCompare(sortKey(b.heading), "es");
+  return [...sections.entries()]
+    .map(([heading, list]) => ({ heading, guests: list }))
+    .sort((a, b) => {
+      if (a.heading === last) return 1;
+      if (b.heading === last) return -1;
+      return sortKey(a.heading).localeCompare(sortKey(b.heading), "es") * sign;
     });
-  } else {
-    result.sort((a, b) => {
-      if (a.heading === "#") return 1;
-      if (b.heading === "#") return -1;
-      return a.heading.localeCompare(b.heading, "es");
-    });
-  }
-
-  return result;
 }

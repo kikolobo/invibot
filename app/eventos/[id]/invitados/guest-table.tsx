@@ -67,6 +67,11 @@ export function GuestTable({
   const allSelected = rows.length > 0 && selected.size === rows.length;
   const editingGuest = rows.find((row) => row.id === editing) ?? null;
 
+  // Everyone who could be invited right now: never invited, or a send that
+  // failed. `invite.eligible` is built by the same module the send action
+  // uses, so this button can never offer someone the action would refuse.
+  const pendingIds = rows.map((row) => row.id).filter((id) => id in invite.eligible);
+
   function removeSelected() {
     const ids = [...selected];
     const names = rows.filter((r) => ids.includes(r.id)).map((r) => r.fullName);
@@ -88,6 +93,34 @@ export function GuestTable({
 
   return (
     <div>
+      {!archived && pendingIds.length > 0 && !sending && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-paper-deep p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.92rem] text-ink">
+              {pendingIds.length === 1
+                ? "1 invitado sin invitación"
+                : `${pendingIds.length} invitados sin invitación`}
+            </p>
+            <p className="text-[0.82rem] text-ink-muted">
+              Los que agregaste después del último envío, y los que fallaron.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // Selects them for you, then shows the same confirmation as a
+              // manual send. Skipping the preview would make one click spend
+              // real money on messages that cannot be recalled.
+              setSelected(new Set(pendingIds));
+              setSending(true);
+            }}
+            className="shrink-0 rounded-full bg-accent px-4 py-2 text-[0.85rem] text-paper"
+          >
+            Enviar invitaciones pendientes
+          </button>
+        </div>
+      )}
+
       <div className={`flex min-h-9 items-center justify-between gap-4 ${archived ? "hidden" : ""}`}>
         <label className="flex items-center gap-2 text-[0.85rem] text-ink-muted">
           <input
