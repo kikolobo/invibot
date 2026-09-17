@@ -2,8 +2,6 @@
 
 import { useActionState, useState } from "react";
 import { updatePartySettings, type ActionState } from "@/lib/events/actions";
-import { MAX_PARTY_SIZE } from "@/lib/events/party";
-import { Input } from "@/components/ui/field";
 
 /**
  * Companions, editable after the fact.
@@ -15,12 +13,10 @@ import { Input } from "@/components/ui/field";
 export function PartySettings({
   eventId,
   allowPlusOnes: initialAllow,
-  maxPartySize: initialMax,
   invitedCount,
 }: {
   eventId: string;
   allowPlusOnes: boolean;
-  maxPartySize: number;
   invitedCount: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -55,26 +51,11 @@ export function PartySettings({
         <span>
           <span className="text-[0.95rem] font-medium text-ink">Permitir acompañantes</span>
           <span className="block text-[0.82rem] text-ink-muted">
-            Cada invitación ofrece un lugar extra.
+            Cada invitación ofrece un lugar extra, y el invitado confirma si lo usa.
           </span>
         </span>
       </label>
 
-      <div className="mt-4 flex items-center gap-3">
-        <span className="text-[0.9rem] text-ink-soft">Personas por invitación</span>
-        {allowPlusOnes ? (
-          <Input type="number" defaultValue={2} disabled className="max-w-20 opacity-60" />
-        ) : (
-          <Input
-            type="number"
-            name="maxPartySize"
-            min={1}
-            max={MAX_PARTY_SIZE}
-            defaultValue={Math.min(initialMax, MAX_PARTY_SIZE)}
-            className="max-w-20"
-          />
-        )}
-      </div>
 
       {invitedCount > 0 && (
         <p className="mt-4 text-[0.82rem] leading-relaxed text-ink-muted">

@@ -111,17 +111,13 @@ export default async function EventoPage({
             <dd className="mt-1 text-ink">
               {event.rsvpRequired ? "Requerida" : "No se pide"}
               {event.maxPartySize > 1 && (
-                <span className="text-ink-soft">
-                  {" "}
-                  · hasta {event.maxPartySize} personas
-                </span>
+                <span className="text-ink-soft"> · con acompañante</span>
               )}
               {!archived && (
                 <span className="block">
                   <PartySettings
                     eventId={event.id}
                     allowPlusOnes={event.allowPlusOnes}
-                    maxPartySize={event.maxPartySize}
                     invitedCount={invitedCount}
                   />
                 </span>

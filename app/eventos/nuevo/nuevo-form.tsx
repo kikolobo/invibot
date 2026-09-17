@@ -4,7 +4,6 @@ import { useActionState, useState } from "react";
 import { createEvent, type ActionState } from "@/lib/events/actions";
 import { eventKinds, eventKindLabels } from "@/lib/events/kinds";
 import { Field, Input, Select, SubmitButton } from "@/components/ui/field";
-import { MAX_PARTY_SIZE } from "@/lib/events/party";
 
 const timezones = [
   "America/Mexico_City",
@@ -107,33 +106,11 @@ export function NuevoForm() {
               Permitir acompañantes
             </span>
             <span className="block text-[0.82rem] text-ink-muted">
-              Tus invitados podrán decir con cuántas personas llegan.
+              Cada invitación incluye un lugar extra, y el invitado confirma si lo usa.
             </span>
           </span>
         </label>
 
-        <Field label="Personas por invitación" error={err("maxPartySize")}>
-          {allowPlusOnes ? (
-            // Locked: "permitir acompañantes" already said two. Leaving it
-            // editable is how an event ends up offering a companion with a
-            // maximum of one, which is what the invitation would then promise.
-            <div className="flex items-center gap-3">
-              <Input type="number" defaultValue={2} disabled className="max-w-28 opacity-60" />
-              <span className="text-[0.82rem] text-ink-muted">
-                El invitado y un acompañante.
-              </span>
-            </div>
-          ) : (
-            <Input
-              type="number"
-              name="maxPartySize"
-              min={1}
-              max={MAX_PARTY_SIZE}
-              defaultValue={1}
-              className="max-w-28"
-            />
-          )}
-        </Field>
       </div>
 
       {state.error && <p className="text-[0.9rem] text-accent">{state.error}</p>}

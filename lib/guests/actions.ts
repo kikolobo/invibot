@@ -97,7 +97,6 @@ export async function addGuest(
   const rawPhone = String(formData.get("phone") ?? "").trim();
   const rawEmail = String(formData.get("email") ?? "").trim();
   const groupName = String(formData.get("group") ?? "").trim() || null;
-  const partyRaw = Number.parseInt(String(formData.get("partySizeAllowed") ?? "1"), 10);
 
   if (!fullName) return { error: "Falta el nombre." };
 
@@ -136,10 +135,10 @@ export async function addGuest(
     phoneVariants,
     email,
     groupId: await resolveGroup(eventId, groupName),
-    partySizeAllowed: Math.min(
-      Math.max(Number.isFinite(partyRaw) ? partyRaw : 1, 1),
-      event.maxPartySize,
-    ),
+    // Clamped to the event: ticking the box on an event that offers no
+    // companions cannot conjure a second seat.
+    partySizeAllowed:
+      formData.get("bringsCompanion") === "on" ? Math.min(2, event.maxPartySize) : 1,
     accessToken: newToken(),
   });
 

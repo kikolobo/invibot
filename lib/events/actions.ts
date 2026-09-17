@@ -10,7 +10,7 @@ import { db } from "@/db";
 import { events, eventFacts, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
-import { MAX_PARTY_SIZE, resolveMaxPartySize } from "./party";
+import { partySizeFor } from "./party";
 import { editableEvent } from "./guard";
 import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
@@ -57,12 +57,6 @@ const basicsSchema = z
     venueCity: z.string().trim().max(120).optional(),
     rsvpRequired: z.boolean().default(true),
     allowPlusOnes: z.boolean().default(false),
-    maxPartySize: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(MAX_PARTY_SIZE, `Por ahora el máximo es ${MAX_PARTY_SIZE} personas por invitación`)
-      .default(1),
   });
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> };
@@ -85,7 +79,6 @@ export async function createEvent(
     venueCity: formData.get("venueCity") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
-    maxPartySize: formData.get("maxPartySize") || 1,
   });
 
   if (!parsed.success) {
@@ -114,7 +107,7 @@ export async function createEvent(
       venueCity: v.venueCity ?? null,
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
-      maxPartySize: resolveMaxPartySize(v.allowPlusOnes, v.maxPartySize),
+      maxPartySize: partySizeFor(v.allowPlusOnes),
       details: emptyEventDetails(),
     })
     .returning();
@@ -218,8 +211,7 @@ export async function updatePartySettings(
   if (!guard.ok) return { error: guard.error };
 
   const allowPlusOnes = formData.get("allowPlusOnes") === "on";
-  const requested = Number.parseInt(String(formData.get("maxPartySize") ?? "1"), 10);
-  const maxPartySize = resolveMaxPartySize(allowPlusOnes, Number.isFinite(requested) ? requested : 1);
+  const maxPartySize = partySizeFor(allowPlusOnes);
 
   await db
     .update(events)

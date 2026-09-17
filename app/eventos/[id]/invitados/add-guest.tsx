@@ -33,15 +33,12 @@ export function AddGuest({
         <Combobox name="group" options={groups} placeholder="Grupo o relación" />
         {maxPartySize > 1 && (
           <label className="flex items-center gap-3 text-[0.9rem] text-ink-soft">
-            Pases
-            <Input
-              name="partySizeAllowed"
-              type="number"
-              min={1}
-              max={maxPartySize}
-              defaultValue={1}
-              className="max-w-20"
+            <input
+              type="checkbox"
+              name="bringsCompanion"
+              className="size-4 accent-[var(--accent)]"
             />
+            Puede traer acompañante
           </label>
         )}
       </div>

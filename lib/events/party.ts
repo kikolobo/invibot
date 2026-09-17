@@ -14,12 +14,13 @@
 export const MAX_PARTY_SIZE = 2;
 
 /**
- * `allowPlusOnes` is the human-facing switch; `maxPartySize` is the number the
- * rest of the system reads. Turning the switch on means exactly two seats, so
- * the number is derived rather than asked for twice — the two fields drifting
- * apart is how an event ends up offering companions with a maximum of one.
+ * Companions are a yes or a no, never a number to type.
+ *
+ * The column stays an integer for the day larger parties are supported, but
+ * nothing in the interface asks for a count: with a ceiling of two, a number
+ * input is a spinner with two positions, and it invited the contradiction this
+ * project already hit once — companions allowed, maximum of one.
  */
-export function resolveMaxPartySize(allowPlusOnes: boolean, requested: number): number {
-  if (allowPlusOnes) return MAX_PARTY_SIZE;
-  return Math.min(Math.max(requested, 1), MAX_PARTY_SIZE);
+export function partySizeFor(allowPlusOnes: boolean): number {
+  return allowPlusOnes ? MAX_PARTY_SIZE : 1;
 }
