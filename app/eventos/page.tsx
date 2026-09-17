@@ -1,20 +1,11 @@
 import Link from "next/link";
 import { count, desc, eq } from "drizzle-orm";
-import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
-import { eventKindLabels } from "@/lib/events/kinds";
-import { CloneEvent } from "./clone-event";
-import { UnarchiveButton } from "./unarchive-button";
+import { EventRow } from "./event-row";
 
 export const metadata = { title: "Mis eventos" };
-
-const dateFmt = new Intl.DateTimeFormat("es-MX", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
 
 export default async function Eventos() {
   const { orgId } = await requireOrg();
@@ -66,65 +57,28 @@ export default async function Eventos() {
         )}
 
         {archived.length > 0 && (
-          <section className="mt-14">
-            <h2 className="eyebrow">Archivados</h2>
-            <p className="mt-2 text-[0.85rem] text-ink-muted">
-              Se conservan completos y no pueden editarse. Puedes restaurarlos o
-              usarlos como base para uno nuevo.
-            </p>
-            <ul className="mt-5 space-y-3">
-              {archived.map((event) => (
-                <li key={event.id}>
-                  <EventRow
-                    event={event}
-                    guestCount={guestCounts.get(event.id) ?? 0}
-                    archived
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
+          <Link
+            href="/eventos/archivados"
+            className="mt-12 flex items-center gap-2.5 text-[0.85rem] text-ink-muted transition-colors hover:text-accent"
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="size-4 shrink-0"
+              aria-hidden="true"
+            >
+              <path d="M2.5 5.5h15v2.5h-15z" strokeLinejoin="round" />
+              <path d="M4 8v8.5h12V8" strokeLinejoin="round" />
+              <path d="M8 11h4" strokeLinecap="round" />
+            </svg>
+            Archivados
+            <span className="text-ink-muted/70">({archived.length})</span>
+          </Link>
         )}
+
       </div>
     </>
-  );
-}
-
-function EventRow({
-  event,
-  guestCount,
-  archived = false,
-}: {
-  event: typeof events.$inferSelect;
-  guestCount: number;
-  archived?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border p-5 transition-colors ${
-        archived
-          ? "border-line/70 bg-transparent hover:border-line"
-          : "border-line bg-paper-deep hover:border-accent"
-      }`}
-    >
-      <Link href={`/eventos/${event.id}`} className="block">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2
-            className={`font-display text-xl ${archived ? "text-ink-soft" : "text-ink"}`}
-          >
-            {event.name}
-          </h2>
-          <span className="eyebrow shrink-0">{eventKindLabels[event.kind].es}</span>
-        </div>
-        <p className="mt-1 text-[0.9rem] text-ink-soft">
-          {dateFmt.format(new TZDate(event.startsAt, event.timezone))}
-          {event.venueName && ` · ${event.venueName}`}
-        </p>
-      </Link>
-      <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-line pt-3">
-        {archived && <UnarchiveButton eventId={event.id} />}
-        <CloneEvent eventId={event.id} name={event.name} guestCount={guestCount} />
-      </div>
-    </div>
   );
 }
