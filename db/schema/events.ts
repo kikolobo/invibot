@@ -59,6 +59,12 @@ export const events = pgTable(
     rsvpRequired: boolean("rsvp_required").notNull().default(true),
     rsvpDeadline: timestamp("rsvp_deadline", { withTimezone: true }),
     allowPlusOnes: boolean("allow_plus_ones").notNull().default(false),
+    /**
+     * Whether confirmed guests are sent a QR pass. Off by default: a party of
+     * thirty in someone's garden does not want a door policy, and a code
+     * arriving unasked reads as bureaucracy.
+     */
+    qrEnabled: boolean("qr_enabled").notNull().default(false),
     maxPartySize: integer("max_party_size").notNull().default(1),
     capacity: integer("capacity"),
 

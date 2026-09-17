@@ -22,6 +22,7 @@ import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/wh
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
 import { recordGuestEvent } from "@/lib/guests/history";
+import { sendPasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configFromEnv, markRead } from "@/lib/whatsapp/client";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
@@ -355,7 +356,14 @@ async function respond(
     // the part that must arrive, and an image that fails to upload should never
     // take the confirmation down with it. Declines get nothing — someone who
     // just said they cannot come has no use for the invitation.
-    if (isConfirmation(intent)) await sendCard(guest);
+    if (isConfirmation(intent)) {
+      await sendCard(guest);
+      // After the card, never before: the invitation is the message they were
+      // waiting for and a QR arriving first reads like a ticketing system.
+      // `sendPasses` re-reads the guest, so it sees the RSVP just written.
+      const fresh = await db.query.guests.findFirst({ where: eq(guests.id, guest.id) });
+      if (fresh) await sendPasses(fresh);
+    }
     return;
   }
 

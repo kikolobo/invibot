@@ -9,10 +9,11 @@ import {
   uniqueIndex,
   index,
   check,
+  integer as int,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { events } from "./events";
-import { rsvpStatus, inviteStatus, guestEventType, guestEventSource } from "./enums";
+import { rsvpStatus, inviteStatus, guestEventType, guestEventSource, passStatus } from "./enums";
 
 /**
  * The controlled vocabulary of groups for one event. `normalizedName` is the
@@ -195,6 +196,7 @@ export const guestsRelations = relations(guests, ({ one, many }) => ({
   event: one(events, { fields: [guests.eventId], references: [events.id] }),
   group: one(guestGroups, { fields: [guests.groupId], references: [guestGroups.id] }),
   history: many(guestEvents),
+  passes: many(guestPasses),
 }));
 
 export const guestEventsRelations = relations(guestEvents, ({ one }) => ({
@@ -205,4 +207,53 @@ export const guestEventsRelations = relations(guestEvents, ({ one }) => ({
 export const guestGroupsRelations = relations(guestGroups, ({ one, many }) => ({
   event: one(events, { fields: [guestGroups.eventId], references: [events.id] }),
   guests: many(guests),
+}));
+
+
+/**
+ * One QR per person through the door.
+ *
+ * A guest bringing someone gets two, because two people arrive and only one of
+ * them is holding the phone the invitation went to.
+ *
+ * Passes are never reactivated. Cancelling revokes them and confirming again
+ * mints new codes, so a screenshot taken before someone cancelled is worthless
+ * afterwards — which is the only property that makes a pass mean anything.
+ */
+export const guestPasses = pgTable(
+  "guest_passes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    guestId: uuid("guest_id")
+      .notNull()
+      .references(() => guests.id, { onDelete: "cascade" }),
+
+    /** What the QR encodes. Opaque and unguessable; never an id. */
+    code: text("code").notNull(),
+    /** 1 for the guest, 2 for their companion. */
+    seat: int("seat").notNull().default(1),
+    /** The name printed under the code — "Ana" or "Acompañante de Ana". */
+    label: text("label").notNull(),
+
+    status: passStatus("status").notNull().default("active"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    /** Set once the image has reached the guest, so a resend is not a double send. */
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("guest_passes_code_key").on(t.code),
+    index("guest_passes_guest_idx").on(t.guestId, t.status),
+    index("guest_passes_event_idx").on(t.eventId, t.status),
+  ],
+);
+
+export const guestPassesRelations = relations(guestPasses, ({ one }) => ({
+  guest: one(guests, { fields: [guestPasses.guestId], references: [guests.id] }),
+  event: one(events, { fields: [guestPasses.eventId], references: [events.id] }),
 }));

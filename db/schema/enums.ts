@@ -111,3 +111,6 @@ export const guestEventType = pgEnum("guest_event_type", [
   "opted_out",
   "party_size_changed",
 ]);
+
+/** A pass is never edited back to life: cancelling revokes it and confirming mints a new one. */
+export const passStatus = pgEnum("pass_status", ["active", "revoked"]);

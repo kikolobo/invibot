@@ -8,6 +8,7 @@ import { eventKindLabels } from "@/lib/events/kinds";
 import { r2FromEnv } from "@/lib/storage/r2";
 import { PartySettings } from "./party-settings";
 import { RenameEvent } from "./rename-event";
+import { QrSettings } from "./qr-settings";
 import { EventCard } from "./event-card";
 import { ArchiveEvent } from "./archive-event";
 
@@ -113,11 +114,14 @@ export default async function EventoPage({
         </dl>
 
         {!archived && (
-          <PartySettings
-            eventId={event.id}
-            allowPlusOnes={event.allowPlusOnes}
-            invitedCount={invitedCount}
-          />
+          <>
+            <PartySettings
+              eventId={event.id}
+              allowPlusOnes={event.allowPlusOnes}
+              invitedCount={invitedCount}
+            />
+            <QrSettings eventId={event.id} enabled={event.qrEnabled} />
+          </>
         )}
 
 

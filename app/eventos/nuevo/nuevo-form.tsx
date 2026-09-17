@@ -111,6 +111,18 @@ export function NuevoForm() {
           </span>
         </label>
 
+        <label className="flex items-start gap-3">
+          <input type="checkbox" name="qrEnabled" className="mt-1 size-4 accent-[var(--accent)]" />
+          <span>
+            <span className="text-[0.95rem] font-medium text-ink">
+              Enviar código de acceso (QR)
+            </span>
+            <span className="block text-[0.82rem] text-ink-muted">
+              Cada invitado que confirme recibe un código único para la entrada. Uno por
+              persona, también para el acompañante.
+            </span>
+          </span>
+        </label>
       </div>
 
       {state.error && <p className="text-[0.9rem] text-accent">{state.error}</p>}

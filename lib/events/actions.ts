@@ -57,6 +57,7 @@ const basicsSchema = z
     venueCity: z.string().trim().max(120).optional(),
     rsvpRequired: z.boolean().default(true),
     allowPlusOnes: z.boolean().default(false),
+    qrEnabled: z.boolean().default(false),
   });
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> };
@@ -79,6 +80,7 @@ export async function createEvent(
     venueCity: formData.get("venueCity") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
+    qrEnabled: formData.get("qrEnabled") === "on",
   });
 
   if (!parsed.success) {
@@ -108,6 +110,7 @@ export async function createEvent(
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize: partySizeFor(v.allowPlusOnes),
+      qrEnabled: v.qrEnabled,
       details: emptyEventDetails(),
     })
     .returning();
@@ -462,4 +465,33 @@ export async function unarchiveEvent(eventId: string): Promise<ActionState & { o
   revalidatePath("/eventos");
   revalidatePath(`/eventos/${eventId}`);
   return { ok: "Evento restaurado." };
+}
+
+
+/**
+ * Turns the QR pass on or off for an event.
+ *
+ * Switching it off does not revoke what is already out: those guests were told
+ * to bring a code and some of them will. It only stops new ones being issued.
+ */
+export async function setQrEnabled(
+  eventId: string,
+  enabled: boolean,
+): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
+  await db
+    .update(events)
+    .set({ qrEnabled: enabled, updatedAt: new Date() })
+    .where(eq(events.id, eventId));
+
+  revalidatePath(`/eventos/${eventId}`);
+  return {
+    ok: enabled
+      ? "Listo. Cada invitado que confirme recibirá su código."
+      : "Listo. Ya no enviaremos códigos nuevos.",
+  };
 }
