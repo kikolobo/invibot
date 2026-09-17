@@ -34,6 +34,14 @@ export type InboundMessage = {
   text: string | null;
   /** Set when the guest tapped a quick-reply button on a template. */
   buttonPayload: string | null;
+  /**
+   * The `wamid` of *our* message this one replies to, when WhatsApp says so.
+   *
+   * This is how an inbound message names the event it belongs to. A phone
+   * number does not: the same person can be a guest at two of an organizer's
+   * events, and `guests` is unique on (event, phone) precisely to allow that.
+   */
+  contextWamid: string | null;
   type: string;
   raw: unknown;
 };
@@ -108,8 +116,11 @@ export function parseWebhook(body: unknown): {
           interactive?.list_reply?.title ??
           null;
 
+        const context = message.context as { id?: string } | undefined;
+
         messages.push({
           wamid: String(message.id ?? ""),
+          contextWamid: context?.id ? String(context.id) : null,
           from: String(message.from ?? ""),
           timestamp: asDate(message.timestamp),
           phoneNumberId,

@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { and, eq, inArray, or, sql as raw } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guests,
@@ -166,27 +166,72 @@ async function recordStatus(status: Awaited<ReturnType<typeof parseWebhook>>["st
     .where(eq(guests.id, guest.id));
 }
 
+/**
+ * Which guest — and therefore which event — this message belongs to.
+ *
+ * A phone number alone does not answer that. `guests` is unique on (event,
+ * phone), so one person can be a guest at several of an organizer's events, and
+ * matching on the number alone returns whichever row the database felt like
+ * first. That was already wrong for button taps; with an assistant answering
+ * questions it would mean answering about the wrong party.
+ */
+async function resolveGuest(message: InboundMessage): Promise<GuestRow | null> {
+  // Meta is inconsistent about the legacy "1" after +52, so match every form.
+  // Built from Drizzle operators rather than a raw fragment: a JS array through
+  // the template bound as a parameter list, and jsonb's `?|` does not survive a
+  // placeholder layer intact.
+  const candidates = variantsOf(`+${message.from.replace(/^\+/, "")}`);
+  const matches = await db
+    .select()
+    .from(guests)
+    .where(
+      or(
+        inArray(guests.phoneE164, candidates),
+        ...candidates.map(
+          (candidate) => raw`${guests.phoneVariants} @> ${JSON.stringify([candidate])}::jsonb`,
+        ),
+      ),
+    );
+
+  if (matches.length <= 1) return matches[0] ?? null;
+
+  // WhatsApp tells us which of our messages this replies to, which names the
+  // event exactly. Button taps always carry it.
+  if (message.contextWamid) {
+    const send = await db.query.sends.findFirst({
+      where: eq(sends.providerMessageId, message.contextWamid),
+    });
+    const exact = send?.guestId && matches.find((row) => row.id === send.guestId);
+    if (exact) return exact;
+  }
+
+  // Free-typed text carries no context. Fall back to the event we contacted
+  // this person about most recently — someone replying out of the blue is
+  // almost always answering the last thing they received.
+  const [latest] = await db
+    .select({ guestId: sends.guestId })
+    .from(sends)
+    .where(
+      and(
+        inArray(
+          sends.guestId,
+          matches.map((row) => row.id),
+        ),
+        isNotNull(sends.sentAt),
+      ),
+    )
+    .orderBy(desc(sends.sentAt))
+    .limit(1);
+
+  return matches.find((row) => row.id === latest?.guestId) ?? matches[0];
+}
+
 async function recordInbound(
   message: InboundMessage,
 ): Promise<{ guest: GuestRow; intent: GuestIntent } | null> {
   if (!message.wamid || !message.from) return null;
 
-  // Match on every plausible form of the number. Meta is inconsistent about
-  // whether Mexican numbers come back with the legacy "1" after +52, so an
-  // equality check on the canonical value drops replies on the floor.
-  //
-  // Built from Drizzle operators rather than a raw fragment: passing a JS array
-  // through the template bound it as a parameter list rather than a single
-  // array, and jsonb's `?|` does not survive a placeholder layer intact.
-  const candidates = variantsOf(`+${message.from.replace(/^\+/, "")}`);
-  const guest = await db.query.guests.findFirst({
-    where: or(
-      inArray(guests.phoneE164, candidates),
-      ...candidates.map(
-        (candidate) => raw`${guests.phoneVariants} @> ${JSON.stringify([candidate])}::jsonb`,
-      ),
-    ),
-  });
+  const guest = await resolveGuest(message);
   if (!guest) {
     // Keep it rather than dropping it: this is a forwarded invitation, a guest
     // on a second phone, a mistyped number, or a stranger — all of which the
