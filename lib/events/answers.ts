@@ -7,7 +7,8 @@ import { eventFacts, escalations, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "./guard";
 import { sendTextToGuest } from "@/lib/whatsapp/send";
-import { updatedAnswer } from "@/lib/whatsapp/replies";
+import { updatedAnswer, unavailableAnswer } from "@/lib/whatsapp/replies";
+import { NOT_PUBLIC } from "./knowledge";
 
 /**
  * Correcting an answer that came from a guest's question.
@@ -84,4 +85,98 @@ export async function updateGuestAnswer(
   ].filter(Boolean);
 
   return { ok: `Actualizado. ${parts.join(" ")}`.trim() };
+}
+
+
+/** Everyone who asked the question this fact came from. */
+async function askersOf(originEscalationId: string | null): Promise<string[]> {
+  if (!originEscalationId) return [];
+  const escalation = await db.query.escalations.findFirst({
+    where: eq(escalations.id, originEscalationId),
+  });
+  return escalation?.waitingGuestIds ?? [];
+}
+
+async function tell(guestIds: string[], message: string): Promise<string> {
+  let told = 0;
+  const unreachable: string[] = [];
+
+  for (const guestId of guestIds) {
+    const guest = await db.query.guests.findFirst({ where: eq(guests.id, guestId) });
+    if (!guest) continue;
+    const outcome = await sendTextToGuest(guest.id, message, "custom");
+    if (outcome.ok) told++;
+    else unreachable.push(guest.firstName ?? guest.fullName);
+  }
+
+  return [
+    told > 0 ? `Le avisamos a ${told} ${told === 1 ? "persona" : "personas"}.` : null,
+    unreachable.length > 0
+      ? `No pudimos avisarle a ${unreachable.join(", ")}: pasaron más de 24 horas desde su mensaje.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * Withdraws an answer already given.
+ *
+ * The people who asked are told, because they are acting on the old answer —
+ * that is what asking was for — and an answer that quietly becomes "not public"
+ * leaves them holding something they were told was true.
+ */
+export async function markAnswerUnavailable(
+  eventId: string,
+  factId: string,
+): Promise<AnswerState> {
+  const { orgId } = await requireOrg();
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
+  const fact = await db.query.eventFacts.findFirst({
+    where: and(eq(eventFacts.id, factId), eq(eventFacts.eventId, eventId)),
+  });
+  if (!fact) return { error: "No encontramos esa respuesta." };
+  if (fact.answer === NOT_PUBLIC) return { ok: "Ya estaba marcada así." };
+
+  await db
+    .update(eventFacts)
+    .set({ answer: NOT_PUBLIC, updatedAt: new Date() })
+    .where(eq(eventFacts.id, factId));
+
+  const note = await tell(
+    await askersOf(fact.originEscalationId),
+    unavailableAnswer(fact.question, NOT_PUBLIC),
+  );
+
+  revalidatePath(`/eventos/${eventId}/hechos`);
+  return { ok: `Listo. El asistente dirá que no es información pública. ${note}`.trim() };
+}
+
+/**
+ * Forgets an answer entirely.
+ *
+ * Nobody is told: this is for a question that should never have become
+ * knowledge — a joke, a duplicate, something answered wrongly. The assistant
+ * stops citing it, and a guest who asks again escalates as if it were new,
+ * which is the right outcome for something we should not have been saying.
+ */
+export async function discardAnswer(eventId: string, factId: string): Promise<AnswerState> {
+  const { orgId } = await requireOrg();
+
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
+  const [updated] = await db
+    .update(eventFacts)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(and(eq(eventFacts.id, factId), eq(eventFacts.eventId, eventId)))
+    .returning({ id: eventFacts.id });
+
+  if (!updated) return { error: "No encontramos esa respuesta." };
+
+  revalidatePath(`/eventos/${eventId}/hechos`);
+  return { ok: "Descartada. El asistente ya no la usa." };
 }

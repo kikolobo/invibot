@@ -7,6 +7,7 @@ import { escalations, eventFacts, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { normalizeQuestion } from "@/lib/events/facts";
+import { NOT_PUBLIC } from "@/lib/events/knowledge";
 import { sendTextToGuest } from "@/lib/whatsapp/send";
 import { relayedAnswer, unavailableAnswer } from "@/lib/whatsapp/replies";
 
@@ -156,9 +157,6 @@ export async function listOpenEscalations(eventId: string) {
     .orderBy(desc(escalations.createdAt));
 }
 
-
-/** What the assistant will say from then on when an organizer declines to answer. */
-const NOT_PUBLIC = "Esa información no está disponible al público.";
 
 /**
  * Closing a question by declining to answer it.

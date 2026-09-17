@@ -1,7 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { updateGuestAnswer, type AnswerState } from "@/lib/events/answers";
+import { useActionState, useState, useTransition } from "react";
+import {
+  updateGuestAnswer,
+  markAnswerUnavailable,
+  discardAnswer,
+  type AnswerState,
+} from "@/lib/events/answers";
 import { Textarea } from "@/components/ui/field";
 
 /**
@@ -24,6 +29,19 @@ export function EditAnswer({
   factId: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [closing, startClosing] = useTransition();
+  const [closed, setClosed] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<string | null>(null);
+
+  const close = (action: (eventId: string, factId: string) => Promise<AnswerState>) =>
+    startClosing(async () => {
+      const result = await action(eventId, factId);
+      setCloseError(result.error ?? null);
+      if (result.ok) {
+        setClosed(result.ok);
+        setOpen(false);
+      }
+    });
 
   const [state, formAction, pending] = useActionState<AnswerState, FormData>(
     async (prev: AnswerState, formData: FormData) => {
@@ -33,6 +51,15 @@ export function EditAnswer({
     },
     {},
   );
+
+  if (closed) {
+    return (
+      <li className="border-t border-line pt-4">
+        <p className="text-[0.9rem] text-ink-muted">{question}</p>
+        <p className="mt-1 text-[0.88rem] text-ink-soft">{closed}</p>
+      </li>
+    );
+  }
 
   if (!open) {
     return (
@@ -60,11 +87,12 @@ export function EditAnswer({
         <Textarea name="value" rows={2} defaultValue={answer} />
 
         {state.error && <p className="mt-2 text-[0.85rem] text-accent">{state.error}</p>}
+        {closeError && <p className="mt-2 text-[0.85rem] text-accent">{closeError}</p>}
 
         <div className="mt-3 flex items-center gap-3">
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || closing}
             className="rounded-full bg-accent px-4 py-1.5 text-[0.82rem] text-paper disabled:opacity-50"
           >
             {pending ? "Guardando…" : "Guardar"}
@@ -72,12 +100,30 @@ export function EditAnswer({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            disabled={pending}
+            disabled={pending || closing}
             className="text-[0.82rem] text-ink-muted hover:text-ink disabled:opacity-50"
           >
             Cancelar
           </button>
-          <span className="text-[0.78rem] text-ink-muted">Le avisamos a quien preguntó</span>
+          {/* The same two outs an unanswered question has, for the same
+              reasons: one withdraws the answer and tells whoever asked, the
+              other forgets it and tells nobody. */}
+          <button
+            type="button"
+            onClick={() => close(markAnswerUnavailable)}
+            disabled={pending || closing}
+            className="text-[0.82rem] text-ink-soft hover:text-ink disabled:opacity-50"
+          >
+            Info no disponible
+          </button>
+          <button
+            type="button"
+            onClick={() => close(discardAnswer)}
+            disabled={pending || closing}
+            className="text-[0.82rem] text-ink-muted hover:text-ink disabled:opacity-50"
+          >
+            Descartar
+          </button>
         </div>
       </form>
     </li>
