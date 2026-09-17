@@ -1,21 +1,25 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
-import { customAlphabet } from "nanoid";
+import { customAlphabet, nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { events, eventFacts } from "@/db/schema";
+import { events, eventFacts, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
+import { MAX_PARTY_SIZE, resolveMaxPartySize } from "./party";
 import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
 import { answersToFacts, setPath } from "./facts";
 import { seedGroups } from "@/lib/guests/actions";
 
 const slugId = customAlphabet("abcdefghijkmnpqrstuvwxyz23456789", 6);
+
+/** Matches the guest tokens minted in `lib/guests/actions.ts`. */
+const newEventToken = () => nanoid(24);
 
 function slugify(name: string): string {
   const base = name
@@ -52,11 +56,12 @@ const basicsSchema = z
     venueCity: z.string().trim().max(120).optional(),
     rsvpRequired: z.boolean().default(true),
     allowPlusOnes: z.boolean().default(false),
-    maxPartySize: z.coerce.number().int().min(1).max(20).default(1),
-  })
-  .refine((v) => v.allowPlusOnes || v.maxPartySize === 1, {
-    message: "Si no permites acompañantes, el máximo debe ser 1",
-    path: ["maxPartySize"],
+    maxPartySize: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_PARTY_SIZE, `Por ahora el máximo es ${MAX_PARTY_SIZE} personas por invitación`)
+      .default(1),
   });
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> };
@@ -108,7 +113,7 @@ export async function createEvent(
       venueCity: v.venueCity ?? null,
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
-      maxPartySize: v.allowPlusOnes ? v.maxPartySize : 1,
+      maxPartySize: resolveMaxPartySize(v.allowPlusOnes, v.maxPartySize),
       details: emptyEventDetails(),
     })
     .returning();
@@ -192,4 +197,236 @@ export async function saveDetails(
 
   revalidatePath(`/eventos/${eventId}`);
   redirect(`/eventos/${eventId}`);
+}
+
+
+/**
+ * Turning companions on or off after the event exists.
+ *
+ * Set only at creation until now, which left an organizer who forgot the
+ * checkbox with no way back — and left one event carrying `allowPlusOnes` with
+ * a maximum of one, a combination the invitation cannot express.
+ */
+export async function updatePartySettings(
+  eventId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  const event = await db.query.events.findFirst({
+    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
+  });
+  if (!event) return { error: "No encontramos ese evento." };
+
+  const allowPlusOnes = formData.get("allowPlusOnes") === "on";
+  const requested = Number.parseInt(String(formData.get("maxPartySize") ?? "1"), 10);
+  const maxPartySize = resolveMaxPartySize(allowPlusOnes, Number.isFinite(requested) ? requested : 1);
+
+  await db
+    .update(events)
+    .set({ allowPlusOnes, maxPartySize, updatedAt: new Date() })
+    .where(eq(events.id, eventId));
+
+  // Lowering the ceiling has to reach the guests, or someone sitting on two
+  // seats keeps receiving the companion invitation for a companion the
+  // organizer just withdrew. `partySizeConfirmed` is left alone on purpose:
+  // it records what a guest already answered, and rewriting that would be
+  // inventing an answer they did not give.
+  const clamped = await db
+    .update(guests)
+    .set({ partySizeAllowed: maxPartySize, updatedAt: new Date() })
+    .where(and(eq(guests.eventId, eventId), gt(guests.partySizeAllowed, maxPartySize)))
+    .returning({ id: guests.id });
+
+  revalidatePath(`/eventos/${eventId}`);
+  revalidatePath(`/eventos/${eventId}/invitados`);
+
+  const note =
+    clamped.length > 0
+      ? ` ${clamped.length} ${clamped.length === 1 ? "invitado pasó" : "invitados pasaron"} a ${maxPartySize} ${maxPartySize === 1 ? "lugar" : "lugares"}.`
+      : "";
+
+  return { ok: `Listo.${note}` };
+}
+
+
+/**
+ * Renaming an event.
+ *
+ * The slug deliberately does not follow. It is the public microsite path that
+ * every invitation already sent points at, and regenerating it would turn every
+ * one of those links into a 404 — a rename is a label change, not a move.
+ */
+export async function renameEvent(
+  eventId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState & { ok?: string }> {
+  const { orgId } = await requireOrg();
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (name.length < 2) return { error: "Ponle un nombre al evento." };
+  if (name.length > 120) return { error: "Ese nombre es demasiado largo." };
+
+  const [updated] = await db
+    .update(events)
+    .set({ name, updatedAt: new Date() })
+    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)))
+    .returning({ id: events.id });
+
+  if (!updated) return { error: "No encontramos ese evento." };
+
+  revalidatePath(`/eventos/${eventId}`);
+  revalidatePath("/eventos");
+  return { ok: "Listo." };
+}
+
+/**
+ * Copying an event to plan the next one.
+ *
+ * What carries over is the part that took work to write: the questionnaire
+ * answers and the facts the assistant answers from. What does not is anything
+ * that happened *to* the original — every send, conversation, RSVP and
+ * delivery receipt belongs to the invitations that went out, and copying them
+ * would fabricate a history for an event that has not happened yet.
+ *
+ * The new date is asked for rather than copied, because an identical event on
+ * an identical date is not a thing anyone wants. Anything anchored to the old
+ * date moves by the same amount.
+ */
+export async function cloneEvent(
+  sourceId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { orgId, userId } = await requireOrg();
+
+  const source = await db.query.events.findFirst({
+    where: and(eq(events.id, sourceId), eq(events.orgId, orgId)),
+  });
+  if (!source) return { error: "No encontramos ese evento." };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const date = String(formData.get("date") ?? "");
+  const time = String(formData.get("time") ?? "");
+  const copyGuests = formData.get("copyGuests") === "on";
+
+  if (name.length < 2) return { fieldErrors: { name: "Ponle un nombre al evento" } };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { fieldErrors: { date: "Elige una fecha" } };
+  if (!/^\d{2}:\d{2}$/.test(time)) return { fieldErrors: { time: "Elige una hora" } };
+
+  const startsAt = zonedToInstant(date, time, source.timezone);
+  // Everything else anchored to the old date slides with it, so a three-hour
+  // party stays three hours and an RSVP deadline keeps its lead time instead
+  // of landing in the past.
+  const shift = startsAt.getTime() - source.startsAt.getTime();
+  const slide = (at: Date | null) => (at ? new Date(at.getTime() + shift) : null);
+
+  const [created] = await db
+    .insert(events)
+    .values({
+      orgId,
+      createdByUserId: userId,
+      slug: slugify(name),
+      name,
+      kind: source.kind,
+      hostNames: source.hostNames,
+      startsAt,
+      endsAt: slide(source.endsAt),
+      timezone: source.timezone,
+      locale: source.locale,
+      venueName: source.venueName,
+      venueAddress: source.venueAddress,
+      venueCity: source.venueCity,
+      venueState: source.venueState,
+      venueCountry: source.venueCountry,
+      venueLat: source.venueLat,
+      venueLng: source.venueLng,
+      venuePlaceId: source.venuePlaceId,
+      venueMapsUrl: source.venueMapsUrl,
+      rsvpRequired: source.rsvpRequired,
+      rsvpDeadline: slide(source.rsvpDeadline),
+      allowPlusOnes: source.allowPlusOnes,
+      maxPartySize: source.maxPartySize,
+      capacity: source.capacity,
+      details: source.details,
+      // `status` and `publishedAt` stay at their defaults: a copy is a draft,
+      // however far along the original got.
+    })
+    .returning();
+
+  // The assistant's knowledge is the valuable part of a clone. `timesUsed`
+  // resets because it counts this event's conversations, and a fact learned
+  // from an escalation loses that link — the escalation belongs to the
+  // original's guests.
+  const facts = await db.select().from(eventFacts).where(eq(eventFacts.eventId, sourceId));
+  if (facts.length > 0) {
+    await db.insert(eventFacts).values(
+      facts.map((fact) => ({
+        eventId: created.id,
+        key: fact.key,
+        question: fact.question,
+        answer: fact.answer,
+        questionNormalized: fact.questionNormalized,
+        source: fact.source,
+        visibility: fact.visibility,
+      })),
+    );
+  }
+
+  const groups = await db.select().from(guestGroups).where(eq(guestGroups.eventId, sourceId));
+  const groupMap = new Map<string, string>();
+  if (groups.length > 0) {
+    const inserted = await db
+      .insert(guestGroups)
+      .values(
+        groups.map((group) => ({
+          eventId: created.id,
+          name: group.name,
+          normalizedName: group.normalizedName,
+          sortOrder: group.sortOrder,
+        })),
+      )
+      .returning({ id: guestGroups.id, normalizedName: guestGroups.normalizedName });
+
+    const byNormalized = new Map(inserted.map((g) => [g.normalizedName, g.id]));
+    for (const group of groups) {
+      const next = byNormalized.get(group.normalizedName);
+      if (next) groupMap.set(group.id, next);
+    }
+  }
+
+  if (copyGuests) {
+    const people = await db.select().from(guests).where(eq(guests.eventId, sourceId));
+    if (people.length > 0) {
+      await db.insert(guests).values(
+        people.map((guest) => ({
+          eventId: created.id,
+          fullName: guest.fullName,
+          firstName: guest.firstName,
+          phoneE164: guest.phoneE164,
+          phoneVariants: guest.phoneVariants,
+          email: guest.email,
+          locale: guest.locale,
+          // Remapped, or the guest would point at the original's group row.
+          groupId: guest.groupId ? (groupMap.get(guest.groupId) ?? null) : null,
+          partySizeAllowed: guest.partySizeAllowed,
+          notes: guest.notes,
+          // A fresh token: the old one addresses the old event's microsite,
+          // and the column is globally unique anyway.
+          accessToken: newEventToken(),
+          // Carried, not reset. Someone who asked not to be contacted did not
+          // ask only about one party.
+          optedOut: guest.optedOut,
+          optedOutAt: guest.optedOutAt,
+          // Everything else starts empty: this event has invited nobody yet,
+          // so nobody has answered it.
+        })),
+      );
+    }
+  }
+
+  revalidatePath("/eventos");
+  redirect(`/eventos/${created.id}`);
 }

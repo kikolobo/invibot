@@ -7,7 +7,7 @@ import { campaigns, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { sendTemplateToGuest } from "@/lib/whatsapp/send";
-import { invitationPlan, invitationVariables } from "./recipients";
+import { invitationPlan, invitationVariables, templateForGuest } from "./recipients";
 import { missingLabels } from "./labels";
 
 /**
@@ -110,15 +110,13 @@ export async function sendInvitations(
     // limit, and a burst of parallel sends is what gets a number rate-limited
     // or its quality rating knocked down.
     for (const guest of recipients) {
+      const template = templateForGuest(guest);
       const outcome = await sendTemplateToGuest(
         guest.id,
         {
-          name: "invitacion_evento",
+          name: template,
           language: "es_MX",
-          components: buildComponents(
-            "invitacion_evento",
-            invitationVariables(plan.event, guest),
-          ),
+          components: buildComponents(template, invitationVariables(plan.event, guest)),
         },
         "invite",
       );

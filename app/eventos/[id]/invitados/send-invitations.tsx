@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { sendInvitations, type InviteReport } from "@/lib/campaigns/actions";
 import { skipLabels, missingLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
-import { renderTemplate } from "@/lib/whatsapp/templates";
+import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 
 /**
  * The confirmation step before the only paid thing this app does.
@@ -20,7 +20,8 @@ export type InvitePanelProps = {
   eventVars: string[];
   missing: MissingField[];
   /** Guests who can receive it right now, by id, with the name the message uses. */
-  eligible: Record<string, string>;
+  /** The name the message uses, and which invitation they get. */
+  eligible: Record<string, { greeting: string; template: TemplateName }>;
   skipped: Record<string, SkipReason>;
   selected: { id: string; fullName: string }[];
   onClose: () => void;
@@ -43,10 +44,17 @@ export function SendInvitations({
 
   // Rendered from the same definition that was approved by Meta and that the
   // send will use, with the first real recipient's name in it.
+  const first = recipients[0] ? eligible[recipients[0].id] : null;
   const preview =
-    recipients.length > 0 && missing.length === 0
-      ? renderTemplate("invitacion_evento", [eligible[recipients[0].id], ...eventVars])
+    first && missing.length === 0
+      ? renderTemplate(first.template, [first.greeting, ...eventVars])
       : null;
+
+  // Two templates can be in one batch — the plus-one guests get a different
+  // message, and previewing only the first would hide that.
+  const plusOnes = recipients.filter(
+    (guest) => eligible[guest.id]?.template === "invitacion_evento_acompanante",
+  ).length;
 
   function confirm() {
     startTransition(async () => {
@@ -108,6 +116,8 @@ export function SendInvitations({
           </p>
           <p className="mt-1 text-[0.85rem] text-ink-muted">
             Se envía por WhatsApp y no se puede cancelar una vez enviado.
+            {plusOnes > 0 &&
+              ` ${plusOnes} ${plusOnes === 1 ? "recibe" : "reciben"} la versión con acompañante.`}
           </p>
 
           {preview && (

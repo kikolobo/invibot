@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { deleteGuests } from "@/lib/guests/actions";
 import { formatPhone } from "@/lib/phone";
 import { inviteLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
+import type { TemplateName } from "@/lib/whatsapp/templates";
 import { SendInvitations } from "./send-invitations";
 
 export type GuestRow = {
@@ -29,7 +30,7 @@ const rsvpLabels: Record<string, string> = {
 export type InviteContext = {
   eventVars: string[];
   missing: MissingField[];
-  eligible: Record<string, string>;
+  eligible: Record<string, { greeting: string; template: TemplateName }>;
   skipped: Record<string, SkipReason>;
 };
 

@@ -5,7 +5,12 @@ import { db } from "@/db";
 import { events, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { listGroups } from "@/lib/guests/actions";
-import { invitationPlan, eventVariables, greetingName } from "@/lib/campaigns/recipients";
+import {
+  invitationPlan,
+  eventVariables,
+  greetingName,
+  templateForGuest,
+} from "@/lib/campaigns/recipients";
 import { AddGuest } from "./add-guest";
 import { ImportGuests } from "./import-guests";
 import { GuestTable } from "./guest-table";
@@ -58,7 +63,13 @@ export default async function Invitados({
     eventVars: plan && plan.missing.length === 0 ? eventVariables(plan.event) : [],
     missing: plan?.missing ?? [],
     eligible: Object.fromEntries(
-      (plan?.eligible ?? []).map((guest) => [guest.id, greetingName(guest)]),
+      (plan?.eligible ?? []).map((guest) => [
+        guest.id,
+        {
+          greeting: greetingName(guest),
+          template: templateForGuest(guest),
+        },
+      ]),
     ),
     skipped: Object.fromEntries(
       (plan?.skipped ?? []).map(({ guest, reason }) => [guest.id, reason]),
@@ -113,7 +124,6 @@ export default async function Invitados({
         <AddGuest
           eventId={event.id}
           maxPartySize={event.maxPartySize}
-          allowPlusOnes={event.allowPlusOnes}
           groups={groups}
         />
         <ImportGuests eventId={event.id} />

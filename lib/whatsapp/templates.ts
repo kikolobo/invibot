@@ -91,6 +91,51 @@ export const templates = {
     ],
   },
 
+  /**
+   * The invitation for a guest who may bring someone.
+   *
+   * A separate template rather than a fourth button on the first one: WhatsApp
+   * allows three quick replies, and splitting "yes" into solo and plus-one uses
+   * the slot that held "Tengo una duda". The body still invites a question in
+   * words, which is where those go anyway.
+   *
+   * Sent only to guests whose `partySizeAllowed` is exactly 2. A party of four
+   * cannot be expressed in buttons at all and stays on the plain invitation.
+   */
+  invitacion_evento_acompanante: {
+    name: "invitacion_evento_acompanante",
+    language: "es_MX",
+    category: "MARKETING",
+    kind: "invite",
+    header: { format: "TEXT", text: "Tienes una invitación" },
+    body: [
+      "Hola {{1}} ✨",
+      "",
+      "{{2}} te invita a {{3}} 🥂",
+      "",
+      "📅 {{4}}",
+      "📍 {{5}}",
+      "",
+      "Tu invitación incluye un lugar para ti y un acompañante. Confírmanos aquí abajo 👇",
+      "",
+      "Cualquier duda, aquí estoy al pendiente.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Anfitriones, como los lee el invitado", example: "Ana y Carlos" },
+      { description: "Nombre del evento", example: "nuestra boda" },
+      { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
+      { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer: "Responde BAJA para dejar de recibir mensajes",
+    buttons: [
+      { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
+      { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
+      // Same payload as the plain invitation: one decline means one thing.
+      { label: "No asistiré", payload: "RSVP_NO" },
+    ],
+  },
+
   /** Nudge before the date. Utility because it follows an invitation already accepted. */
   recordatorio_evento: {
     name: "recordatorio_evento",

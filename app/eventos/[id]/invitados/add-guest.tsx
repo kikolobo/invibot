@@ -8,12 +8,10 @@ import { Combobox } from "@/components/ui/combobox";
 export function AddGuest({
   eventId,
   maxPartySize,
-  allowPlusOnes,
   groups,
 }: {
   eventId: string;
   maxPartySize: number;
-  allowPlusOnes: boolean;
   groups: string[];
 }) {
   const bound = addGuest.bind(null, eventId);
@@ -33,7 +31,7 @@ export function AddGuest({
         <Input name="phone" placeholder="55 1234 5678" inputMode="tel" />
         <Input name="email" type="email" placeholder="correo@ejemplo.com (opcional)" />
         <Combobox name="group" options={groups} placeholder="Grupo o relación" />
-        {allowPlusOnes && (
+        {maxPartySize > 1 && (
           <label className="flex items-center gap-3 text-[0.9rem] text-ink-soft">
             Pases
             <Input

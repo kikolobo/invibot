@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests, guestGroups, suppressions } from "@/db/schema";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
-import { renderTemplate } from "@/lib/whatsapp/templates";
+import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 import { variantsOf } from "@/lib/phone";
 import type { SkipReason, MissingField } from "./labels";
 
@@ -25,7 +25,20 @@ export type Invitee = {
   optedOut: boolean;
   inviteStatus: string;
   groupName: string | null;
+  partySizeAllowed: number;
 };
+
+/**
+ * Which invitation this guest gets.
+ *
+ * The plus-one template is for exactly two seats. A party of four cannot be
+ * expressed in three buttons, so those guests stay on the plain invitation and
+ * settle the count in conversation — better than a button that undercounts them
+ * and a guest who assumes the rest of the family is welcome.
+ */
+export function templateForGuest(guest: Pick<Invitee, "partySizeAllowed">): TemplateName {
+  return guest.partySizeAllowed === 2 ? "invitacion_evento_acompanante" : "invitacion_evento";
+}
 
 export type InvitationPlan = {
   event: EventRow;
@@ -139,6 +152,7 @@ export async function invitationPlan(
       optedOut: guests.optedOut,
       inviteStatus: guests.inviteStatus,
       groupName: guestGroups.name,
+      partySizeAllowed: guests.partySizeAllowed,
     })
     .from(guests)
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))
@@ -172,7 +186,10 @@ export async function invitationPlan(
     skipped,
     preview:
       missing.length === 0 && eligible[0]
-        ? renderTemplate("invitacion_evento", invitationVariables(event, eligible[0]))
+        ? renderTemplate(
+            templateForGuest(eligible[0]),
+            invitationVariables(event, eligible[0]),
+          )
         : null,
   };
 }

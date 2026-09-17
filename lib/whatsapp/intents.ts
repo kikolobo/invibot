@@ -16,7 +16,28 @@ import type { InboundMessage } from "./webhook";
  * pueda".
  */
 
-export type GuestIntent = "rsvp_yes" | "rsvp_no" | "question" | "opt_out" | "unknown";
+export type GuestIntent =
+  | "rsvp_yes"
+  | "rsvp_yes_solo"
+  | "rsvp_yes_plus_one"
+  | "rsvp_no"
+  | "question"
+  | "opt_out"
+  | "unknown";
+
+/** Every way a guest can say yes. Three buttons, one meaning, different seat counts. */
+export function isConfirmation(intent: GuestIntent): boolean {
+  return intent === "rsvp_yes" || intent === "rsvp_yes_solo" || intent === "rsvp_yes_plus_one";
+}
+
+/**
+ * Seats a confirmation implies, or null when the template carried no party
+ * information and we should not overwrite what the organizer set.
+ */
+const SEATS: Partial<Record<GuestIntent, number>> = {
+  rsvp_yes_solo: 1,
+  rsvp_yes_plus_one: 2,
+};
 
 const normalize = (text: string) =>
   text
@@ -30,6 +51,9 @@ const PAYLOADS: Record<string, GuestIntent> = {
   [templates.invitacion_evento.buttons[0].payload]: "rsvp_yes",
   [templates.invitacion_evento.buttons[1].payload]: "rsvp_no",
   [templates.invitacion_evento.buttons[2].payload]: "question",
+  [templates.invitacion_evento_acompanante.buttons[0].payload]: "rsvp_yes_solo",
+  [templates.invitacion_evento_acompanante.buttons[1].payload]: "rsvp_yes_plus_one",
+  // buttons[2] is RSVP_NO, already mapped above — one decline means one thing.
 };
 
 /**
@@ -45,7 +69,7 @@ const PAYLOADS: Record<string, GuestIntent> = {
  * cannot leave a stale phrase matching here.
  */
 const LABELS: Record<string, GuestIntent> = Object.fromEntries(
-  templates.invitacion_evento.buttons
+  [...templates.invitacion_evento.buttons, ...templates.invitacion_evento_acompanante.buttons]
     .filter((button) => PAYLOADS[button.payload])
     .map((button) => [normalize(button.label), PAYLOADS[button.payload]]),
 );
@@ -88,12 +112,20 @@ export async function applyIntent(
   intent: GuestIntent,
   at: Date,
 ): Promise<void> {
-  if (intent === "rsvp_yes" || intent === "rsvp_no") {
+  if (isConfirmation(intent) || intent === "rsvp_no") {
+    // Clamped to what the organizer actually offered: a guest who taps the
+    // plus-one button on a seat meant for one does not get to bring someone.
+    const seats = SEATS[intent];
+    const confirmed = seats === undefined ? {} : {
+      partySizeConfirmed: Math.min(seats, guest.partySizeAllowed),
+    };
+
     await db
       .update(guests)
       .set({
-        rsvpStatus: intent === "rsvp_yes" ? "confirmed" : "declined",
+        rsvpStatus: isConfirmation(intent) ? "confirmed" : "declined",
         rsvpRespondedAt: at,
+        ...confirmed,
         updatedAt: new Date(),
       })
       .where(eq(guests.id, guest.id));
@@ -123,7 +155,7 @@ export async function applyIntent(
  * courtesy receipt is still a message they did not ask for.
  */
 export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<string | null> {
-  if (intent !== "rsvp_yes" && intent !== "rsvp_no") return null;
+  if (!isConfirmation(intent) && intent !== "rsvp_no") return null;
 
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
   if (!event) return null;
@@ -139,7 +171,9 @@ export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<st
   return [
     `Listo ${name} ✅`,
     "",
-    `Tu lugar está confirmado para ${event.name}.`,
+    intent === "rsvp_yes_plus_one"
+      ? `Tu lugar y el de tu acompañante están confirmados para ${event.name}.`
+      : `Tu lugar está confirmado para ${event.name}.`,
     "",
     `📅 ${formatEventWhen(event)}`,
     `📍 ${formatEventWhere(event)}`,

@@ -11,7 +11,13 @@ import {
 } from "@/db/schema";
 import { parseWebhook, verifySignature, type InboundMessage } from "@/lib/whatsapp/webhook";
 import { variantsOf } from "@/lib/phone";
-import { parseIntent, applyIntent, replyFor, type GuestIntent } from "@/lib/whatsapp/intents";
+import {
+  parseIntent,
+  applyIntent,
+  replyFor,
+  isConfirmation,
+  type GuestIntent,
+} from "@/lib/whatsapp/intents";
 import { sendTextToGuest, sendTemplateToGuest } from "@/lib/whatsapp/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
@@ -258,7 +264,7 @@ async function respond(guest: GuestRow, intent: GuestIntent): Promise<void> {
   const text = await replyFor(guest, intent);
   if (!text) return;
 
-  const kind = intent === "rsvp_yes" ? "rsvp_confirmation" : "custom";
+  const kind = isConfirmation(intent) ? "rsvp_confirmation" : "custom";
   const outcome = await sendTextToGuest(guest.id, text, kind);
   if (outcome.ok) return;
 
@@ -269,7 +275,10 @@ async function respond(guest: GuestRow, intent: GuestIntent): Promise<void> {
 
   // The window shut between the guest's tap and this call. Only a confirmation
   // is worth a paid template; a decline can wait for the organizer.
-  if (intent !== "rsvp_yes") return;
+  //
+  // `confirmacion_rsvp` is approved and cannot mention a companion, so a
+  // plus-one falls back to the plain wording rather than going unanswered.
+  if (!isConfirmation(intent)) return;
 
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
   if (!event) return;

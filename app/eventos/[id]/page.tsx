@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ne } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
 import { events, eventFacts, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { questionsFor } from "@/lib/events/questions";
+import { PartySettings } from "./party-settings";
+import { RenameEvent } from "./rename-event";
 
 export const metadata = { title: "Evento" };
 
@@ -42,6 +44,12 @@ export default async function EventoPage({
     .from(guests)
     .where(eq(guests.eventId, id));
 
+  // Only to warn that changing companions does not reach invitations already sent.
+  const [{ invitedCount }] = await db
+    .select({ invitedCount: count() })
+    .from(guests)
+    .where(and(eq(guests.eventId, id), ne(guests.inviteStatus, "pending")));
+
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
   const answerable = questionsFor(event.kind).filter((q) => q.feedsAgent).length;
@@ -52,9 +60,7 @@ export default async function EventoPage({
     <>
       <div className="mx-auto max-w-2xl px-6 py-12 sm:px-10">
         <p className="eyebrow">{eventKindLabels[event.kind].es}</p>
-        <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
-          {event.name}
-        </h1>
+        <RenameEvent eventId={event.id} name={event.name} />
         {event.hostNames && (
           <p className="mt-2 text-lg text-ink-soft">Invita: {event.hostNames}</p>
         )}
@@ -80,12 +86,18 @@ export default async function EventoPage({
             <dt className="eyebrow">Confirmación</dt>
             <dd className="mt-1 text-ink">
               {event.rsvpRequired ? "Requerida" : "No se pide"}
-              {event.allowPlusOnes && (
+              {event.maxPartySize > 1 && (
                 <span className="text-ink-soft">
                   {" "}
                   · hasta {event.maxPartySize} personas
                 </span>
               )}
+              <PartySettings
+                eventId={event.id}
+                allowPlusOnes={event.allowPlusOnes}
+                maxPartySize={event.maxPartySize}
+                invitedCount={invitedCount}
+              />
             </dd>
           </div>
           <div>
