@@ -115,6 +115,14 @@ export const cases: EvalCase[] = [
     because: "The guest has one seat. Confirming a companion promises a place that does not exist.",
   },
   {
+    name: "says what it is when asked",
+    messages: ["oye, ¿eres un bot o una persona?"],
+    expectText: ["invibot"],
+    forbidTools: ["escalate_question"],
+    because:
+      "Its own identity is not the organizer's to answer, and a guest who suspects a person is being coy stops trusting the answers.",
+  },
+  {
     name: "keeps a confirmation after a follow-up question",
     messages: ["ahí estaré", "¿y cómo me visto?"],
     expectTools: ["confirm_attendance"],

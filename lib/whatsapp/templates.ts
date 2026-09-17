@@ -50,6 +50,19 @@ export type TemplateDefinition = {
   buttons?: TemplateButton[];
 };
 
+/**
+ * The small grey line under every message.
+ *
+ * Meta caps a footer at 60 characters, which is the whole reason the opt-out
+ * shortened: "Responde BAJA para dejar de recibir mensajes" left no room for
+ * the credit. Marketing templates must keep an opt-out — it is what makes the
+ * send legitimate — so the credit rides alongside it. Utility templates answer
+ * something the guest just did and have no list to leave, so they carry the
+ * credit alone.
+ */
+const marketingFooter = "Responde BAJA para no recibir más · Powered by Invibot";
+const utilityFooter = "Powered by Invibot";
+
 export const templates = {
   /**
    * The invitation. Text only, deliberately: the rendered card goes out as a
@@ -83,7 +96,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: "Responde BAJA para dejar de recibir mensajes",
+    footer: marketingFooter,
     buttons: [
       { label: "Sí, asistiré", payload: "RSVP_YES" },
       { label: "No podré", payload: "RSVP_NO" },
@@ -127,7 +140,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: "Responde BAJA para dejar de recibir mensajes",
+    footer: marketingFooter,
     buttons: [
       { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
       { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
@@ -170,7 +183,7 @@ export const templates = {
       { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
       { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: "Responde BAJA para dejar de recibir mensajes",
+    footer: marketingFooter,
     buttons: [
       { label: "Sí, asistiré", payload: "RSVP_YES" },
       { label: "No podré", payload: "RSVP_NO" },
@@ -203,7 +216,7 @@ export const templates = {
       { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
       { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: "Responde BAJA para dejar de recibir mensajes",
+    footer: marketingFooter,
     buttons: [
       { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
       { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
@@ -242,7 +255,7 @@ export const templates = {
       { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
       { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
     ],
-    footer: "Responde BAJA para dejar de recibir mensajes",
+    footer: marketingFooter,
   },
 
   /** Nudge before the date. Utility because it follows an invitation already accepted. */
@@ -265,6 +278,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
+    footer: utilityFooter,
   },
 
   /** Sent after the guest confirms, so it answers their own action. */
@@ -289,6 +303,7 @@ export const templates = {
       { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
       { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
     ],
+    footer: utilityFooter,
   },
 
   /**
@@ -312,6 +327,7 @@ export const templates = {
       { description: "Nombre del evento", example: "tu boda" },
       { description: "Pregunta del invitado, textual", example: "¿Pueden ir niños?" },
     ],
+    footer: utilityFooter,
   },
 } as const satisfies Record<string, TemplateDefinition>;
 
