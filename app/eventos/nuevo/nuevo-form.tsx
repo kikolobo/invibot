@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { createEvent, type ActionState } from "@/lib/events/actions";
 import { eventKinds, eventKindLabels } from "@/lib/events/kinds";
 import { Field, Input, Select, SubmitButton } from "@/components/ui/field";
+import { countries, mexicanStates } from "@/lib/events/places";
 
 const timezones = [
   "America/Mexico_City",
@@ -71,7 +72,21 @@ export function NuevoForm() {
           <Input name="venueAddress" placeholder="Camino Real 120" />
         </Field>
         <Field label="Ciudad" error={err("venueCity")}>
-          <Input name="venueCity" placeholder="Cuernavaca, Morelos" />
+          <Input name="venueCity" placeholder="Cuernavaca" />
+        </Field>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Estado" error={err("venueState")}>
+          <Input name="venueState" placeholder="Morelos" list="estados-mx" />
+          <datalist id="estados-mx">
+            {mexicanStates.map((state) => (
+              <option key={state} value={state} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label="País" error={err("venueCountry")}>
+          <Select name="venueCountry" defaultValue="MX" options={countries} />
         </Field>
       </div>
 

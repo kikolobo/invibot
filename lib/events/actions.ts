@@ -11,6 +11,7 @@ import { events, eventFacts, guests, guestGroups } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
 import { partySizeFor } from "./party";
+import { diffEvent } from "./changes";
 import { editableEvent } from "./guard";
 import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
@@ -55,6 +56,8 @@ const basicsSchema = z
     venueName: z.string().trim().max(160).optional(),
     venueAddress: z.string().trim().max(300).optional(),
     venueCity: z.string().trim().max(120).optional(),
+    venueState: z.string().trim().max(120).optional(),
+    venueCountry: z.string().trim().length(2).optional(),
     rsvpRequired: z.boolean().default(true),
     allowPlusOnes: z.boolean().default(false),
     qrEnabled: z.boolean().default(false),
@@ -78,6 +81,8 @@ export async function createEvent(
     venueName: formData.get("venueName") || undefined,
     venueAddress: formData.get("venueAddress") || undefined,
     venueCity: formData.get("venueCity") || undefined,
+    venueState: formData.get("venueState") || undefined,
+    venueCountry: formData.get("venueCountry") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
     qrEnabled: formData.get("qrEnabled") === "on",
@@ -107,6 +112,8 @@ export async function createEvent(
       venueName: v.venueName ?? null,
       venueAddress: v.venueAddress ?? null,
       venueCity: v.venueCity ?? null,
+      venueState: v.venueState ?? null,
+      venueCountry: v.venueCountry ?? null,
       rsvpRequired: v.rsvpRequired,
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize: partySizeFor(v.allowPlusOnes),
@@ -510,13 +517,18 @@ export async function setQrEnabled(
 
 
 const basicsEditSchema = z.object({
+  name: z.string().trim().min(2, "Ponle un nombre al evento").max(120),
   hostNames: z.string().trim().max(120).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha"),
   time: z.string().regex(/^\d{2}:\d{2}$/, "Elige una hora"),
   venueName: z.string().trim().max(160).optional(),
   venueAddress: z.string().trim().max(300).optional(),
   venueCity: z.string().trim().max(120).optional(),
+  venueState: z.string().trim().max(120).optional(),
+  venueCountry: z.string().trim().length(2).optional(),
   rsvpRequired: z.boolean().default(true),
+  allowPlusOnes: z.boolean().default(false),
+  qrEnabled: z.boolean().default(false),
 });
 
 /**
@@ -528,11 +540,19 @@ const basicsEditSchema = z.object({
  * but it cannot reach the invitations already on their phones, which is why the
  * form says so when any have gone out.
  */
+export type BasicsResult = ActionState & {
+  ok?: string;
+  /** Everything that moved, for the review panel. */
+  changed?: string[];
+  /** The sentence guests would be sent, when any of it concerns them. */
+  summary?: string;
+};
+
 export async function updateEventBasics(
   eventId: string,
   _prev: ActionState,
   formData: FormData,
-): Promise<ActionState & { ok?: string }> {
+): Promise<BasicsResult> {
   const { orgId } = await requireOrg();
 
   const guard = await editableEvent(eventId, orgId);
@@ -540,13 +560,18 @@ export async function updateEventBasics(
   const event = guard.event;
 
   const parsed = basicsEditSchema.safeParse({
+    name: String(formData.get("name") ?? ""),
     hostNames: formData.get("hostNames") || undefined,
     date: String(formData.get("date") ?? ""),
     time: String(formData.get("time") ?? ""),
     venueName: formData.get("venueName") || undefined,
     venueAddress: formData.get("venueAddress") || undefined,
     venueCity: formData.get("venueCity") || undefined,
+    venueState: formData.get("venueState") || undefined,
+    venueCountry: formData.get("venueCountry") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
+    allowPlusOnes: formData.get("allowPlusOnes") === "on",
+    qrEnabled: formData.get("qrEnabled") === "on",
   });
 
   if (!parsed.success) {
@@ -563,21 +588,50 @@ export async function updateEventBasics(
   // and editing the date should not quietly reinterpret it somewhere else.
   const startsAt = zonedToInstant(v.date, v.time, event.timezone);
 
-  await db
+  const maxPartySize = partySizeFor(v.allowPlusOnes);
+
+  const [after] = await db
     .update(events)
     .set({
+      name: v.name,
+      // The slug deliberately does not follow a rename: it is the public path
+      // every invitation already sent points at.
       hostNames: v.hostNames ?? null,
       startsAt,
       venueName: v.venueName ?? null,
       venueAddress: v.venueAddress ?? null,
       venueCity: v.venueCity ?? null,
+      venueState: v.venueState ?? null,
+      venueCountry: v.venueCountry ?? null,
       rsvpRequired: v.rsvpRequired,
+      allowPlusOnes: v.allowPlusOnes,
+      maxPartySize,
+      qrEnabled: v.qrEnabled,
       updatedAt: new Date(),
     })
-    .where(eq(events.id, eventId));
+    .where(eq(events.id, eventId))
+    .returning();
+
+  // The companion rule applies to invitations not yet sent. People already
+  // holding one keep what they were given — including a confirmed +1, which is
+  // a seat somebody is counting on.
+  await db
+    .update(guests)
+    .set({ partySizeAllowed: maxPartySize, updatedAt: new Date() })
+    .where(
+      and(
+        eq(guests.eventId, eventId),
+        ne(guests.partySizeAllowed, maxPartySize),
+        eq(guests.inviteStatus, "pending"),
+      ),
+    );
 
   revalidatePath(`/eventos/${eventId}`);
   revalidatePath(`/eventos/${eventId}/simulador`);
   revalidatePath(`/eventos/${eventId}/reporte`);
-  return { ok: "Actualizado." };
+
+  // Handed back so the page can ask whether anyone should be told, rather than
+  // deciding for the organizer.
+  const diff = diffEvent(event, after);
+  return { ok: "Guardado.", changed: diff.all, summary: diff.summary ?? undefined };
 }

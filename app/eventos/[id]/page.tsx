@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { countryLabel } from "@/lib/events/places";
 import { and, count, eq, ne } from "drizzle-orm";
 import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
@@ -6,10 +8,6 @@ import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { r2FromEnv } from "@/lib/storage/r2";
-import { PartySettings } from "./party-settings";
-import { RenameEvent } from "./rename-event";
-import { QrSettings } from "./qr-settings";
-import { EditBasics } from "./edit-basics";
 import { EventCard } from "./event-card";
 import { ArchiveEvent } from "./archive-event";
 
@@ -64,12 +62,10 @@ export default async function EventoPage({
 
   const archived = event.archivedAt !== null;
 
-  // Rendered in the event's own timezone so the form shows the hour the
-  // organizer meant, not the server's idea of it.
-  const localForForm = new TZDate(event.startsAt, event.timezone);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const formDate = `${localForForm.getFullYear()}-${pad(localForForm.getMonth() + 1)}-${pad(localForForm.getDate())}`;
-  const formTime = `${pad(localForForm.getHours())}:${pad(localForForm.getMinutes())}`;
+  // City, state and country read as one line; any of them may be missing.
+  const where = [event.venueCity, event.venueState, countryLabel(event.venueCountry)]
+    .filter(Boolean)
+    .join(", ");
 
   // Render the date in the event's own timezone, not the server's.
   const local = new TZDate(event.startsAt, event.timezone);
@@ -78,13 +74,9 @@ export default async function EventoPage({
     <>
       <div>
         <p className="eyebrow">{eventKindLabels[event.kind].es}</p>
-        {archived ? (
-          <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
-            {event.name}
-          </h1>
-        ) : (
-          <RenameEvent eventId={event.id} name={event.name} />
-        )}
+        <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
+          {event.name}
+        </h1>
         {event.hostNames && (
           <p className="mt-2 text-lg text-ink-soft">Invita: {event.hostNames}</p>
         )}
@@ -105,9 +97,7 @@ export default async function EventoPage({
             <dt className="eyebrow">Dónde</dt>
             <dd className="mt-1 text-ink">
               {event.venueName ?? "Sin definir"}
-              {event.venueCity && (
-                <span className="block text-[0.9rem] text-ink-soft">{event.venueCity}</span>
-              )}
+              {where && <span className="block text-[0.9rem] text-ink-soft">{where}</span>}
             </dd>
           </div>
           <div>
@@ -128,25 +118,12 @@ export default async function EventoPage({
         </dl>
 
         {!archived && (
-          <>
-            <PartySettings
-              eventId={event.id}
-              allowPlusOnes={event.allowPlusOnes}
-              invitedCount={invitedCount}
-            />
-            <QrSettings eventId={event.id} enabled={event.qrEnabled} />
-            <EditBasics
-              eventId={event.id}
-              hostNames={event.hostNames}
-              date={formDate}
-              time={formTime}
-              venueName={event.venueName}
-              venueAddress={event.venueAddress}
-              venueCity={event.venueCity}
-              rsvpRequired={event.rsvpRequired}
-              invitedCount={invitedCount}
-            />
-          </>
+          <Link
+            href={`/eventos/${event.id}/editar`}
+            className="mt-4 inline-flex items-center rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent"
+          >
+            Editar evento
+          </Link>
         )}
 
 

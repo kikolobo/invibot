@@ -136,6 +136,115 @@ export const templates = {
     ],
   },
 
+  /**
+   * The invitation again, after the event moved.
+   *
+   * A separate template because an approved one cannot be edited, and because
+   * a guest who never answered needs the buttons back — their 24-hour window
+   * closed long ago, so a free-form message cannot reach them at all.
+   *
+   * {{2}} names what changed, in the organizer's words, so one template covers
+   * a new date, a new venue, or both.
+   */
+  invitacion_actualizada: {
+    name: "invitacion_actualizada",
+    language: "es_MX",
+    category: "MARKETING",
+    kind: "invite",
+    header: { format: "TEXT", text: "Actualizamos tu invitación" },
+    body: [
+      "Hola {{1}} ✨",
+      "",
+      "Hubo un cambio en {{2}}:",
+      "{{3}}",
+      "",
+      "📅 {{4}}",
+      "📍 {{5}}",
+      "",
+      "Confirma tu asistencia aquí abajo 👇",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "nuestra boda" },
+      { description: "Qué cambió", example: "Cambió la fecha" },
+      { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
+      { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer: "Responde BAJA para dejar de recibir mensajes",
+    buttons: [
+      { label: "Sí, asistiré", payload: "RSVP_YES" },
+      { label: "No podré", payload: "RSVP_NO" },
+      { label: "Tengo una duda", payload: "ASK_QUESTION" },
+    ],
+  },
+
+  /** The same, for a guest whose invitation includes a companion. */
+  invitacion_actualizada_acompanante: {
+    name: "invitacion_actualizada_acompanante",
+    language: "es_MX",
+    category: "MARKETING",
+    kind: "invite",
+    header: { format: "TEXT", text: "Actualizamos tu invitación" },
+    body: [
+      "Hola {{1}} ✨",
+      "",
+      "Hubo un cambio en {{2}}:",
+      "{{3}}",
+      "",
+      "📅 {{4}}",
+      "📍 {{5}}",
+      "",
+      "Tu invitación incluye un lugar para ti y un acompañante. Confírmanos aquí abajo 👇",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "nuestra boda" },
+      { description: "Qué cambió", example: "Cambió el lugar" },
+      { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
+      { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer: "Responde BAJA para dejar de recibir mensajes",
+    buttons: [
+      { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
+      { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
+      { label: "No asistiré", payload: "RSVP_NO" },
+    ],
+  },
+
+  /**
+   * A change of plan for someone already coming.
+   *
+   * No buttons: they have confirmed, and asking them to confirm again invites a
+   * "no" that was never on the table. If the change breaks their plans they can
+   * say so, and the assistant is listening.
+   */
+  aviso_cambio_evento: {
+    name: "aviso_cambio_evento",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "logistics",
+    header: { format: "TEXT", text: "Cambio en el evento" },
+    body: [
+      "Hola {{1}} 🙏",
+      "",
+      "Te aviso de un cambio en {{2}}:",
+      "{{3}}",
+      "",
+      "📅 {{4}}",
+      "📍 {{5}}",
+      "",
+      "Si esto te cambia los planes, avísame por aquí.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "nuestra boda" },
+      { description: "Qué cambió", example: "Cambió la fecha" },
+      { description: "Fecha y hora nuevas", example: "sábado 21 de marzo, 5:00 PM" },
+      { description: "Lugar nuevo", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer: "Responde BAJA para dejar de recibir mensajes",
+  },
+
   /** Nudge before the date. Utility because it follows an invitation already accepted. */
   recordatorio_evento: {
     name: "recordatorio_evento",
