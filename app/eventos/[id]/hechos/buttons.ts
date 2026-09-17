@@ -11,7 +11,10 @@
 const base =
   "rounded-full px-4 py-1.5 text-[0.82rem] transition-colors disabled:opacity-50";
 
-const grey = `${base} bg-line/70 text-ink-soft hover:bg-line`;
+// `bg-line/70` was invisible on this paper: #e5ddd2 at 70% over #fbf8f3 lands
+// within a hair of the page, so the grey actions stopped reading as buttons at
+// all and sat there looking like labels. A pill has to have an edge.
+const grey = `${base} bg-stone-300 text-stone-800 hover:bg-stone-400`;
 
 export const buttonStyles = {
   /** Saves the answer and tells whoever asked. */

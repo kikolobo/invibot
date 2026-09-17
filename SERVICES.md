@@ -6,7 +6,7 @@ owns the account, what it costs, and what breaks without it.
 No secrets here — only the *names* of environment variables. Values live in
 `.env.local` (never committed) and in the Vercel project settings.
 
-Last reviewed: 2026-09-14
+Last reviewed: 2026-09-17
 
 ---
 
@@ -58,11 +58,28 @@ Runs the Next.js app: the marketing site, the organizer app, and the auth API.
 - **Domains:** `invibot.com` (primary), `www.invibot.com`, `invibot.vercel.app`
 - **Environment variables** (Production scope):
 
-  | Name                 | Purpose                                    |
-  | -------------------- | ------------------------------------------ |
-  | `DATABASE_URL`       | Neon pooled connection string              |
-  | `BETTER_AUTH_SECRET` | Signs session cookies. Distinct from local |
-  | `BETTER_AUTH_URL`    | `https://invibot.com`                      |
+  | Name                            | Purpose                                              |
+  | ------------------------------- | ---------------------------------------------------- |
+  | `DATABASE_URL`                  | Neon pooled connection string                        |
+  | `BETTER_AUTH_SECRET`            | Signs session cookies. Distinct from local           |
+  | `BETTER_AUTH_URL`               | `https://invibot.com`                                |
+  | `WHATSAPP_PHONE_NUMBER_ID`      | The sending number. No trailing space — it cost a day |
+  | `WHATSAPP_ACCESS_TOKEN`         | System user token, never expires                     |
+  | `WHATSAPP_WABA_ID`              | Needed to list and edit templates                    |
+  | `WHATSAPP_APP_SECRET`           | Verifies webhook signatures                          |
+  | `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Meta's subscription handshake                        |
+  | `R2_ACCOUNT_ID`                 | Cloudflare account                                   |
+  | `R2_ACCESS_KEY_ID`              | R2 credentials                                       |
+  | `R2_SECRET_ACCESS_KEY`          | R2 credentials                                       |
+  | `R2_BUCKET`                     | `invibot`                                            |
+  | `ANTHROPIC_API_KEY`             | The guest assistant                                  |
+  | `ANTHROPIC_MODEL`               | Optional override; defaults to `claude-opus-5`       |
+  | `GOOGLE_MAPS_API_KEY`           | Optional, **not set**. See Google Maps below         |
+  | `INVIBOT_PUBLIC_URL`            | Optional override for guest-facing short links       |
+
+- `/api/health` reports which of these are set and their character counts —
+  never the values. It is the only way to compare a Vercel secret against
+  `.env.local`, since Vercel will not read a secret back.
 
 - **⚠️ Environment variable changes need a redeploy.** They are not applied to
   an existing deployment.
@@ -71,7 +88,7 @@ Runs the Next.js app: the marketing site, the organizer app, and the auth API.
 
 ### Neon — Postgres
 
-The database. All 19 tables.
+The database. 24 tables, 14 migrations applied.
 
 - **Console:** https://console.neon.tech
 - **Project:** `sparkling-cake-18507188`, branch `production`
@@ -85,28 +102,46 @@ The database. All 19 tables.
 
 ### Anthropic — the assistant
 
-Not yet integrated; the decision is made and the budget is understood.
+**In use.** Answers guests on WhatsApp, records RSVPs, and escalates what the
+organizer never answered.
 
 - **Console:** https://console.anthropic.com
-- **Models:** Haiku 4.5 for guest conversations, Opus 5 for per-event work
-  (intake structuring, art direction, copy)
+- **Model:** `claude-opus-5` at `effort: low`, overridable with
+  `ANTHROPIC_MODEL`. Four tools — confirm, decline, opt out, escalate — plus
+  `send_location` on events that have coordinates.
+- **Prompt caching** carries the system prefix: the event's facts are identical
+  for every guest, so watch `cache_read_input_tokens` after any prompt edit. A
+  prefix under the model's minimum silently caches nothing.
 - **Cost:** roughly **$0.80 per event** — about 5% of what WhatsApp charges for
   the same event. Not the lever worth optimizing.
-- **Env var:** `ANTHROPIC_API_KEY` (not yet set)
+- **Regression suite:** `npm run eval:agent` (14 cases, real API calls, cents
+  per run). Run it before and after every prompt change.
+- **Env var:** `ANTHROPIC_API_KEY`
 
 ---
 
-## Planned, not yet set up
+### Meta / WhatsApp Business Platform — **the channel**
 
-### Meta / WhatsApp Business Platform — **the critical path**
-
-The messaging channel. Everything after milestone 2 waits on this.
+**In use**, on Meta's test number with allow-listed recipients.
 
 - **Consoles:** https://business.facebook.com (business account),
   https://developers.facebook.com (the app)
 - **Cost:** per-message, paid to Meta directly. This is ~90% of variable cost
   and therefore the thing pricing must be built around.
-- **Status:** not started
+- **Status:** sending and receiving. Eight approved templates; the app answers
+  webhooks, matches inbound numbers, and holds the 24-hour window rule.
+- **⚠️ Templates:** approved ones **can** be edited — once per 24 hours, ten
+  times a month — but the edit re-enters review, and a template in review
+  cannot be sent (error `132001`). Never start one mid-campaign.
+  `scripts/whatsapp-template-status.mts` shows where each one stands;
+  `scripts/update-whatsapp-templates.mts` sends footer edits;
+  `scripts/sync-whatsapp-templates.mts` creates what is missing.
+- **⚠️ Recipients:** send to the canonical `+52…`, never the `521…` wa_id Meta
+  puts in webhooks. The test number also needs each recipient allow-listed in
+  the dashboard.
+- **⚠️ A bare "Authorization Error" (code 100)** means either the token's system
+  user has no WABA assigned, or that environment holds a different token.
+  Compare character counts in `/api/health` before re-diagnosing anything.
 - **⚠️ Business verification takes days to weeks.** Start before it is needed.
   Mexican entities need RFC, acta constitutiva, and proof of address, and the
   legal name must match the documents exactly.
@@ -124,14 +159,22 @@ The messaging channel. Everything after milestone 2 waits on this.
 
 ### Cloudflare R2 — image storage
 
-Rendered invitation cards, in four formats each, plus per-guest personalised
-versions.
+**In use.** Holds the invitation card the organizer uploads, which is sent to
+each guest the moment they confirm.
 
-- **Cost:** free tier to 10 GB; **no egress fees**, which matters because every
-  guest loads an image.
-- Chosen over Neon Object Storage for egress pricing, but that comparison
-  should be re-run when we get there. `design_renders.r2Key` is just a string,
-  so switching is cheap.
+- **Cost:** free tier to 10 GB; **no egress fees**.
+- The bucket is **private**: nothing is served from a public R2 URL. Cards go to
+  WhatsApp as an uploaded media id, and the organizer's own preview is proxied
+  through `/api/eventos/[id]/card`. A card carries the venue and the date, and a
+  public URL would publish both to anyone who guessed it.
+- Media ids expire (Meta documents ~30 days), so the original has to stay here
+  and be re-uploaded when a handle stops working.
+- Signed with `aws4fetch` rather than the AWS SDK — one small dependency
+  against forty.
+
+---
+
+## Planned, not yet set up
 
 ### Inngest — durable workflows
 
@@ -159,6 +202,26 @@ Both appear on the public site and in the privacy notice, so they need to work.
 - **Cost:** free
 - **Status:** not set up — those addresses currently go nowhere.
 
+### Google Maps Platform — geocoding
+
+**Decision pending, and it has teeth.** The native WhatsApp location needs real
+coordinates, and today they are scraped out of the embed page Google serves for
+an address — an undocumented shape that works now and can stop working without
+warning, falling back to OpenStreetMap's Nominatim, which put one San Pedro
+venue **818 metres** off.
+
+- **Cost:** ~10k free geocoding calls a month; we make one per event save.
+- **Env var:** `GOOGLE_MAPS_API_KEY`. The code already prefers it whenever it is
+  present — nothing else has to change.
+- Needs a billing-enabled Google Cloud project, which is the only reason it is
+  not done.
+
+### Nominatim (OpenStreetMap) — geocoding fallback
+
+**In use**, with no account and no key. Their policy asks for an identifying
+user agent — we send one — and caps volume well above one lookup per event
+save. Accuracy on Mexican addresses is the weak point; see above.
+
 ### Stripe — payments
 
 - **⚠️ Enable OXXO and SPEI.** Mexican customers frequently pay cash at OXXO
@@ -183,7 +246,6 @@ Add when there are users who can be affected by an error. Free tier.
 | **Neon Functions**          | Redundant — Next.js on Vercel already provides serverless functions.                                                                              |
 | **Neon AI Gateway**         | Adds a hop and a failure point in front of a single provider, and proxies can interfere with prompt caching — which is what makes a guest conversation cost $0.007 instead of $0.05. |
 | **Self-hosted open-weight LLM** | Saves ~$0.55/event against ~$700–1,400/month of always-on GPU. Break-even is around 1,500 events/month, before counting ops time.             |
-| **Google Maps Platform**    | Venue autocomplete is genuinely nicer, but a plain address field works for v1 and this avoids a billing-enabled Google Cloud project.             |
 | **SMS as a channel**        | Near-irrelevant in Mexico. WhatsApp is the channel.                                                                                               |
 
 ---

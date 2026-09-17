@@ -82,7 +82,7 @@ export function AnswerEscalation({
         {state.error && <p className="mt-2 text-[0.85rem] text-accent">{state.error}</p>}
         {error && <p className="mt-2 text-[0.85rem] text-accent">{error}</p>}
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="submit"
             disabled={busy}

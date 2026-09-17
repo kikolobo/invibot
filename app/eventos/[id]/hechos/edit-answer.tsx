@@ -99,7 +99,7 @@ export function EditAnswer({
         {state.error && <p className="mt-2 text-[0.85rem] text-accent">{state.error}</p>}
         {closeError && <p className="mt-2 text-[0.85rem] text-accent">{closeError}</p>}
 
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="submit"
             disabled={pending || closing}
