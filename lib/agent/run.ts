@@ -80,6 +80,15 @@ export async function runAgentTurn(
       if (error instanceof Anthropic.AuthenticationError) {
         return { error: "La llave de Anthropic no es válida." };
       }
+      // A 400 is a configuration or billing problem, not a blip — "no pudimos
+      // contactar al asistente" sends someone looking at their network when
+      // the real answer is that the account is out of credit. This surface is
+      // the organizer's own, so the provider's wording is the useful thing to
+      // show; the guest-facing path never renders these.
+      if (error instanceof Anthropic.BadRequestError) {
+        console.error("[agent] rejected", error.message);
+        return { error: `Anthropic rechazó la petición: ${error.message}` };
+      }
       console.error("[agent] request failed", error);
       return { error: "No pudimos contactar al asistente." };
     }
