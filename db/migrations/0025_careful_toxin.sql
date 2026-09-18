@@ -1,0 +1,1 @@
+ALTER TABLE "escalations" ADD COLUMN "organizer_wamid" text;

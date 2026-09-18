@@ -86,17 +86,25 @@ export async function askOrganizer(
   organizer: OrganizerRow,
   question: string,
   config: WhatsAppConfig | null = whatsappConfig(),
-): Promise<boolean> {
-  if (!config) return false;
+): Promise<string | null> {
+  if (!config) return null;
 
-  const label = event.staffCode ? `${event.name} (${event.staffCode})` : event.name;
+  const label = event.staffCode
+    ? `${event.name} (${event.staffCode.toUpperCase()})`
+    : event.name;
   const to = organizer.phoneE164;
 
   if (windowOpenFor(organizer)) {
-    const body = `${label}\n\nAlguien preguntó:\n«${question}»\n\nRespóndeme por aquí y le comparto la respuesta.`;
+    // "Citando este mensaje" is not politeness: the quote is the only thing
+    // that ties an answer to a question. Two open questions and a bare "sí"
+    // would otherwise be a coin flip, and a wrong answer relayed to guests is
+    // worse than asking again.
+    const body =
+      `${label}\n\nAlguien preguntó:\n«${question}»\n\n` +
+      `Respóndeme citando este mensaje y le comparto la respuesta.`;
     const result = await sendText(config, to, body);
     await record(event.id, "organizer_relay", null, result);
-    return result.ok;
+    return result.ok ? result.messageId : null;
   }
 
   const result = await sendTemplate(
@@ -111,7 +119,7 @@ export async function askOrganizer(
     ]),
   );
   await record(event.id, "organizer_relay", "consulta_organizador", result);
-  return result.ok;
+  return result.ok ? result.messageId : null;
 }
 
 /** A plain reply to an organizador who wrote to us — always inside the window. */

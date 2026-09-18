@@ -83,17 +83,51 @@ export async function answerEscalation(
     where: and(eq(escalations.id, escalationId), eq(escalations.eventId, eventId)),
   });
   if (!escalation) return { error: "No encontramos esa pregunta." };
-  if (escalation.status === "answered") return { error: "Esa pregunta ya fue contestada." };
 
   const answer = String(formData.get("answer") ?? "").trim();
   if (answer.length < 2) return { error: "Escribe la respuesta." };
+
+  const result = await applyEscalationAnswer(escalation.id, answer);
+  if (result.error) return { error: result.error };
+
+  revalidatePath(`/eventos/${eventId}`);
+  revalidatePath(`/eventos/${eventId}/hechos`);
+
+  return { ok: result.ok };
+}
+
+/**
+ * Answering a question, whatever it arrived through.
+ *
+ * Deliberately free of `requireOrg`: the same answer can come from the
+ * organizer typing it in `/hechos` or from the responder replying on WhatsApp,
+ * and both must land in exactly the same place — one fact, one relay, one
+ * closed escalation. Two implementations would be two chances for the guests
+ * waiting on it to be told twice or not at all.
+ *
+ * Authorization belongs to the callers: the web action checks the session, and
+ * the webhook checks that the sender is the responder for that event.
+ */
+export async function applyEscalationAnswer(
+  escalationId: string,
+  answer: string,
+): Promise<{ error?: string; ok?: string }> {
+  const escalation = await db.query.escalations.findFirst({
+    where: eq(escalations.id, escalationId),
+  });
+  if (!escalation) return { error: "No encontramos esa pregunta." };
+
+  // The race that matters: the same question answered in the app and on
+  // WhatsApp. Whoever arrives second stops here rather than relaying a second
+  // answer to people who already got one.
+  if (escalation.status === "answered") return { error: "Esa pregunta ya fue contestada." };
 
   // The fact first: if the relay fails, the assistant has still learned the
   // answer and nobody has to be asked this again.
   const [fact] = await db
     .insert(eventFacts)
     .values({
-      eventId,
+      eventId: escalation.eventId,
       // Null `key` marks a learned fact — this came from a guest's question,
       // not from the intake catalogue.
       question: escalation.questionText,
@@ -122,9 +156,10 @@ export async function answerEscalation(
     })
     .where(eq(escalations.id, escalation.id));
 
-  revalidatePath(`/eventos/${eventId}`);
-  revalidatePath(`/eventos/${eventId}/hechos`);
-
+  // Deliberately no `revalidatePath` here. It is request-scoped and throws
+  // outside one, and this core runs from the webhook as well as from a page
+  // action — the caller that has a request revalidates, the one that does not
+  // simply returns.
   return {
     ok: `Guardado. El asistente ya sabe contestarlo. ${relayNote(relay.told, relay.unreachable)}`.trim(),
   };

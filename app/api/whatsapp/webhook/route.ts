@@ -26,7 +26,7 @@ import { deliverOrSchedulePasses, sendDuePasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { handleAutoRegistro, type RegistrationAction } from "@/lib/guests/registration";
-import { organizerReply } from "@/lib/organizers";
+import { organizerReply, organizerAnswer } from "@/lib/organizers";
 import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify";
 import { organizerEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
@@ -306,6 +306,47 @@ async function organizerCommand(
   return true;
 }
 
+/**
+ * An organizador's reply to a question we put on their phone.
+ *
+ * The answer reaches the guests waiting on it and is written into the event's
+ * facts, exactly as it would have been typed in `/hechos` — one question, one
+ * answer, wherever it came from. Idempotent on the wamid, because answering a
+ * guest's question twice is two messages to somebody who asked once.
+ */
+async function organizerAnswered(
+  message: InboundMessage,
+  fromPhoneE164: string,
+): Promise<boolean> {
+  const reply = await organizerAnswer(fromPhoneE164, message.text, message.contextWamid);
+  if (!reply) return false;
+
+  const [row] = await db
+    .insert(unmatchedInbound)
+    .values({
+      phoneNumberId: message.phoneNumberId,
+      fromPhone: fromPhoneE164,
+      profileName: message.profileName,
+      body: message.text,
+      providerMessageId: message.wamid,
+      raw: message.raw as never,
+      receivedAt: message.timestamp,
+    })
+    .onConflictDoNothing({ target: unmatchedInbound.providerMessageId })
+    .returning();
+
+  // Seen before: handled, but nothing is sent or relayed a second time.
+  if (!row) return true;
+
+  const mine = await organizerEvents(fromPhoneE164);
+  for (const { organizer } of mine) {
+    await noteOrganizerInbound(organizer.id, message.timestamp);
+  }
+
+  if (mine[0]) await replyToOrganizer(mine[0].event.id, fromPhoneE164, reply);
+  return true;
+}
+
 type Answerable = {
   guest: GuestRow;
   intent: GuestIntent;
@@ -333,6 +374,12 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
   // anything else is the guest talking, and falls through untouched.
   const command = await organizerCommand(message, fromPhoneE164);
   if (command) return null;
+
+  // An organizador answering a guest's question. Below commands so that
+  // "/confirmados" is never mistaken for an answer, and above everything else
+  // so their reply is not filed as a guest message.
+  const answered = await organizerAnswered(message, fromPhoneE164);
+  if (answered) return null;
 
   const registration = await handleAutoRegistro({
     fromPhoneE164,

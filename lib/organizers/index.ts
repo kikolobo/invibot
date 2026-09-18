@@ -1,6 +1,7 @@
-import { and, count, eq, inArray, sql as raw } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNotNull, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests, organizers } from "@/db/schema";
+import { escalations, events, guests, organizers } from "@/db/schema";
+import { applyEscalationAnswer } from "@/lib/agent/escalations";
 import { variantsOf } from "@/lib/phone";
 import { parseCommand, formatCounts, type Counts } from "./commands";
 
@@ -97,3 +98,85 @@ export async function organizerReply(
 }
 
 export { parseCommand } from "./commands";
+
+/**
+ * An organizador answering a guest's question on WhatsApp.
+ *
+ * The answer is tied to the question by WhatsApp's own quote — the `wamid` of
+ * the message they replied to, stored on the escalation when we sent it. Exact,
+ * with nothing to parse and nothing to guess. An organizador with two open
+ * questions who sends a bare "sí se puede" is answering one of them and we have
+ * no way to know which, so they are asked to quote rather than have it attached
+ * to the wrong one and relayed to guests.
+ *
+ * Returns what to say back, or null when this is not an organizador speaking as
+ * one — in which case the message belongs to whatever comes next.
+ */
+/**
+ * How long after asking a message still reads as an attempt to answer.
+ *
+ * Long enough for somebody who was driving when the question arrived, short
+ * enough that tomorrow's unrelated message is not answered with a lecture about
+ * quoting.
+ */
+const NUDGE_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+export async function organizerAnswer(
+  phoneE164: string,
+  text: string | null,
+  contextWamid: string | null,
+): Promise<string | null> {
+  const answer = text?.trim();
+  if (!answer) return null;
+
+  const mine = await organizerEvents(phoneE164);
+  if (mine.length === 0) return null;
+
+  const eventIds = mine.map((row) => row.event.id);
+
+  if (contextWamid) {
+    const [quoted] = await db
+      .select()
+      .from(escalations)
+      .where(
+        and(
+          eq(escalations.organizerWamid, contextWamid),
+          inArray(escalations.eventId, eventIds),
+        ),
+      )
+      .limit(1);
+
+    if (quoted) {
+      if (quoted.status === "answered") {
+        return "Esa pregunta ya se contestó. Si quieres cambiar la respuesta, hazlo desde la app.";
+      }
+      const result = await applyEscalationAnswer(quoted.id, answer);
+      return result.error ?? "Listo, ya le compartí tu respuesta. El asistente también la aprendió.";
+    }
+  }
+
+  // They said something that is not a command and not a quoted answer. Worth a
+  // nudge only if we asked them something *recently*: a question open since
+  // yesterday does not make every message today an attempt to answer it, and
+  // the responder is often the host, who may also be a guest with an ordinary
+  // conversation to have.
+  const [waiting] = await db
+    .select()
+    .from(escalations)
+    .where(
+      and(
+        inArray(escalations.eventId, eventIds),
+        eq(escalations.status, "open"),
+        isNotNull(escalations.organizerWamid),
+        gt(escalations.askedOrganizerAt, new Date(Date.now() - NUDGE_WINDOW_MS)),
+      ),
+    )
+    .limit(1);
+
+  if (!waiting) return null;
+
+  return (
+    "Para que tu respuesta llegue a la pregunta correcta, contéstala citando el mensaje " +
+    "de la pregunta (mantén presionado el mensaje y elige «Responder»)."
+  );
+}

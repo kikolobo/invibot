@@ -49,13 +49,16 @@ export default async function Detalles({
           No tienes que contestar todo de una vez.
         </p>
 
+        {/* Above the questionnaire, not below it. The questionnaire is long and
+            answered over days; the team is short and set once, and at the
+            bottom of a page like that it may as well not exist. */}
+        <Organizadores eventId={event.id} rows={team} staffCode={event.staffCode} />
+
         <DetallesForm
           eventId={event.id}
           kind={event.kind}
           initialAnswers={detailsToAnswers(event.kind, event.details)}
         />
-
-        <Organizadores eventId={event.id} rows={team} staffCode={event.staffCode} />
       </div>
     </>
   );

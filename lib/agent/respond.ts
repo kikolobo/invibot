@@ -252,12 +252,13 @@ async function askResponder(
     const event = await db.query.events.findFirst({ where: eq(events.id, eventId) });
     if (!event) return;
 
-    const ok = await askOrganizer(event, organizer, question);
-    if (!ok) return;
+    const wamid = await askOrganizer(event, organizer, question);
+    if (!wamid) return;
 
+    // Stored so their quoted reply resolves to this exact question.
     await db
       .update(escalations)
-      .set({ askedOrganizerAt: new Date() })
+      .set({ askedOrganizerAt: new Date(), organizerWamid: wamid })
       .where(eq(escalations.id, escalationId));
   } catch (error) {
     console.error("[escalation] could not reach the responder", eventId, error);

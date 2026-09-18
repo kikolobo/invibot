@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "escalations_organizer_wamid_key" ON "escalations" USING btree ("organizer_wamid");

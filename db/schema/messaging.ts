@@ -279,6 +279,17 @@ export const escalations = pgTable(
     status: escalationStatus("status").notNull().default("open"),
     askedOrganizerAt: timestamp("asked_organizer_at", { withTimezone: true }),
     organizerMessageId: uuid("organizer_message_id"),
+    /**
+     * The `wamid` of the question we put on the responder's phone.
+     *
+     * This is how their reply finds its way back. WhatsApp tells us which
+     * message a quoted reply answers, so matching on it is exact — no parsing,
+     * no guessing which of two open questions they meant. Which is also why an
+     * organizador who answers without quoting is asked to quote: there is
+     * nothing to match, and attaching an answer to the wrong question is worse
+     * than asking again.
+     */
+    organizerWamid: text("organizer_wamid"),
     answerText: text("answer_text"),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
     /** FK added later — circular with event_facts.origin_escalation_id. */
@@ -287,6 +298,9 @@ export const escalations = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    // A wamid names exactly one message, so it names at most one question. The
+    // index says so rather than trusting every caller to.
+    uniqueIndex("escalations_organizer_wamid_key").on(t.organizerWamid),
     index("escalations_event_status_idx").on(t.eventId, t.status),
     index("escalations_normalized_idx").on(t.eventId, t.questionNormalized),
   ],
