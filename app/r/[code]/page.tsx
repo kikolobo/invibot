@@ -83,7 +83,10 @@ export async function generateMetadata({
   // host still has to approve. "Estás invitado" on the card followed by "tu
   // registro aún no está procesado" in the chat would read as a bait and switch.
   const title = `${describe(event)} · ${formatEventDate(event)}`;
-  const description = CALL_TO_ACTION;
+  // Prefixed only on the card: "RSVP" tells someone scrolling a group chat what
+  // this link is before they read the rest. On the button it would be noise —
+  // by then they are on the page and the heading has already said it.
+  const description = `RSVP: ${CALL_TO_ACTION}`;
 
   // `v` is the upload time, so replacing the teaser cannot be served from a
   // cache holding the old picture.
