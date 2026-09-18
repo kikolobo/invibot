@@ -219,10 +219,9 @@ export default async function EventoPage({
             footnote={
               invitedCount > 0 && !event.cardR2Key ? (
                 <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-muted">
-                  Ya enviaste {invitedCount}{" "}
-                  {invitedCount === 1 ? "invitación" : "invitaciones"}. Quien haya confirmado
-                  hace más de un día ya no puede recibir la imagen — WhatsApp solo nos deja
-                  mandarla dentro de las 24 horas siguientes a su mensaje.
+                  {`Ya enviaste ${invitedCount} ${
+                    invitedCount === 1 ? "invitación" : "invitaciones"
+                  }. Quien haya confirmado hace más de un día ya no puede recibir la imagen — WhatsApp solo nos deja mandarla dentro de las 24 horas siguientes a su mensaje.`}
                 </p>
               ) : null
             }
@@ -247,12 +246,14 @@ export default async function EventoPage({
                 </p>
                 <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
                   Aparece al compartir la liga, y una liga se reenvía: la va a ver gente que
-                  no invitaste y gente a la que ellos se la pasen.{" "}
-                  <strong className="font-medium text-ink-soft">
-                    No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
-                    que circule.
-                  </strong>{" "}
-                  Para eso está la invitación de arriba, que sólo llega a quien ya confirmó.
+                  no invitaste y gente a la que ellos se la pasen.
+                </p>
+                <p className="mt-1 text-[0.85rem] font-medium leading-relaxed text-ink-soft">
+                  No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
+                  que circule.
+                </p>
+                <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                  Para eso está la invitación de al lado, que sólo llega a quien ya confirmó.
                 </p>
               </div>
             }
