@@ -1,0 +1,1 @@
+ALTER TABLE "guests" ADD COLUMN "assistant_intro_at" timestamp with time zone;
