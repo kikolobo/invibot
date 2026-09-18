@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { escalations, events, guests, organizers } from "@/db/schema";
 import { applyEscalationAnswer } from "@/lib/agent/escalations";
 import { variantsOf } from "@/lib/phone";
-import { parseCommand, formatCounts, type Counts } from "./commands";
+import { parseCommand, formatCounts, formatLink, type Counts } from "./commands";
+import { registrationLink } from "@/lib/guests/auto-register";
 
 type OrganizerRow = typeof organizers.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -84,6 +85,15 @@ export async function organizerReply(
   if (mine.length === 0) return null;
 
   if (command === "ayuda") return formatCounts("ayuda", await countsFor(mine[0].event));
+
+  if (command === "liga") {
+    return mine
+      .slice(0, 5)
+      .map(({ event }) =>
+        formatLink(event.name, event.autoRegisterEnabled ? registrationLink(event) : null),
+      )
+      .join("\n\n");
+  }
 
   // Answered for every event they run rather than asking which one. Asking
   // costs a round trip to produce information we already have, and an

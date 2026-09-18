@@ -14,7 +14,12 @@
  * never looks for a word *inside* a sentence.
  */
 
-export type OrganizerCommand = "confirmados" | "invitados" | "cancelados" | "ayuda";
+export type OrganizerCommand =
+  | "confirmados"
+  | "invitados"
+  | "cancelados"
+  | "liga"
+  | "ayuda";
 
 const WORDS: Record<string, OrganizerCommand> = {
   confirmados: "confirmados",
@@ -29,6 +34,15 @@ const WORDS: Record<string, OrganizerCommand> = {
   cancelled: "cancelados",
   canceled: "cancelados",
   bajas: "cancelados",
+  // The link a host pastes into their groups. Asked for as /registerlink, and
+  // answered to the Spanish forms too because the rest of this vocabulary is
+  // Spanish and nobody will remember which one this was.
+  registerlink: "liga",
+  liga: "liga",
+  link: "liga",
+  autorregistro: "liga",
+  autoregistro: "liga",
+  registro: "liga",
   ayuda: "ayuda",
   help: "ayuda",
   menu: "ayuda",
@@ -96,9 +110,26 @@ export function formatCounts(command: OrganizerCommand, counts: Counts): string 
         counts,
         `${counts.declined} ${counts.declined === 1 ? "cancelado" : "cancelados"}`,
       );
+    case "liga":
+      // Built from the event rather than counted, so it never reaches here.
+      return HELP;
     case "ayuda":
       return HELP;
   }
+}
+
+/**
+ * The self-registration link, or why there isn't one.
+ *
+ * An organizador asking for this is about to paste it somewhere, so the reply
+ * is the bare link on its own line — anything wrapped around it gets copied by
+ * accident.
+ */
+export function formatLink(eventName: string, link: string | null): string {
+  if (!link) {
+    return `${eventName}\nEste evento no tiene autorregistro prendido. Se activa en Generales.`;
+  }
+  return `${eventName}\nCompárteles esta liga para que se registren solos:\n${link}`;
 }
 
 export const HELP = [
@@ -107,6 +138,7 @@ export const HELP = [
   "/confirmados — cuántos van y cuántos lugares",
   "/invitados — cuántos hay en la lista",
   "/cancelados — cuántos no van",
+  "/registerlink — la liga de autorregistro para compartir",
   "",
   "También entiendo «cuántos confirmados» sin la diagonal.",
 ].join("\n");
