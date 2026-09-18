@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { setGuestApproval, renameGuest } from "@/lib/guests/actions";
+import { approveAndInvite } from "@/lib/campaigns/actions";
 
 export type PendingGuest = {
   id: string;
@@ -38,6 +39,7 @@ export function ApprovalQueue({
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
   if (pending.length === 0 && rejected.length === 0) return null;
@@ -59,6 +61,29 @@ export function ApprovalQueue({
     start(async () => {
       await setGuestApproval(eventId, ids, approved);
       setSelected(new Set());
+      setNote(null);
+    });
+
+  /**
+   * The usual next thing after approving, in one press. The report comes back
+   * per guest, because "3 invitaciones enviadas" hides the one that failed.
+   */
+  const approveAndSend = (ids: string[]) =>
+    start(async () => {
+      const report = await approveAndInvite(eventId, ids);
+      setSelected(new Set());
+      if (report.error) {
+        setError(report.error);
+        return;
+      }
+      const failed = report.outcomes?.filter((o) => !o.ok) ?? [];
+      setNote(
+        failed.length === 0
+          ? `${report.sent} ${report.sent === 1 ? "invitación enviada" : "invitaciones enviadas"}.`
+          : `${report.sent} enviada(s). No salieron: ${failed
+              .map((o) => `${o.name} (${o.detail ?? "error"})`)
+              .join(", ")}`,
+      );
     });
 
   const save = (guestId: string) =>
@@ -171,11 +196,19 @@ export function ApprovalQueue({
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => decide(chosen, true)}
+            onClick={() => approveAndSend(chosen)}
             disabled={busy}
             className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
           >
-            {busy ? "Guardando…" : `Aprobar ${chosen.length}`}
+            {busy ? "Enviando…" : `Aprobar y enviar invitación (${chosen.length})`}
+          </button>
+          <button
+            type="button"
+            onClick={() => decide(chosen, true)}
+            disabled={busy}
+            className="rounded-full border border-line px-5 py-2 text-[0.85rem] text-ink-soft disabled:opacity-50"
+          >
+            Sólo aprobar
           </button>
           <button
             type="button"
@@ -188,10 +221,13 @@ export function ApprovalQueue({
         </div>
       )}
 
+      {note && <p className="mt-3 text-[0.88rem] text-ink-soft">{note}</p>}
+
       {pending.length > 0 && (
         <p className="mt-4 text-[0.8rem] leading-relaxed text-ink-muted">
-          Aprobar no manda nada todavía: la invitación sale cuando envíes las invitaciones.
-          Rechazar deja de contestarles, sin avisarles.
+          «Aprobar y enviar» les manda su invitación en el momento. «Sólo aprobar» los pasa a
+          la lista y la invitación sale después, cuando tú la envíes. Rechazar deja de
+          contestarles, sin avisarles.
         </p>
       )}
 

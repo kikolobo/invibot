@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { campaigns, guests, events } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import { setGuestApproval } from "@/lib/guests/actions";
 import { editableEvent } from "@/lib/events/guard";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { sendTemplateToGuest } from "@/lib/whatsapp/send";
@@ -50,6 +51,7 @@ const failureText: Record<string, string> = {
   opted_out: "Pidió no recibir mensajes.",
   suppressed: "Está en la lista de bajas.",
   window_closed: "No se pudo abrir la conversación.",
+  not_approved: "Falta aprobarlo.",
   not_configured: "WhatsApp no está configurado en este entorno.",
   provider_error: "WhatsApp rechazó el envío.",
 };
@@ -193,4 +195,28 @@ export async function sendInvitations(
 
   const sent = outcomes.filter((outcome) => outcome.ok).length;
   return { sent, failed: outcomes.length - sent, outcomes };
+}
+
+/**
+ * Letting someone in and inviting them, in one press.
+ *
+ * Approving and then inviting are two separate things an organizer almost
+ * always wants together: somebody registered themselves, you looked at the
+ * name, and the next thing you want is for them to have their invitation.
+ * Making that two trips through two screens is how a guest ends up approved
+ * and never invited.
+ *
+ * Approval lands first and is not undone if the send fails. Being on the list
+ * is the decision; the invitation is a message, and a message that failed can
+ * be retried from the guest list — where a failed send already leaves the
+ * guest eligible on purpose.
+ */
+export async function approveAndInvite(
+  eventId: string,
+  guestIds: string[],
+): Promise<InviteReport> {
+  if (guestIds.length === 0) return { sent: 0, failed: 0, outcomes: [] };
+
+  await setGuestApproval(eventId, guestIds, true);
+  return sendInvitations(eventId, guestIds);
 }
