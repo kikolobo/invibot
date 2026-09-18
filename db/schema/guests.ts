@@ -171,6 +171,16 @@ export const guests = pgTable(
      */
     passesDueAt: timestamp("passes_due_at", { withTimezone: true }),
 
+    /**
+     * When the day-before message went out — the `acceso_evento` template, or
+     * its free-form twin when their window was still open.
+     *
+     * Its own column rather than inferred from `sends`, because the sweep has to
+     * be safe to run twice: the cron can be retried or triggered by hand, and a
+     * paid template twice is a second "¡Es mañana!" on somebody's phone.
+     */
+    passesRemindedAt: timestamp("passes_reminded_at", { withTimezone: true }),
+
 
     optedOut: boolean("opted_out").notNull().default(false),
     optedOutAt: timestamp("opted_out_at", { withTimezone: true }),

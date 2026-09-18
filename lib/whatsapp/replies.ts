@@ -57,6 +57,52 @@ export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): st
   ].join("\n");
 }
 
+/**
+ * Mirrors the `acceso_evento` pair, for a guest whose window happens to be open
+ * the morning before — same words, no charge, and the pass follows without
+ * waiting for a tap.
+ */
+export function dayBeforeReply(
+  facts: Pick<ReplyFacts, "name" | "eventName"> & { time: string; where: string },
+  withCompanion: boolean,
+): string {
+  return [
+    "¡Es mañana! 🎉",
+    "",
+    withCompanion
+      ? `Hola ${facts.name}, te esperamos mañana en ${facts.eventName} con tu acompañante.`
+      : `Hola ${facts.name}, te esperamos mañana en ${facts.eventName}.`,
+    "",
+    `🕐 ${facts.time}`,
+    `📍 ${facts.where}`,
+    "",
+    withCompanion
+      ? "Aquí van sus accesos para que los tengan a la mano en la entrada."
+      : "Aquí va tu acceso para que lo tengas a la mano en la entrada.",
+  ].join("\n");
+}
+
+/**
+ * Why a guest asking for their passes did not get them. Only for the button
+ * path — the assistant is handed the same reasons and says it in its own words.
+ */
+export function passesUnavailableReply(
+  reason: "disabled" | "not_confirmed" | "too_early" | "over" | "failed",
+): string {
+  switch (reason) {
+    case "too_early":
+      return "Tu acceso te llega por aquí un día antes del evento 🙌";
+    case "not_confirmed":
+      return "Todavía no tengo tu asistencia confirmada. ¿Vas a poder venir?";
+    case "over":
+      return "Este evento ya pasó. ¡Gracias por acompañarnos! 💛";
+    case "disabled":
+      return "Para este evento no necesitas un acceso: basta con tu nombre en la entrada.";
+    case "failed":
+      return "Tuve un problema para mandarte tu acceso. Vuelve a tocar el botón en un momento, por favor 🙏";
+  }
+}
+
 export function declineReply(facts: ReplyFacts): string {
   return [
     `Gracias por avisar, ${facts.name}. Te vamos a extrañar en ${facts.eventName} 💛`,

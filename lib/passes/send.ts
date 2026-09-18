@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { whatsappConfig, uploadMedia, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { sendImageToGuest } from "@/lib/whatsapp/send";
-import { syncPasses, markPassSent } from "./issue";
+import { syncPasses, markPassSent, activePasses } from "./issue";
 import { renderPass } from "./render";
 
 type GuestRow = typeof guests.$inferSelect;
@@ -15,22 +15,33 @@ type GuestRow = typeof guests.$inferSelect;
  * is no bucket to keep in step with the database and a revoked pass cannot be
  * served from a stale file. Rendering costs milliseconds.
  *
+ * `again` sends every active pass rather than only the ones not yet delivered —
+ * a guest asking for theirs a second time gets the same codes, never new ones,
+ * so the screenshot they already have keeps working.
+ *
  * Silent on every failure. The guest already has their confirmation and their
  * invitation; a missing pass is worth a log line and a retry, not a message
  * telling them something went wrong with something they never asked for.
+ * Returns how many actually left, for the callers that have to say so.
  */
-export async function sendPasses(guest: GuestRow, account?: WhatsAppConfig): Promise<void> {
-  const pending = await syncPasses(guest);
-  if (pending.length === 0) return;
+export async function sendPasses(
+  guest: GuestRow,
+  account?: WhatsAppConfig,
+  options: { again?: boolean } = {},
+): Promise<number> {
+  const unsent = await syncPasses(guest);
+  const pending = options.again ? await activePasses(guest.id) : unsent;
+  if (pending.length === 0) return 0;
 
   // The upload and the send must be the same number: a media id is minted for
   // one phone number and rejected by any other.
   const config = account ?? whatsappConfig();
-  if (!config) return;
+  if (!config) return 0;
 
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
-  if (!event) return;
+  if (!event) return 0;
 
+  let sent = 0;
   for (const pass of pending) {
     try {
       const png = await renderPass({
@@ -59,10 +70,12 @@ export async function sendPasses(guest: GuestRow, account?: WhatsAppConfig): Pro
       // Only after it actually left, so a failure halfway through two passes
       // resends the one that did not arrive rather than both.
       await markPassSent(pass.id);
+      sent++;
     } catch (error) {
       console.error("[pass] could not issue", pass.id, error);
     }
   }
+  return sent;
 }
 
 /**
@@ -72,8 +85,7 @@ export async function sendPasses(guest: GuestRow, account?: WhatsAppConfig): Pro
  * breath buries it, and reads like a ticketing system rather than an
  * invitation. Forty-five minutes is long enough that they have looked at the
  * card and short enough to stay far inside the 24-hour window their own
- * confirmation opened — which matters because a pass is a free-form image, and
- * outside that window there is no template that can carry one.
+ * confirmation opened — which matters because a pass is a free-form image.
  */
 const PASS_DELAY_MS = 45 * 60 * 1000;
 
@@ -87,14 +99,41 @@ const PASS_DELAY_MS = 45 * 60 * 1000;
 const PASS_URGENT_MS = 2 * 60 * 60 * 1000;
 
 /**
+ * How close to the party a confirmation earns its pass on the spot.
+ *
+ * Further out than this, the pass waits for the day-before message
+ * (`remindTomorrowsGuests`): a QR sent weeks ahead is buried under a month of
+ * chat by the time anyone looks for it at the door, and the day-before message
+ * puts it at the top. Inside it the day-before sweep has already run, or is
+ * about to find the pass delivered, so it goes out behind the card as before.
+ *
+ * Forty-eight hours because the sweep runs once a day, the morning before: an
+ * event "tomorrow" is never more than about 38 hours away when it runs, so
+ * nobody who confirms falls between the two.
+ */
+export const PASS_EARLY_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * When a pass stops being worth sending. `endsAt` when the organizer gave one,
+ * otherwise a generous evening — a guest arriving late still needs the code.
+ */
+const DEFAULT_EVENT_LENGTH_MS = 12 * 60 * 60 * 1000;
+
+type EventTiming = { startsAt: Date; endsAt: Date | null };
+
+const isOver = (event: EventTiming, now = Date.now()) =>
+  now > (event.endsAt?.getTime() ?? event.startsAt.getTime() + DEFAULT_EVENT_LENGTH_MS);
+
+/**
  * Sends the passes, or decides when to.
  *
  * Returns true when they went out immediately, which is only the case for a
- * guest confirming close to the event.
+ * guest confirming close to the event. A guest confirming further out than
+ * `PASS_EARLY_MS` gets nothing now: the day-before message carries theirs.
  */
 export async function deliverOrSchedulePasses(
   guest: GuestRow,
-  event: { startsAt: Date },
+  event: EventTiming,
   account?: WhatsAppConfig,
 ): Promise<boolean> {
   const untilEvent = event.startsAt.getTime() - Date.now();
@@ -104,12 +143,54 @@ export async function deliverOrSchedulePasses(
     return true;
   }
 
+  if (untilEvent > PASS_EARLY_MS) return false;
+
   await db
     .update(guests)
     .set({ passesDueAt: new Date(Date.now() + PASS_DELAY_MS), updatedAt: new Date() })
     .where(eq(guests.id, guest.id));
 
   return false;
+}
+
+export type PassRequestOutcome =
+  | { ok: true; sent: number }
+  | {
+      ok: false;
+      reason: "disabled" | "not_confirmed" | "too_early" | "over" | "failed";
+    };
+
+/**
+ * A guest asking for their passes — the day-before button, or in words.
+ *
+ * Honoured whenever they are entitled to them: they are coming, the party has
+ * not ended, and either the passes already reached them once or it is close
+ * enough that they would have. Asking three weeks out is "too early" rather
+ * than a way around the day-before delivery; the caller tells them when.
+ *
+ * Re-reads the guest: the assistant may have confirmed them a moment ago, in
+ * the same turn, and the row it was handed predates that.
+ */
+export async function requestPasses(
+  guestId: string,
+  account?: WhatsAppConfig,
+): Promise<PassRequestOutcome> {
+  const guest = await db.query.guests.findFirst({ where: eq(guests.id, guestId) });
+  if (!guest) return { ok: false, reason: "failed" };
+
+  const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+  if (!event?.qrEnabled) return { ok: false, reason: "disabled" };
+  if (guest.rsvpStatus !== "confirmed" || guest.optedOut) {
+    return { ok: false, reason: "not_confirmed" };
+  }
+  if (isOver(event)) return { ok: false, reason: "over" };
+
+  const delivered = (await activePasses(guest.id)).some((pass) => pass.sentAt !== null);
+  const untilEvent = event.startsAt.getTime() - Date.now();
+  if (!delivered && untilEvent > PASS_EARLY_MS) return { ok: false, reason: "too_early" };
+
+  const sent = await sendPasses(guest, account, { again: true });
+  return sent > 0 ? { ok: true, sent } : { ok: false, reason: "failed" };
 }
 
 /**

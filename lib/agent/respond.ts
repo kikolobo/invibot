@@ -10,6 +10,9 @@ import { buildContext } from "./context";
 import { anthropicFromEnv, runAgentTurn } from "./run";
 import type { AgentAction } from "./tools";
 import { askOrganizer, responderFor } from "@/lib/organizers/notify";
+import { requestPasses } from "@/lib/passes/send";
+import type { WhatsAppConfig } from "@/lib/whatsapp/client";
+import { passesToolResult } from "./passes";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -39,7 +42,12 @@ export type AgentReply = {
  * no open window, an assistant that only called tools. The caller sends nothing
  * rather than inventing filler.
  */
-export async function answerGuest(guest: GuestRow, at: Date): Promise<AgentReply> {
+export async function answerGuest(
+  guest: GuestRow,
+  at: Date,
+  /** The number the guest wrote to. Passes are uploaded to it, so they must leave through it. */
+  config?: WhatsAppConfig,
+): Promise<AgentReply> {
   const client = anthropicFromEnv();
   if (!client) return null;
 
@@ -82,7 +90,7 @@ export async function answerGuest(guest: GuestRow, at: Date): Promise<AgentReply
     history,
     (action) => {
       if (action.tool === "confirm_attendance") confirmed = true;
-      return perform(guest, conversation.id, action, at);
+      return perform(guest, conversation.id, action, at, config);
     },
     tools,
   );
@@ -110,6 +118,7 @@ async function perform(
   conversationId: string,
   action: AgentAction,
   at: Date,
+  config?: WhatsAppConfig,
 ): Promise<string> {
   switch (action.tool) {
     case "confirm_attendance": {
@@ -143,6 +152,11 @@ async function perform(
 
     case "send_location":
       return sendVenuePin(guest);
+
+    case "send_passes":
+      // By id, not the row in hand: a confirmation earlier in this same turn
+      // is already written, and the row predates it.
+      return passesToolResult(await requestPasses(guest.id, config));
   }
 }
 

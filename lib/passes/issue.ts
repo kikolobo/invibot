@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { guestPasses, events, guests } from "@/db/schema";
@@ -79,4 +79,13 @@ export async function revokePasses(guestId: string): Promise<void> {
 
 export async function markPassSent(passId: string): Promise<void> {
   await db.update(guestPasses).set({ sentAt: new Date() }).where(eq(guestPasses.id, passId));
+}
+
+/** Every pass the guest currently holds, sent or not, in seat order. */
+export async function activePasses(guestId: string): Promise<(typeof guestPasses.$inferSelect)[]> {
+  return db
+    .select()
+    .from(guestPasses)
+    .where(and(eq(guestPasses.guestId, guestId), eq(guestPasses.status, "active")))
+    .orderBy(asc(guestPasses.seat));
 }

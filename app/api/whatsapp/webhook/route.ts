@@ -22,7 +22,8 @@ import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/wh
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
 import { recordGuestEvent } from "@/lib/guests/history";
-import { deliverOrSchedulePasses, sendDuePasses } from "@/lib/passes/send";
+import { deliverOrSchedulePasses, requestPasses, sendDuePasses } from "@/lib/passes/send";
+import { passesUnavailableReply } from "@/lib/whatsapp/replies";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { handleAutoRegistro, type RegistrationAction } from "@/lib/guests/registration";
@@ -577,6 +578,20 @@ async function respond(
   wamid: string,
   config: WhatsAppConfig,
 ): Promise<void> {
+  // "Recibir mi acceso" on the day-before message. The tap itself is what
+  // opened the window the passes need, so they go straight out — the same
+  // codes they may already hold, never new ones.
+  if (intent === "passes_request") {
+    await markRead(config, wamid);
+    const outcome = await requestPasses(guest.id, config);
+    if (outcome.ok) return;
+
+    if (outcome.reason === "failed") console.error("[pass] requested but not sent", guest.id);
+    const reply = await sendTextToGuest(guest.id, passesUnavailableReply(outcome.reason), "logistics", config);
+    if (!reply.ok) console.error("[pass] unavailable reply failed", guest.id, reply);
+    return;
+  }
+
   // Anything the button vocabulary does not cover goes to the assistant: a
   // question, or words that mean yes without saying it. Until now this was
   // silence, which is the single worst thing to send someone who wrote to you.
@@ -586,7 +601,7 @@ async function respond(
     // marks the message read, so the guest sees both at once.
     await markRead(config, wamid, true);
 
-    const answer = await answerGuest(guest, at);
+    const answer = await answerGuest(guest, at, config);
     if (!answer) return;
 
     if (answer.text) {
@@ -669,7 +684,8 @@ async function deliverConfirmation(guest: GuestRow, config: WhatsAppConfig): Pro
 
   // "After the card" is now measured in minutes rather than milliseconds, so
   // the card has time to be looked at. Unless the party is nearly here, in
-  // which case the code is needed more than the pacing is.
+  // which case the code is needed more than the pacing is — or still days
+  // away, in which case the day-before message carries it.
   const event = await db.query.events.findFirst({ where: eq(events.id, fresh.eventId) });
   if (!event) return;
 

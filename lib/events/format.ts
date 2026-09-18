@@ -88,6 +88,30 @@ export function formatEventWhen(event: Pick<EventRow, "startsAt" | "timezone">):
   return `${dateFmtFor(event.timezone).format(event.startsAt)}, ${timeFmtFor(event.timezone).format(event.startsAt)}`;
 }
 
+/**
+ * The time alone, for a message that has already said which day — "¡Es
+ * mañana!" followed by a full date reads like the sender forgot.
+ */
+export function formatEventTime(event: Pick<EventRow, "startsAt" | "timezone">): string {
+  return timeFmtFor(event.timezone).format(event.startsAt);
+}
+
+/**
+ * The event's calendar day where the party is, as `YYYY-MM-DD`, offset by
+ * `plusDays`. What "mañana" means has to be decided in the event's zone: at
+ * 7 PM in Monterrey it is already tomorrow in UTC.
+ */
+export function localDayKey(at: Date, timezone: string, plusDays = 0): string {
+  const shifted = new Date(at.getTime() + plusDays * 24 * 60 * 60 * 1000);
+  // en-CA formats as YYYY-MM-DD, which compares as a string.
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: zoneOf(timezone),
+  }).format(shifted);
+}
+
 export function formatEventWhere(
   event: Pick<EventRow, "venueName" | "venueCity">,
 ): string {

@@ -62,6 +62,7 @@ export async function buildContext(
   // "¿me pasas la ubicación?" and answer it, not call something to find out.
   const maps = eventMapsUrl(event);
   const canSendLocation = Boolean(event.venueLat && event.venueLng);
+  const canSendPasses = event.qrEnabled;
 
   const knowledge =
     facts.length > 0
@@ -107,12 +108,18 @@ export async function buildContext(
       : maps
         ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
         : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",
+    ...(canSendPasses
+      ? [
+          "- Este evento usa accesos con código QR, uno por persona, que se muestran en la entrada. A quien confirma con tiempo le llegan por aquí un día antes del evento; a quien confirma ya cerca, poco después de confirmar.",
+          "- Si te piden su acceso, su QR, su código o su entrada, o dicen que lo perdieron, usa send_passes. No prometas mandarlo sin usarla, y no digas que ya le llegó si la herramienta dice otra cosa.",
+        ]
+      : []),
     "- Nunca inventes precios, direcciones, horarios ni reglas que no estén arriba.",
   ].join("\n");
 
   return {
     systemPrompt,
     guest: { id: guest.id, name, canBringCompanion },
-    tools: agentToolsFor({ canSendLocation }),
+    tools: agentToolsFor({ canSendLocation, canSendPasses }),
   };
 }

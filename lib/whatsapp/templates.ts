@@ -255,27 +255,78 @@ export const templates = {
     footer,
   },
 
-  /** Nudge before the date. Utility because it follows an invitation already accepted. */
-  recordatorio_evento: {
-    name: "recordatorio_evento",
+  /**
+   * The day before, for a confirmed guest who does not have their QR yet.
+   *
+   * A reminder and a delivery in one. The pass itself cannot ride along — it is
+   * a free-form image, and this goes out long after the window their
+   * confirmation opened has closed — so the button is how they collect it: the
+   * tap is a message from them, which opens a fresh window, and the pass
+   * follows free.
+   *
+   * Paired with `acceso_evento_acompanante` rather than worded around both
+   * ("tu(s) acceso(s)"): a guest coming alone reads one pass, a guest bringing
+   * someone reads two. Both buttons carry the same payload — one meaning.
+   *
+   * Meta's rules shape the copy: the body may not start or end on a variable,
+   * a text header takes no emoji, and too many variables for too little text is
+   * rejected as spam. The time stands alone because the header already says
+   * which day it is.
+   */
+  acceso_evento: {
+    name: "acceso_evento",
     language: "es_MX",
     category: "UTILITY",
     kind: "reminder",
+    header: { format: "TEXT", text: "¡Es mañana!" },
     body: [
-      "Hola {{1}}, te recuerdo {{2}}.",
+      "Hola {{1}}, te esperamos mañana en {{2}} 🎉",
       "",
-      "📅 {{3}}",
+      "🕐 {{3}}",
       "📍 {{4}}",
       "",
-      "¿Necesitas algo? Escríbeme por aquí.",
+      "Toca el botón para recibir tu acceso y tenerlo a la mano en la entrada.",
     ].join("\n"),
     variables: [
       { description: "Nombre del invitado", example: "María" },
       { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
-      { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
-      { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
+      { description: "Hora en la zona del evento", example: "5:00 p.m." },
+      {
+        description: "Lugar y dirección, en una línea",
+        example: "Hacienda San Pedro — Av. Constitución 100, Monterrey",
+      },
     ],
     footer,
+    buttons: [{ label: "Recibir mi acceso", payload: "PASS_SEND" }],
+  },
+
+  /** The same day-before message for a guest bringing their companion. */
+  acceso_evento_acompanante: {
+    name: "acceso_evento_acompanante",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "reminder",
+    header: { format: "TEXT", text: "¡Es mañana!" },
+    body: [
+      "Hola {{1}}, te esperamos mañana en {{2}} con tu acompañante 🎉",
+      "",
+      "🕐 {{3}}",
+      "📍 {{4}}",
+      "",
+      "Toca el botón para recibir sus accesos y tenerlos a la mano en la entrada.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Hora en la zona del evento", example: "5:00 p.m." },
+      {
+        description: "Lugar y dirección, en una línea",
+        example: "Hacienda San Pedro — Av. Constitución 100, Monterrey",
+      },
+    ],
+    footer,
+    // Same payload as the solo template: the tap means "send what I have".
+    buttons: [{ label: "Recibir mis accesos", payload: "PASS_SEND" }],
   },
 
   /** Sent after the guest confirms, so it answers their own action. */

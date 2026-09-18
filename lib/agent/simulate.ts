@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { buildContext } from "./context";
 import { anthropicFromEnv, runAgentTurn } from "./run";
 import { describeAction, type AgentAction } from "./tools";
+import { PASSES_SENT } from "./passes";
 
 /**
  * The assistant, rehearsing.
@@ -82,6 +83,8 @@ export async function simulateReply(
         return "Listo, ya le llegó el mapa con el pin. Contesta exactamente «Aquí está la ubicación», sin agregar nada más.";
       case "escalate_question":
         return "Enviado al anfitrión. Avísale al invitado que le confirmas en cuanto sepas.";
+      case "send_passes":
+        return PASSES_SENT;
     }
   }, tools);
 

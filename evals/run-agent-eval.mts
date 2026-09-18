@@ -31,18 +31,20 @@ if (!event || !guest) throw new Error("need an event with at least one guest");
 const client = anthropicFromEnv();
 if (!client) throw new Error("ANTHROPIC_API_KEY is not set");
 
-// One context per (seats, pin) combination, so a case can state the world it
+// One context per (seats, pin, qr) combination, so a case can state the world it
 // needs instead of inheriting whatever the seeded rows happen to say today —
 // the seeded guest's seats follow the event's +1 setting, and the coordinates
 // depend on whether anyone has saved an address since.
 const contexts = new Map<string, { systemPrompt: string; tools: unknown[] }>();
 for (const seats of [1, 2]) {
   for (const pin of [false, true]) {
-    const context = await buildContext(
-      { ...event, venueLat: pin ? 25.6621 : null, venueLng: pin ? -100.3552 : null },
-      { ...guest, partySizeAllowed: seats },
-    );
-    contexts.set(`${seats}:${pin}`, context);
+    for (const qr of [false, true]) {
+      const context = await buildContext(
+        { ...event, venueLat: pin ? 25.6621 : null, venueLng: pin ? -100.3552 : null, qrEnabled: qr },
+        { ...guest, partySizeAllowed: seats },
+      );
+      contexts.set(`${seats}:${pin}:${qr}`, context);
+    }
   }
 }
 console.log(`event "${event.name}" · guest ${guest.fullName} (pases=${guest.partySizeAllowed})`);
@@ -64,7 +66,8 @@ for (const testCase of cases) {
     history.push({ role: "user", content: message });
     const seats = testCase.seats ?? (guest.partySizeAllowed >= 2 ? 2 : 1);
     const pin = testCase.pin ?? Boolean(event.venueLat && event.venueLng);
-    const context = contexts.get(`${seats}:${pin}`)!;
+    const qr = testCase.qr ?? event.qrEnabled;
+    const context = contexts.get(`${seats}:${pin}:${qr}`)!;
     const result = await runAgentTurn(
       client,
       context.systemPrompt,

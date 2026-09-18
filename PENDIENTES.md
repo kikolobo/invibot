@@ -88,38 +88,53 @@ los glifos se convierten a trazos.
 
 ---
 
-## 0.7 Los QR salen 45 minutos después — **falta el reloj**
+## 0.7 Los QR salen el día antes — **falta que Meta apruebe las plantillas**
 
-Desde hoy el pase QR no sale pegado a la tarjeta: se guarda
-`guests.passes_due_at` a 45 minutos y se manda después. La tarjeta es el
-mensaje que el invitado estaba esperando, y un QR encima la entierra. Si el
-evento es en **menos de 2 horas** no se espera nada: ahí el código importa más
-que el orden.
+Quien confirma con más de **48 horas** de anticipación ya no recibe el QR al
+confirmar: se lo lleva el mensaje del día anterior. Un QR mandado semanas antes
+está enterrado en el chat cuando lo buscan en la puerta.
 
-Los 45 minutos caben de sobra en la ventana de 24 horas que abrió su propia
-confirmación, que es lo que importa: un pase es una imagen libre y fuera de esa
-ventana no hay plantilla que lo cargue.
+- **Día antes** (`lib/passes/remind.ts`, desde `/api/cron/passes` a las 10 am de
+  Monterrey): a cada confirmado de un evento de *mañana* (en la zona del evento)
+  que no tenga sus pases. Si su ventana de 24 h sigue abierta, va el texto
+  libre y el QR detrás, gratis. Si no, la plantilla `acceso_evento` (o
+  `acceso_evento_acompanante` si trae +1) con el botón «Recibir mi(s)
+  acceso(s)»; el toque abre la ventana y el QR sale gratis.
+  `guests.passes_reminded_at` evita mandarlo dos veces.
+- **Menos de 48 h:** como antes — el QR sale 45 minutos detrás de la tarjeta, o
+  de inmediato si faltan menos de 2 horas.
+- **Reenvío:** el botón y el asistente (`send_passes`) mandan los *mismos*
+  códigos otra vez, siempre que el invitado esté confirmado, el evento no haya
+  terminado, y ya los haya recibido o ya le toque recibirlos. Si pide su QR
+  semanas antes, se le dice que le llega el día anterior.
+- `recordatorio_evento` salió de la biblioteca: nunca se usó y esta lo
+  reemplaza. Sigue existiendo en Meta; se puede borrar allá cuando convenga.
 
-**Quién los manda hoy:** cada webhook de entrada barre los que ya vencieron. Un
-evento con gente confirmando genera un mensaje cada pocos minutos, así que en
-la práctica salen a tiempo. El hueco es el último invitado de la noche, al que
-no le sigue nadie.
+**Estado al 2026-09-18:** migración `0029` aplicada (dev y producción
+comparten la base de Neon). Las dos plantillas se sometieron en los dos WABAs:
+en producción `acceso_evento_acompanante` ya está **APPROVED / UTILITY** y
+`acceso_evento` está PENDING; en prueba, las dos PENDING. Evals: 16/17, y el
+que falla («keeps a confirmation after a follow-up question») es intermitente
+también con el prompt anterior.
 
-**El reloj ya existe, pero corre una vez al día.** `/api/cron/passes` está
-protegido con `CRON_SECRET` (ya en Vercel y en `SECRETS.local.md`) y
-`vercel.json` lo programa a las `0 16 * * *` — las 10 de la mañana en
-Monterrey.
+**Falta:** confirmar que `acceso_evento` quede aprobada en producción *como
+UTILITY* antes del día anterior al primer evento con QR:
 
-Se probó `*/15` y **Vercel rechaza el deploy**: en Hobby los cron son diarios y
-lo valida al desplegar. El deploy rechazado no hizo daño, producción siguió
-sirviendo el anterior.
+```
+npx tsx --env-file=.env.local scripts/whatsapp-template-status.mts --profile production
+```
 
-Con eso queda un hueco chico y real: el último invitado que confirma, al que no
-le sigue tráfico, puede esperar hasta la mañana siguiente por su QR. La ventana
-de 24 horas aguanta, pero apenas — quien confirma poco después de las 10 am
-espera casi un día completo. **Con Pro se pone `*/15` y desaparece**; es el
-argumento más concreto que hay hoy para cambiar de plan, junto con que Hobby
-prohíbe el uso comercial.
+Mientras no esté aprobada, quien confirma con más de 48 h de anticipación y no
+vuelve a escribir no recibe QR el día anterior: el envío falla y queda en el
+log.
+
+Los invitados que ya tienen su QR (todos los confirmados de hoy) no reciben el
+mensaje del día anterior: ya tienen lo que ese mensaje entrega.
+
+El hueco del reloj diario sigue igual para el QR de 45 minutos: el último
+invitado que confirma sin tráfico detrás espera hasta las 10 am. Con Pro se pone
+`*/15` y desaparece — pero el mensaje del día antes debe seguir saliendo sólo a
+las 10, así que habría que separar los dos crons.
 
 ---
 

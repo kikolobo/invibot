@@ -45,6 +45,8 @@ export type EvalCase = {
   seats?: 1 | 2;
   /** Whether the event has coordinates — the location tool is offered only then. */
   pin?: boolean;
+  /** Whether the event uses QR passes — `send_passes` is offered only then. */
+  qr?: boolean;
   /** Why this case exists, printed on failure. */
   because: string;
 };
@@ -145,6 +147,23 @@ export const cases: EvalCase[] = [
     forbidTools: ["escalate_question"],
     because:
       "A guest asking this is a customer asking, and the answer is neither a secret nor the host's to give. Escalating it would put a sales question on the organizer's phone in the middle of their own party.",
+  },
+  {
+    name: "sends the pass when asked for it",
+    messages: ["no encuentro mi QR para entrar, ¿me lo vuelves a mandar?"],
+    qr: true,
+    expectTools: ["send_passes"],
+    forbidTools: ["escalate_question"],
+    because:
+      "A lost pass is the question with a tool behind it. Escalating it puts «where is my QR» on the organizer's phone on the day of the party.",
+  },
+  {
+    name: "does not promise a pass the event does not use",
+    messages: ["¿me mandas mi QR de entrada?"],
+    qr: false,
+    forbidTools: ["send_passes"],
+    forbidText: ["te lo mando", "ahí te va"],
+    because: "Without QR passes there is nothing to send, and a promised code that never arrives is worse than none.",
   },
   {
     name: "keeps a confirmation after a follow-up question",

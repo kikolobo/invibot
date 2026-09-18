@@ -30,6 +30,7 @@ export type GuestIntent =
   | "rsvp_yes_solo"
   | "rsvp_yes_plus_one"
   | "rsvp_no"
+  | "passes_request"
   | "question"
   | "opt_out"
   | "unknown";
@@ -63,6 +64,8 @@ const PAYLOADS: Record<string, GuestIntent> = {
   [templates.invitacion_evento_acompanante.buttons[0].payload]: "rsvp_yes_solo",
   [templates.invitacion_evento_acompanante.buttons[1].payload]: "rsvp_yes_plus_one",
   // buttons[2] is RSVP_NO, already mapped above — one decline means one thing.
+  // Both day-before templates share it: solo or not, the tap means the same.
+  [templates.acceso_evento.buttons[0].payload]: "passes_request",
 };
 
 /**
@@ -78,7 +81,12 @@ const PAYLOADS: Record<string, GuestIntent> = {
  * cannot leave a stale phrase matching here.
  */
 const LABELS: Record<string, GuestIntent> = Object.fromEntries(
-  [...templates.invitacion_evento.buttons, ...templates.invitacion_evento_acompanante.buttons]
+  [
+    ...templates.invitacion_evento.buttons,
+    ...templates.invitacion_evento_acompanante.buttons,
+    ...templates.acceso_evento.buttons,
+    ...templates.acceso_evento_acompanante.buttons,
+  ]
     .filter((button) => PAYLOADS[button.payload])
     .map((button) => [normalize(button.label), PAYLOADS[button.payload]]),
 );

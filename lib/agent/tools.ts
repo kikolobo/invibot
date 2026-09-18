@@ -15,12 +15,21 @@ export type AgentAction =
   | { tool: "decline_attendance" }
   | { tool: "opt_out" }
   | { tool: "escalate_question"; question: string }
-  | { tool: "send_location" };
+  | { tool: "send_location" }
+  | { tool: "send_passes" };
 
 const locationTool: Anthropic.Tool = {
   name: "send_location",
   description:
     "Send the venue as a WhatsApp location card — a real pin the guest can tap to navigate. Use it when they ask where the party is, for the address, for the location, or how to get there. Send it once and say one short sentence alongside it; do not also paste a link.",
+  input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+  strict: true,
+};
+
+const passesTool: Anthropic.Tool = {
+  name: "send_passes",
+  description:
+    "Send the guest their entry pass — the QR code shown at the door, one per person coming. Use it when they ask for their pass, access, QR, code, ticket or entrada, or say they lost or cannot find it. It sends the same codes they already have, never new ones. The result tells you whether it went out or why not; relay that and nothing else.",
   input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   strict: true,
 };
@@ -85,8 +94,16 @@ export const agentTools: Anthropic.Tool[] = [
  * asking where the party is would get an apology instead of the link that was
  * available all along.
  */
-export function agentToolsFor(options: { canSendLocation: boolean }): Anthropic.Tool[] {
-  return options.canSendLocation ? [...agentTools, locationTool] : agentTools;
+export function agentToolsFor(options: {
+  canSendLocation: boolean;
+  /** Only events that use QR passes; elsewhere there is nothing to send. */
+  canSendPasses: boolean;
+}): Anthropic.Tool[] {
+  return [
+    ...agentTools,
+    ...(options.canSendLocation ? [locationTool] : []),
+    ...(options.canSendPasses ? [passesTool] : []),
+  ];
 }
 
 export function describeAction(action: AgentAction): string {
@@ -101,5 +118,7 @@ export function describeAction(action: AgentAction): string {
       return `Te preguntaría: “${action.question}”`;
     case "send_location":
       return "Manda la ubicación del lugar como mapa de WhatsApp";
+    case "send_passes":
+      return "Le manda sus accesos (QR)";
   }
 }
