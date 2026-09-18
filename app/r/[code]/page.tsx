@@ -65,8 +65,16 @@ export async function generateMetadata({
     return { title: "Registro no disponible", robots: { index: false, follow: false } };
   }
 
-  const title = describe(event);
-  const description = `${sentence(formatEventDate(event))}. Toca para registrarte por WhatsApp.`;
+  // The date rides in the title because the description is what WhatsApp
+  // truncates, and "when" is the fact worth protecting. The description says
+  // what tapping does — the old one told people already inside WhatsApp that a
+  // link opens WhatsApp, which spent the scarcest line saying nothing.
+  //
+  // Careful not to promise an invitation here. Tapping this registers you; the
+  // host still has to approve. "Estás invitado" on the card followed by "tu
+  // registro aún no está procesado" in the chat would read as a bait and switch.
+  const title = `${describe(event)} · ${formatEventDate(event)}`;
+  const description = "Regístrate para recibir tu invitación.";
 
   // `v` is the upload time, so replacing the teaser cannot be served from a
   // cache holding the old picture.
