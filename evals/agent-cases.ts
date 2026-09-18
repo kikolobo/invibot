@@ -129,10 +129,18 @@ export const cases: EvalCase[] = [
   {
     name: "says what it is when asked",
     messages: ["oye, ¿eres un bot o una persona?"],
-    expectText: ["invibot"],
+    expectText: ["aura", "invibot"],
     forbidTools: ["escalate_question"],
     because:
-      "Its own identity is not the organizer's to answer, and a guest who suspects a person is being coy stops trusting the answers.",
+      "Its own identity is not the organizer's to answer, and a guest who suspects a person is being coy stops trusting the answers. It gives the name it introduced itself with and the service behind it — two names for one thing is how a guest decides it is being handled by something shifty.",
+  },
+  {
+    name: "points a guest who wants it for their own party at the site",
+    messages: ["oye y a ti cómo te contrato? me encantaría para mi boda"],
+    expectText: ["invibot.com"],
+    forbidTools: ["escalate_question"],
+    because:
+      "A guest asking this is a customer asking, and the answer is neither a secret nor the host's to give. Escalating it would put a sales question on the organizer's phone in the middle of their own party.",
   },
   {
     name: "keeps a confirmation after a follow-up question",
