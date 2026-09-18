@@ -59,9 +59,21 @@ definición, y la tarjeta lleva el lugar, la fecha y los nombres — es justo lo
 que `lib/storage/r2.ts` mantiene en un bucket privado a propósito. Y la liga
 está hecha para reenviarse en grupos: sería cerrar la puerta y abrir la ventana.
 
-**Decidido:** se sube una **imagen teaser** aparte, sólo para esto. Es el
-anfitrión quien decide hacerla pública, que es otra cosa muy distinta a que
-nosotros publiquemos su invitación. El lugar nunca aparece ahí.
+**Decidido, y ya construido a medias:** se sube una **imagen teaser** aparte,
+sólo para esto. Es el anfitrión quien decide hacerla pública, que es otra cosa
+muy distinta a que nosotros publiquemos su invitación. El lugar nunca aparece
+ahí.
+
+Ya existe la subida, en Generales, con la advertencia enfrente: es pública, se
+trata como un cartel en la calle, y ahí no van la dirección, el mapa ni el
+teléfono. Se guarda achicada a 1200 px porque WhatsApp descarta en silencio las
+imágenes pesadas.
+
+**Falta la parte pública.** Hoy la imagen sólo se sirve autenticada, en
+`/api/eventos/[id]/teaser`, porque nada la enlaza todavía y una imagen que el
+anfitrión subió y luego pensó mejor no debería estar en una URL legible
+mientras tanto. El día que `/r/{code}` devuelva HTML con `og:image`, esa ruta
+pública se crea con él.
 
 Dos cosas que hay que saber antes de construirlo:
 
