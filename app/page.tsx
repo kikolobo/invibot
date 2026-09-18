@@ -115,8 +115,8 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <p className="eyebrow !text-gold">Lo que no sabe, lo pregunta</p>
           <h2 className="mt-5 max-w-2xl font-display text-4xl leading-tight text-night-text sm:text-5xl">
-            Cuando un invitado pregunta algo que no está en tu información, no
-            se lo inventa.
+            Un agente de IA contesta las dudas de tus invitados. Y lo que no
+            sabe, lo aprende de ti una sola vez.
           </h2>
           <p className="mt-5 max-w-2xl leading-relaxed text-night-soft">
             Te lo pregunta a ti por WhatsApp, le contesta a tu invitado con tus
