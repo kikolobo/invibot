@@ -33,7 +33,7 @@ function InviteCard({ card }: { card: NonNullable<Line["card"]> }) {
 function Bubble({ line }: { line: Line }) {
   if (line.note) {
     return (
-      <p className="my-1 text-center text-[0.7rem] leading-relaxed text-night-soft/70">
+      <p className="my-1 text-center text-[0.7rem] leading-relaxed text-chat-soft/70">
         {line.text}
       </p>
     );
@@ -45,15 +45,15 @@ function Bubble({ line }: { line: Line }) {
       <div
         className={`max-w-[78%] rounded-2xl px-3 py-2 text-[0.82rem] leading-snug ${
           out
-            ? "rounded-br-sm bg-bubble-out text-night-text"
-            : "rounded-bl-sm bg-bubble-in text-night-text"
+            ? "rounded-br-sm bg-bubble-out text-chat-text"
+            : "rounded-bl-sm bg-bubble-in text-chat-text"
         }`}
       >
         {line.card && <InviteCard card={line.card} />}
         {line.text && <p className="whitespace-pre-line">{line.text}</p>}
         <p
           className={`mt-1 text-[0.6rem] ${
-            out ? "text-right text-night-text/45" : "text-night-soft/60"
+            out ? "text-right text-chat-text/45" : "text-chat-soft/60"
           }`}
         >
           {line.time}
@@ -77,15 +77,15 @@ export function Phone({
 }) {
   return (
     <div
-      className={`w-full max-w-[19rem] overflow-hidden rounded-[1.75rem] border border-night-line bg-night-surface shadow-2xl shadow-black/40 ${className}`}
+      className={`w-full max-w-[19rem] overflow-hidden rounded-[1.75rem] border border-chat-line bg-chat-surface shadow-2xl shadow-black/40 ${className}`}
     >
-      <div className="flex items-center gap-3 border-b border-night-line bg-night-raised px-4 py-3">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gold/20 font-display text-sm text-gold">
+      <div className="flex items-center gap-3 border-b border-chat-line bg-chat-raised px-4 py-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-chat-gold/20 font-display text-sm text-chat-gold">
           {title.charAt(0)}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[0.8rem] font-medium text-night-text">{title}</p>
-          <p className="truncate text-[0.65rem] text-night-soft">{subtitle}</p>
+          <p className="truncate text-[0.8rem] font-medium text-chat-text">{title}</p>
+          <p className="truncate text-[0.65rem] text-chat-soft">{subtitle}</p>
         </div>
       </div>
       <div className="flex flex-col gap-2 px-3 py-4">

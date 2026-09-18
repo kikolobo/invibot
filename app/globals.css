@@ -3,14 +3,17 @@
 :root {
   color-scheme: light;
 
-  --paper: #fbf8f3;
-  --paper-deep: #f3ece1;
-  --ink: #1a1714;
-  --ink-soft: #554d44;
-  --ink-muted: #8a7f73;
-  --accent: #9c4221;
-  --accent-soft: #c05621;
-  --line: #e5ddd2;
+  --paper: #f5f3ef;
+  --paper-deep: #eae6df;
+  --ink: #0f0d0c;
+  --ink-soft: #4a443d;
+  --ink-muted: #837b71;
+  /* Kept warm and dark rather than moved to the yellow. The yellow earns its
+     loudness on black; on this off-white it cannot carry an error message or a
+     link, and a palette where the alarm colour is unreadable is not a palette. */
+  --accent: #8f3a18;
+  --accent-soft: #b4491f;
+  --line: #ded8ce;
 
   /* Dark variant for the landing page: warm near-black against a warm
      off-white, with one saturated yellow doing all the pointing. Editorial
@@ -23,9 +26,19 @@
   --night-text: #f5f2ec;
   --night-soft: #a8a199;
   --night-line: #2b2621;
-  /* Chat bubbles stay legible on the warm black: theirs recedes, ours lifts. */
-  --bubble-in: #1f1b18;
-  --bubble-out: #3a3227;
+  /* The phone mockup keeps the original midnight navy wherever it appears, and
+     has its own tokens so it cannot drift when the page around it is retuned.
+     It is a picture of WhatsApp, not part of our chrome — and in the app it is
+     the simulator an organizer reads their own messages in, which should look
+     the same today as it did last week. */
+  --chat-surface: #111a2e;
+  --chat-raised: #18243c;
+  --chat-line: #253350;
+  --chat-text: #eef2f9;
+  --chat-soft: #98a6c0;
+  --chat-gold: #e0a458;
+  --bubble-in: #18243c;
+  --bubble-out: #2a4a83;
   --gold: #ffc800;
   --gold-soft: #ffd95e;
 }
@@ -48,6 +61,12 @@
   --color-night-line: var(--night-line);
   --color-bubble-in: var(--bubble-in);
   --color-bubble-out: var(--bubble-out);
+  --color-chat-surface: var(--chat-surface);
+  --color-chat-raised: var(--chat-raised);
+  --color-chat-line: var(--chat-line);
+  --color-chat-text: var(--chat-text);
+  --color-chat-soft: var(--chat-soft);
+  --color-chat-gold: var(--chat-gold);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
 
