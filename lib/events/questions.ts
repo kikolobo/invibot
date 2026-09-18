@@ -27,6 +27,7 @@ export type SectionId =
   | "logistica"
   | "comida"
   | "protocolo"
+  | "musica"
   | "detalles";
 
 export type Answers = Record<string, unknown>;
@@ -70,6 +71,7 @@ export const sections: Record<SectionId, { es: string; en: string }> = {
   logistica: { es: "Cómo llegar", en: "Getting there" },
   comida: { es: "Comida y bebida", en: "Food and drink" },
   protocolo: { es: "Protocolo", en: "Protocol" },
+  musica: { es: "Música", en: "Music" },
   detalles: { es: "Detalles finales", en: "Final details" },
 };
 
@@ -413,7 +415,7 @@ const universal: Question[] = [
   },
   {
     key: "extras.musicType",
-    section: "detalles",
+    section: "musica",
     type: "text",
     es: "¿Qué tipo de música va a haber en el evento?",
     en: "What kind of music will there be?",
@@ -424,7 +426,7 @@ const universal: Question[] = [
   },
   {
     key: "extras.musicLoud",
-    section: "detalles",
+    section: "musica",
     type: "select",
     es: "¿Es música fuerte?",
     en: "Is the music loud?",
@@ -443,7 +445,7 @@ const universal: Question[] = [
   },
   {
     key: "extras.musicLive",
-    section: "detalles",
+    section: "musica",
     type: "select",
     es: "¿Es en vivo o DJ?",
     en: "Live music or a DJ?",
@@ -838,5 +840,6 @@ export const sectionOrder: SectionId[] = [
   "logistica",
   "comida",
   "protocolo",
+  "musica",
   "detalles",
 ];
