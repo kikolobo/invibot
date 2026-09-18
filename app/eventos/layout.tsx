@@ -24,7 +24,12 @@ export default async function EventosLayout({
           Invibot
         </Link>
         <div className="flex items-center gap-4 text-sm">
-          <span className="hidden text-ink-muted sm:inline">{name || email}</span>
+          <Link
+            href="/eventos/cuenta"
+            className="hidden text-ink-muted transition-colors hover:text-accent sm:inline"
+          >
+            {name || email}
+          </Link>
           <SignOutButton />
         </div>
       </header>
