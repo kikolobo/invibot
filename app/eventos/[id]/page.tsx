@@ -181,7 +181,7 @@ export default async function EventoPage({
             that stays private on the left, the one that goes out in public on
             the right. Stacked below lg, where two of these would be cramped. */}
         {!archived && (
-        <div className="mt-12 grid items-start gap-10 lg:grid-cols-2 lg:gap-8">
+        <div className="mt-12 grid items-start gap-10 lg:grid-cols-2 lg:gap-8 lg:[grid-template-rows:auto_auto_auto]">
           <EventImage
             eventId={event.id}
             field="card"

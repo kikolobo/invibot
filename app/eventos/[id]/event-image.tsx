@@ -76,13 +76,17 @@ export function EventImage({
   const src = `${endpoint}?v=${uploadedAt?.getTime() ?? 0}`;
 
   return (
-    // No margin of its own: these sit side by side now, and the row places them.
-    <section>
-      <h2 className="font-display text-2xl text-ink">{title}</h2>
-      <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-muted">{intro}</p>
+    // Three rows — heading, preview, controls — handed to the parent grid with
+    // subgrid, so the two thumbnails sit at the same height however many lines
+    // each description happens to wrap to. Without subgrid support it simply
+    // flows, which is the old behaviour rather than a broken one.
+    <section className="lg:row-span-3 lg:grid lg:[grid-template-rows:subgrid]">
+      <div>
+        <h2 className="font-display text-2xl text-ink">{title}</h2>
+        <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-muted">{intro}</p>
+      </div>
 
-      {notice}
-
+      <div>
       {!storageReady && (
         <p className="mt-4 rounded-xl border border-dashed border-line bg-paper-deep p-4 text-[0.88rem] text-ink-muted">
           El almacenamiento de imágenes todavía no está configurado en este entorno.
@@ -120,6 +124,7 @@ export function EventImage({
           </div>
         </div>
       )}
+      </div>
 
       <form action={formAction} className="mt-5">
         <div className="flex flex-wrap items-center gap-3">
@@ -143,6 +148,8 @@ export function EventImage({
           {chosen && <span className="text-[0.85rem] text-ink-soft">{chosen}</span>}
         </div>
         <p className="mt-2 text-[0.82rem] text-ink-muted">JPG o PNG, hasta 5 MB.</p>
+
+        {notice}
 
         {footnote}
 
