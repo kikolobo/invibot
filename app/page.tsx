@@ -86,7 +86,7 @@ export default function Home() {
             <p className="mt-4 leading-relaxed text-night-soft">
               Agrega a tus invitados tú mismo o comparte una liga de
               autorregistro que tú apruebas. Controla el acceso con códigos QR
-              únicos por persona. Y varias cosas más que le suben el nivel al
+              únicos por persona. Entre otras funciones diseñadas para elevar el
               control de tu evento.
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
