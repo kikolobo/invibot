@@ -73,6 +73,49 @@ export async function addOrganizer(
 }
 
 /**
+ * Correcting somebody already on the list.
+ *
+ * A phone typed wrong is the whole failure: an organizador whose number is off
+ * by a digit is silently not an organizador at all — their commands go
+ * unanswered and a guest's question reaches a stranger's phone or nobody's.
+ * Being unable to fix it without deleting and re-adding also loses whether
+ * they were the responder.
+ */
+export async function updateOrganizer(
+  eventId: string,
+  organizerId: string,
+  _prev: OrganizerState,
+  formData: FormData,
+): Promise<OrganizerState> {
+  const { orgId } = await requireOrg();
+  const guard = await editableEvent(eventId, orgId);
+  if (!guard.ok) return { error: guard.error };
+
+  const fullName = String(formData.get("fullName") ?? "").replace(/\s+/g, " ").trim();
+  if (!fullName) return { error: "Falta el nombre." };
+
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  if (!phone) return { error: "Ese teléfono no se ve bien. Revisa el número." };
+
+  try {
+    await db
+      .update(organizers)
+      .set({
+        fullName,
+        phoneE164: phone.e164,
+        phoneVariants: phone.variants,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(organizers.eventId, eventId), eq(organizers.id, organizerId)));
+  } catch {
+    return { error: "Ese teléfono ya está en la lista." };
+  }
+
+  revalidatePath(`/eventos/${eventId}/organizadores`);
+  return { ok: "Guardado." };
+}
+
+/**
  * Moving who answers guests.
  *
  * Cleared then set, in that order: the database allows only one responder per
