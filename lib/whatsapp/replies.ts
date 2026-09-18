@@ -18,6 +18,16 @@ export type ReplyFacts = {
   addressLines?: string[];
   /** Google Maps, when the event has an address. Omitted rather than faked. */
   mapsUrl?: string | null;
+  /**
+   * What the assistant calls itself.
+   *
+   * Passed in rather than read from the environment, because this file is
+   * rendered in the browser by the organizer's preview — where `process.env` is
+   * empty and the name would silently fall back to the default while WhatsApp
+   * sent the real one. A preview that quietly disagrees with the message is
+   * worse than no preview.
+   */
+  assistant: string;
 };
 
 /**
@@ -38,7 +48,12 @@ export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): st
       : [`📍 ${facts.where}`]),
     ...(facts.mapsUrl ? [`🗺️ Cómo llegar: ${facts.mapsUrl}`] : []),
     "",
-    "Si algo cambia, avísame por este medio.",
+    // The assistant introduces itself here rather than in a message of its own.
+    // A confirmation is the one moment a guest is both paying attention and
+    // holding a thread they can reply to; a second message a beat later is just
+    // another notification to swipe away.
+    `Yo soy ${facts.assistant} ✨, Planner IA del evento. Avísame si tienes alguna duda.`,
+    "¡Pregúntame lo que quieras! 💫",
   ].join("\n");
 }
 

@@ -28,6 +28,7 @@ export function WhatsAppPreview({
   cardSrc,
   where,
   mapsUrl,
+  assistant,
 }: {
   eventName: string;
   /** The four event-level template values, in Meta's order. */
@@ -39,6 +40,12 @@ export function WhatsAppPreview({
   /** Follows the event's own setting — never a choice made here. */
   withCompanion: boolean;
   cardSrc: string | null;
+  /**
+   * Handed down from the server. Reading it here would read nothing: this
+   * component runs in the browser, where `process.env` is empty, and the
+   * preview would show the default name while WhatsApp sent the configured one.
+   */
+  assistant: string;
 }) {
   const [answer, setAnswer] = useState<Answer>("solo");
 
@@ -53,6 +60,7 @@ export function WhatsAppPreview({
     when: eventVars[2] ?? "",
     where,
     mapsUrl,
+    assistant,
   };
 
   // The plain invitation has no "solo" button — its yes is simply yes.

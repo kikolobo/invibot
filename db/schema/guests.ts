@@ -171,14 +171,6 @@ export const guests = pgTable(
      */
     passesDueAt: timestamp("passes_due_at", { withTimezone: true }),
 
-    /**
-     * When the assistant introduced itself to this guest.
-     *
-     * Once per guest, ever. Somebody who cancels and comes back confirms a
-     * second time, and being introduced to the same assistant twice reads like
-     * it forgot them — which is the opposite of what the message is for.
-     */
-    assistantIntroAt: timestamp("assistant_intro_at", { withTimezone: true }),
 
     optedOut: boolean("opted_out").notNull().default(false),
     optedOutAt: timestamp("opted_out_at", { withTimezone: true }),
@@ -224,7 +216,6 @@ export const suppressions = pgTable(
   ],
 );
 
-
 /**
  * Everything that has happened to a guest, append-only.
  *
@@ -268,7 +259,6 @@ export const guestEvents = pgTable(
   ],
 );
 
-
 /**
  * Declared so a guest's history loads with the guest:
  *
@@ -294,7 +284,6 @@ export const guestGroupsRelations = relations(guestGroups, ({ one, many }) => ({
   event: one(events, { fields: [guestGroups.eventId], references: [events.id] }),
   guests: many(guests),
 }));
-
 
 /**
  * One QR per person through the door.

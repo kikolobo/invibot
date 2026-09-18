@@ -14,6 +14,7 @@ import { formatEventWhere } from "@/lib/events/format";
 import { guestMapsLink } from "@/lib/events/maps";
 import { WhatsAppPreview } from "../whatsapp-preview";
 import { AgentChat } from "../agent-chat";
+import { assistantName } from "@/lib/agent/identity";
 
 export const metadata = { title: "Simulador de WhatsApp" };
 
@@ -66,6 +67,7 @@ export default async function Simulador({
       ) : (
         <div className="mt-8">
           <WhatsAppPreview
+            assistant={assistantName()}
             eventName={event.name}
             eventVars={eventVariables(event)}
             guestName={previewName}

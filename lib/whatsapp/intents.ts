@@ -13,6 +13,7 @@ import { recordGuestEvent } from "@/lib/guests/history";
 import { revokePasses } from "@/lib/passes/issue";
 import { confirmationReply, declineReply } from "./replies";
 import type { InboundMessage } from "./webhook";
+import { assistantName } from "@/lib/agent/identity";
 
 /**
  * What a guest meant, and what we do about it.
@@ -201,6 +202,7 @@ export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<st
     where: formatEventWhere(event),
     addressLines: formatEventAddressLines(event),
     mapsUrl: guestMapsLink(event),
+    assistant: assistantName(),
   };
 
   if (intent === "rsvp_no") return declineReply(facts);

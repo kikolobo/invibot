@@ -21,7 +21,6 @@ import {
 import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
-import { assistantName } from "@/lib/agent/identity";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { deliverOrSchedulePasses, sendDuePasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
@@ -674,49 +673,7 @@ async function deliverConfirmation(guest: GuestRow, config: WhatsAppConfig): Pro
   const event = await db.query.events.findFirst({ where: eq(events.id, fresh.eventId) });
   if (!event) return;
 
-  // After the card, before the pass: they have what they were waiting for, and
-  // now they are told there is someone to ask. The order is the point — an
-  // introduction that arrives before the invitation is an interruption.
-  await introduceAssistant(fresh, event, config);
-
   await deliverOrSchedulePasses(fresh, event, config);
-}
-
-/**
- * The assistant saying hello, once per guest.
- *
- * Sent inside the window their own confirmation opened, so it is free-form and
- * costs nothing. Most guests never realise they can ask anything at all — they
- * read an invitation, tap a button, and put the phone down. This is the only
- * moment they are both paying attention and holding a thread they can reply to.
- *
- * Marked before sending rather than after. A failure here is a greeting nobody
- * got, which is a small loss; a retry that greets them twice reads like the
- * assistant forgot them, which is worse than never having said hello.
- */
-async function introduceAssistant(
-  guest: GuestRow,
-  event: typeof events.$inferSelect,
-  config: WhatsAppConfig,
-): Promise<void> {
-  if (guest.assistantIntroAt) return;
-
-  await db
-    .update(guests)
-    .set({ assistantIntroAt: new Date() })
-    .where(eq(guests.id, guest.id));
-
-  // Single asterisks: WhatsApp's bold. Doubling them, as Markdown would, prints
-  // the asterisks.
-  const text = [
-    "🌊 ¡Hola! 👋",
-    `Soy ${assistantName()} ✨, planner IA de *${event.name}*.`,
-    "",
-    "Estoy aquí para resolver cualquier duda que tengas sobre el evento. ¡Pregúntame lo que quieras! 💫",
-  ].join("\n");
-
-  const outcome = await sendTextToGuest(guest.id, text, "custom", config);
-  if (!outcome.ok) console.error("[whatsapp] assistant intro failed", guest.id, outcome.reason);
 }
 
 /**
