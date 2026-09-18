@@ -199,6 +199,23 @@ export default async function EventoPage({
             storageReady={storageReady}
             upload={uploadCard}
             remove={removeCard}
+            notice={
+              // Deliberately a quieter border than the teaser's. The pair reads
+              // as one comparison, but only one of them is a warning: this card
+              // says what is safe, and shouting it would dull the one next to
+              // it that says what is not.
+              <div className="mt-4 rounded-xl border border-line bg-paper-deep p-4">
+                <p className="text-[0.88rem] font-medium text-ink">
+                  Esta imagen es privada. Aquí sí va todo.
+                </p>
+                <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                  Le llega a cada invitado en el momento en que confirma, y a nadie más. No
+                  se publica en ningún lado, así que puede llevar la dirección, la hora y los
+                  nombres sin problema. La de al lado es la que ve cualquiera que abra tu
+                  liga.
+                </p>
+              </div>
+            }
             footnote={
               invitedCount > 0 && !event.cardR2Key ? (
                 <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-muted">
