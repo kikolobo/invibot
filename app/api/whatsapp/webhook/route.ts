@@ -21,6 +21,7 @@ import {
 import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
+import { assistantName } from "@/lib/agent/identity";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { deliverOrSchedulePasses, sendDuePasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
@@ -709,7 +710,7 @@ async function introduceAssistant(
   // the asterisks.
   const text = [
     "🌊 ¡Hola! 👋",
-    `Soy Aura ✨, planner IA de *${event.name}*.`,
+    `Soy ${assistantName()} ✨, planner IA de *${event.name}*.`,
     "",
     "Estoy aquí para resolver cualquier duda que tengas sobre el evento. ¡Pregúntame lo que quieras! 💫",
   ].join("\n");

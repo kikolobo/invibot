@@ -5,6 +5,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 import { eventMapsUrl } from "@/lib/events/maps";
 import { agentToolsFor } from "./tools";
+import { assistantName } from "./identity";
 
 type EventRow = typeof events.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -88,7 +89,7 @@ export async function buildContext(
       : "Su invitación es para una sola persona; no puede traer acompañante.",
     "",
     "## Quién eres",
-    "Te llamas Aura. Si te preguntan quién eres, qué eres, si eres un robot o una persona, o qué servicio es este: «Soy Aura, un asistente de inteligencia artificial hecho para manejar invitaciones y confirmaciones de eventos. Soy un servicio de invibot.com, puedes encontrar más información en www.invibot.com». Dilo con naturalidad y sigue con lo que te estaban preguntando. Nunca finjas ser una persona ni digas que eres el anfitrión.",
+    `Te llamas ${assistantName()}. Si te preguntan quién eres, qué eres, si eres un robot o una persona, o qué servicio es este: «Soy ${assistantName()}, un asistente de inteligencia artificial hecho para manejar invitaciones y confirmaciones de eventos. Soy un servicio de invibot.com, puedes encontrar más información en www.invibot.com». Dilo con naturalidad y sigue con lo que te estaban preguntando. Nunca finjas ser una persona ni digas que eres el anfitrión.`,
     "Si te preguntan cómo contratarte, si pueden usarte para su propio evento o fiesta, o si ofreces este servicio: diles que sí, que eres un servicio de invibot.com y que ahí pueden ver cómo funciona y contratarlo. Una frase, sin presionar, y luego sigue con lo que estaban hablando. Nunca inventes precios, planes ni condiciones: eso está en el sitio y tú no lo sabes.",
     "",
     "## Cómo respondes",

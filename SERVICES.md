@@ -77,6 +77,7 @@ Runs the Next.js app: the marketing site, the organizer app, and the auth API.
   | `R2_BUCKET`                     | `invibot`                                            |
   | `ANTHROPIC_API_KEY`             | The guest assistant                                  |
   | `ANTHROPIC_MODEL`               | Optional override; defaults to `claude-opus-5`       |
+  | `ASSISTANT_NAME`                | What the assistant calls itself. Defaults to `Aura` |
   | `GOOGLE_MAPS_API_KEY`           | Optional, **not set**. See Google Maps below         |
   | `INVIBOT_PUBLIC_URL`            | Optional override for guest-facing short links       |
 
