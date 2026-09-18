@@ -12,19 +12,22 @@
   --accent-soft: #c05621;
   --line: #e5ddd2;
 
-  /* Dark "Conversación" variant: midnight navy with gold, a classic invitation
-     pairing. Deliberately not WhatsApp's green — it should read as a chat
-     thread, not as a clone of their brand. */
-  --night: #0a1020;
-  --night-surface: #111a2e;
-  --night-raised: #18243c;
-  --night-text: #eef2f9;
-  --night-soft: #98a6c0;
-  --night-line: #253350;
-  --bubble-in: #18243c;
-  --bubble-out: #2a4a83;
-  --gold: #e0a458;
-  --gold-soft: #f0bd7c;
+  /* Dark variant for the landing page: warm near-black against a warm
+     off-white, with one saturated yellow doing all the pointing. Editorial
+     rather than nocturnal — the type carries the page and the colour stays out
+     of its way. Deliberately not WhatsApp's green: this should read as an
+     invitation, not as a clone of their brand. */
+  --night: #0c0b0a;
+  --night-surface: #131110;
+  --night-raised: #1d1a17;
+  --night-text: #f5f2ec;
+  --night-soft: #a8a199;
+  --night-line: #2b2621;
+  /* Chat bubbles stay legible on the warm black: theirs recedes, ours lifts. */
+  --bubble-in: #1f1b18;
+  --bubble-out: #3a3227;
+  --gold: #ffc800;
+  --gold-soft: #ffd95e;
 }
 
 @theme inline {

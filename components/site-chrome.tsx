@@ -37,14 +37,14 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
         Invibot
       </Link>
 
-      {/* One door for everybody. Signed in it opens the events list; signed out
-          it lands on the sign-in form, which is where somebody clicking "App"
-          expected to end up either way. */}
+      {/* One door for everybody. Signed in it opens the events list; signed
+          out it lands on the sign-in form — which is what "Login" promises
+          either way, where "App" left people guessing. */}
       <Link
         href="/eventos"
         className={`rounded-full border px-5 py-2 text-sm transition-colors ${appButton}`}
       >
-        App
+        Login
       </Link>
     </header>
   );
