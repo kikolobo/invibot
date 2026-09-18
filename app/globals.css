@@ -7,11 +7,11 @@
      type, and the yellow doing the pointing. "Paper" and "ink" keep their names
      — they mean page and type, not white and black, and renaming them across
      two hundred call sites would buy nothing. */
-  --paper: #0f0d0c;
-  --paper-deep: #17140f;
+  --paper: #37302c;
+  --paper-deep: #423b36;
   --ink: #f5f2ec;
-  --ink-soft: #b3aca2;
-  --ink-muted: #867f75;
+  --ink-soft: #c5bdb3;
+  --ink-muted: #ada49a;
   /* Three jobs that were sharing one colour, which is why none of them could
      change:
        accent  — links and inline actions. Stays warm rust: it has to read as
@@ -26,9 +26,9 @@
   --accent-soft: #f0a873;
   --action: #ffc800;
   --action-soft: #ffd95e;
-  --danger: #ef6f62;
-  --danger-soft: #ff8b7e;
-  --line: #2a2520;
+  --danger: #ff9086;
+  --danger-soft: #ffa79e;
+  --line: #554c45;
 
   /* Dark variant for the landing page: warm near-black against a warm
      off-white, with one saturated yellow doing all the pointing. Editorial
