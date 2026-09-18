@@ -88,6 +88,39 @@ los glifos se convierten a trazos.
 
 ---
 
+## 0.7 Los QR salen 45 minutos después — **falta el reloj**
+
+Desde hoy el pase QR no sale pegado a la tarjeta: se guarda
+`guests.passes_due_at` a 45 minutos y se manda después. La tarjeta es el
+mensaje que el invitado estaba esperando, y un QR encima la entierra. Si el
+evento es en **menos de 2 horas** no se espera nada: ahí el código importa más
+que el orden.
+
+Los 45 minutos caben de sobra en la ventana de 24 horas que abrió su propia
+confirmación, que es lo que importa: un pase es una imagen libre y fuera de esa
+ventana no hay plantilla que lo cargue.
+
+**Quién los manda hoy:** cada webhook de entrada barre los que ya vencieron. Un
+evento con gente confirmando genera un mensaje cada pocos minutos, así que en
+la práctica salen a tiempo. El hueco es el último invitado de la noche, al que
+no le sigue nadie.
+
+**Falta un reloj de verdad.** Ya existe `/api/cron/passes`, protegido con
+`CRON_SECRET`. Falta:
+
+1. Poner `CRON_SECRET` en Vercel (`openssl rand -hex 32`).
+2. Decidir quién lo llama. **En Hobby los cron de Vercel corren una vez al
+   día**, que como red de seguridad alcanza — la ventana es de 24 horas — pero
+   puede entregar un QR a las 3 de la mañana. Con Pro se programa cada 5
+   minutos y el problema desaparece. Mientras tanto sirve cualquier pinger
+   externo.
+
+No se agregó `vercel.json` a propósito: no está confirmado si Vercel rechaza un
+cron sub-diario en Hobby, y un deploy roto en producción cuesta más que esperar
+a decidir el plan.
+
+---
+
 ## 1. Quitar «Responde BAJA» de las plantillas del WABA de *prueba*
 
 Sólo aplica al WABA de prueba. Las de producción nacieron con el pie correcto,

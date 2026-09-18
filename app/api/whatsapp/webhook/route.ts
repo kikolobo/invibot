@@ -22,7 +22,7 @@ import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/wh
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
 import { recordGuestEvent } from "@/lib/guests/history";
-import { sendPasses } from "@/lib/passes/send";
+import { deliverOrSchedulePasses, sendDuePasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { handleAutoRegistro, type RegistrationAction } from "@/lib/guests/registration";
@@ -102,6 +102,17 @@ export async function POST(request: Request) {
   // is not, and Meta is holding the connection open while we think. `after`
   // runs once the 200 is on the wire — the same seam Inngest will take over,
   // which is where this belongs the moment a reply needs retries or ordering.
+  // Every inbound message is also a tick. The passes waiting on a timer have
+  // nothing else to drain them on a plan whose cron runs once a day, and an
+  // event with guests confirming has exactly the traffic this needs.
+  after(async () => {
+    try {
+      await sendDuePasses();
+    } catch (error) {
+      console.error("[pass] opportunistic sweep failed", error);
+    }
+  });
+
   if (answerable.length > 0) {
     after(async () => {
       for (const { guest, intent, at, wamid, config } of answerable) {
@@ -548,7 +559,15 @@ async function deliverConfirmation(guest: GuestRow, config: WhatsAppConfig): Pro
   // so the pass reflects the RSVP that was just written — including a guest who
   // cancelled and came back, whose old codes are revoked and who needs new ones.
   const fresh = await db.query.guests.findFirst({ where: eq(guests.id, guest.id) });
-  if (fresh) await sendPasses(fresh, config);
+  if (!fresh) return;
+
+  // "After the card" is now measured in minutes rather than milliseconds, so
+  // the card has time to be looked at. Unless the party is nearly here, in
+  // which case the code is needed more than the pacing is.
+  const event = await db.query.events.findFirst({ where: eq(events.id, fresh.eventId) });
+  if (!event) return;
+
+  await deliverOrSchedulePasses(fresh, event, config);
 }
 
 /**

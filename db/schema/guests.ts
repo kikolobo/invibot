@@ -146,6 +146,21 @@ export const guests = pgTable(
      */
     registrationNoticeAt: timestamp("registration_notice_at", { withTimezone: true }),
 
+    /**
+     * When this guest's QR passes may go out.
+     *
+     * Set instead of sending, so the pass follows the invitation card by a
+     * while rather than piling on top of it — the card is the message they were
+     * waiting for and a QR landing in the same breath buries it. Null means
+     * nothing is waiting: either they have their passes or they are not owed
+     * any.
+     *
+     * Deliberately well inside the 24-hour window their own confirmation
+     * opened. A pass is a free-form image; miss that window and there is no
+     * template that can carry one.
+     */
+    passesDueAt: timestamp("passes_due_at", { withTimezone: true }),
+
     optedOut: boolean("opted_out").notNull().default(false),
     optedOutAt: timestamp("opted_out_at", { withTimezone: true }),
 

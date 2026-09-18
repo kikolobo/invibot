@@ -1,0 +1,1 @@
+ALTER TABLE "guests" ADD COLUMN "passes_due_at" timestamp with time zone;
