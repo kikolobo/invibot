@@ -7,11 +7,14 @@
      type, and the yellow doing the pointing. "Paper" and "ink" keep their names
      — they mean page and type, not white and black, and renaming them across
      two hundred call sites would buy nothing. */
-  --paper: #37302c;
-  --paper-deep: #423b36;
-  --ink: #f5f2ec;
-  --ink-soft: #c5bdb3;
-  --ink-muted: #ada49a;
+  --paper: #47433d;
+  /* Recessed rather than raised. On a mid-dark page a lighter card eats the
+     contrast of everything printed on it — going darker keeps every
+     foreground legible and still reads as a distinct surface. */
+  --paper-deep: #3b3833;
+  --ink: #f7f4f0;
+  --ink-soft: #cdc6be;
+  --ink-muted: #bdb5ac;
   /* Three jobs that were sharing one colour, which is why none of them could
      change:
        accent  — links and inline actions. Stays warm rust: it has to read as
@@ -22,13 +25,13 @@
                  without having to be legible at 12px.
        danger  — errors. Was wearing the link colour, so a failure looked like
                  an invitation to click. */
-  --accent: #e0915c;
-  --accent-soft: #f0a873;
+  --accent: #f0b078;
+  --accent-soft: #ffc79a;
   --action: #ffc800;
   --action-soft: #ffd95e;
-  --danger: #ff9086;
-  --danger-soft: #ffa79e;
-  --line: #554c45;
+  --danger: #ff9d92;
+  --danger-soft: #ffb3aa;
+  --line: #6b645c;
 
   /* Dark variant for the landing page: warm near-black against a warm
      off-white, with one saturated yellow doing all the pointing. Editorial
