@@ -1,12 +1,11 @@
 import { notFound, redirect } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, organizers } from "@/db/schema";
+import { events } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { detailsToAnswers } from "@/lib/events/facts";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { DetallesForm } from "./detalles-form";
-import { Organizadores } from "./organizadores";
 
 export const metadata = { title: "Detalles del evento" };
 
@@ -26,17 +25,6 @@ export default async function Detalles({
   // so an archived event goes back to the overview, where its answers are shown.
   if (event.archivedAt) redirect(`/eventos/${event.id}`);
 
-  const team = await db
-    .select({
-      id: organizers.id,
-      fullName: organizers.fullName,
-      phoneE164: organizers.phoneE164,
-      isResponder: organizers.isResponder,
-    })
-    .from(organizers)
-    .where(eq(organizers.eventId, event.id))
-    .orderBy(asc(organizers.createdAt));
-
   return (
     <>
       <div>
@@ -48,11 +36,6 @@ export default async function Detalles({
           Cada respuesta se vuelve algo que el asistente sabrá contestar por ti.
           No tienes que contestar todo de una vez.
         </p>
-
-        {/* Above the questionnaire, not below it. The questionnaire is long and
-            answered over days; the team is short and set once, and at the
-            bottom of a page like that it may as well not exist. */}
-        <Organizadores eventId={event.id} rows={team} staffCode={event.staffCode} />
 
         <DetallesForm
           eventId={event.id}

@@ -46,12 +46,13 @@ export function Organizadores({
     });
 
   return (
-    <section className="mt-12 border-t border-line pt-10">
-      <h2 className="font-display text-2xl text-ink">Organizadores</h2>
-      <p className="mt-2 max-w-2xl text-[0.9rem] leading-relaxed text-ink-muted">
-        Quien te ayuda a organizar. Desde su WhatsApp pueden preguntarme
-        <code className="mx-1 rounded bg-paper-deep px-1.5 py-0.5 text-[0.85em]">/confirmados</code>
-        y les contesto al momento. No necesitan cuenta ni contraseña.
+    <section className="mt-8">
+      <p className="max-w-2xl text-[0.9rem] leading-relaxed text-ink-muted">
+        Desde su WhatsApp pueden preguntarme
+        <code className="mx-1 rounded bg-paper-deep px-1.5 py-0.5 text-[0.85em]">/confirmados</code>,
+        <code className="mx-1 rounded bg-paper-deep px-1.5 py-0.5 text-[0.85em]">/invitados</code> o
+        <code className="mx-1 rounded bg-paper-deep px-1.5 py-0.5 text-[0.85em]">/cancelados</code>
+        y les contesto al momento.
       </p>
 
       {rows.length > 0 && (

@@ -68,7 +68,7 @@ export async function addOrganizer(
       .where(eq(events.id, eventId));
   }
 
-  revalidatePath(`/eventos/${eventId}/detalles`);
+  revalidatePath(`/eventos/${eventId}/organizadores`);
   return { ok: `${fullName.split(" ")[0]} quedó en la lista.` };
 }
 
@@ -94,7 +94,7 @@ export async function setResponder(eventId: string, organizerId: string): Promis
     .set({ isResponder: true, updatedAt: new Date() })
     .where(and(eq(organizers.eventId, eventId), eq(organizers.id, organizerId)));
 
-  revalidatePath(`/eventos/${eventId}/detalles`);
+  revalidatePath(`/eventos/${eventId}/organizadores`);
   return {};
 }
 
@@ -134,6 +134,6 @@ export async function removeOrganizer(
     }
   }
 
-  revalidatePath(`/eventos/${eventId}/detalles`);
+  revalidatePath(`/eventos/${eventId}/organizadores`);
   return {};
 }

@@ -42,6 +42,9 @@ export function EventNav({
     ...(pendingCount > 0
       ? [{ href: `${base}/aprobaciones`, label: "Aprobaciones", badge: pendingCount }]
       : []),
+    // Grouped with the other people: guests, the ones asking to be guests, and
+    // the ones running it. Hidden when archived, like every other editor here.
+    ...(archived ? [] : [{ href: `${base}/organizadores`, label: "Organizadores" }]),
     { href: `${base}/reporte`, label: "Reporte" },
     {
       href: `${base}/hechos`,
