@@ -19,7 +19,7 @@ import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
 type EventRow = typeof events.$inferSelect;
 type LinkFields = Pick<
   EventRow,
-  "registrationCode" | "name" | "kind" | "startsAt" | "timezone"
+  "registrationCode" | "name" | "hostNames" | "kind" | "startsAt" | "timezone"
 >;
 
 /**
@@ -85,11 +85,17 @@ export function prefilledBody(event: LinkFields): string | null {
   if (!event.registrationCode) return null;
 
   const kind = eventKindLabels[event.kind].esInline;
+  // Whose party it is reads better than what it is called — "el cumpleaños de
+  // Francisco Lobo" is how anyone would say it out loud. Without a host we name
+  // the event instead and drop the "de": "el cumpleaños de Creatures of the
+  // Night" makes the party sound like a person.
+  const host = event.hostNames?.trim();
+  const whose = host ? `de ${host}` : event.name.trim();
   const code = displayCode(event.registrationCode);
 
   return (
-    `Regístrame para ${kind} ${event.name.trim()} (${code}) ` +
-    `el día ${formatEventDate(event)}. Mi nombre es: `
+    `Regístrame para ${kind} ${whose} el día ${formatEventDate(event)} ` +
+    `(${code}), mi nombre es: `
   );
 }
 
