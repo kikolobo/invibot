@@ -3,7 +3,14 @@ import { db } from "@/db";
 import { escalations, events, guests, organizers } from "@/db/schema";
 import { applyEscalationAnswer } from "@/lib/agent/escalations";
 import { variantsOf } from "@/lib/phone";
-import { parseCommand, formatCounts, formatLink, type Counts } from "./commands";
+import {
+  parseCommand,
+  formatCounts,
+  formatLink,
+  formatNames,
+  type Counts,
+  type OrganizerCommand,
+} from "./commands";
 import { registrationLink } from "@/lib/guests/auto-register";
 
 type OrganizerRow = typeof organizers.$inferSelect;
@@ -32,6 +39,41 @@ export async function organizerEvents(
 
   return rows.filter((row) => row.event.archivedAt === null);
 }
+
+/**
+ * The names behind one of the counts, alphabetical.
+ *
+ * Approved guests only, like every other number here: somebody still waiting on
+ * a decision is not on the list yet, and reading their name among the confirmed
+ * would be wrong twice over.
+ */
+async function namesFor(eventId: string, command: OrganizerCommand): Promise<string[]> {
+  const rsvp =
+    command === "lista_confirmados"
+      ? "confirmed"
+      : command === "lista_cancelados"
+        ? "declined"
+        : "no_response";
+
+  const rows = await db
+    .select({ fullName: guests.fullName })
+    .from(guests)
+    .where(
+      and(
+        eq(guests.eventId, eventId),
+        eq(guests.approvalStatus, "approved"),
+        eq(guests.rsvpStatus, rsvp),
+      ),
+    );
+
+  return rows.map((row) => row.fullName).sort((a, b) => a.localeCompare(b, "es"));
+}
+
+const LISTS: Record<string, { heading: string; empty: string }> = {
+  lista_confirmados: { heading: "confirmados", empty: "Todavía no confirma nadie." },
+  lista_cancelados: { heading: "cancelados", empty: "Nadie ha cancelado." },
+  lista_sin_respuesta: { heading: "sin responder", empty: "Ya todos respondieron." },
+};
 
 /** The counts one event can answer with. */
 export async function countsFor(event: EventRow): Promise<Counts> {
@@ -85,6 +127,17 @@ export async function organizerReply(
   if (mine.length === 0) return null;
 
   if (command === "ayuda") return formatCounts("ayuda", await countsFor(mine[0].event));
+
+  const list = LISTS[command];
+  if (list) {
+    const lines: string[] = [];
+    for (const { event } of mine.slice(0, 5)) {
+      lines.push(
+        formatNames(event.name, list.heading, list.empty, await namesFor(event.id, command)),
+      );
+    }
+    return lines.join("\n\n");
+  }
 
   if (command === "liga") {
     return mine

@@ -19,6 +19,9 @@ export type OrganizerCommand =
   | "invitados"
   | "cancelados"
   | "liga"
+  | "lista_confirmados"
+  | "lista_cancelados"
+  | "lista_sin_respuesta"
   | "ayuda";
 
 const WORDS: Record<string, OrganizerCommand> = {
@@ -43,6 +46,17 @@ const WORDS: Record<string, OrganizerCommand> = {
   autorregistro: "liga",
   autoregistro: "liga",
   registro: "liga",
+  // The same three counts, but by name. Written with hyphens and matched after
+  // spaces are folded into them, so "lista confirmados" works as well.
+  "lista-confirmados": "lista_confirmados",
+  "listar-confirmados": "lista_confirmados",
+  "lista-cancelados": "lista_cancelados",
+  "listar-cancelados": "lista_cancelados",
+  "lista-bajas": "lista_cancelados",
+  "lista-sin-respuesta": "lista_sin_respuesta",
+  "listar-sin-respuesta": "lista_sin_respuesta",
+  "lista-pendientes": "lista_sin_respuesta",
+  "sin-respuesta": "lista_sin_respuesta",
   ayuda: "ayuda",
   help: "ayuda",
   menu: "ayuda",
@@ -71,9 +85,15 @@ export function parseCommand(text: string | null): OrganizerCommand | null {
 
   // Whole message only. "cuantos confirmados" is a question a person really
   // types, so a two-word form with a leading interrogative is allowed too.
-  const bare = word.replace(/^(cuantos|cuantas|cuanta|cuanto|dime|dame)\s+/, "");
+  const bare = word.replace(/^(cuantos|cuantas|cuanta|cuanto|dime|dame|quienes|quien)\s+/, "");
 
-  return WORDS[bare] ?? null;
+  // Spaces, hyphens and underscores are the same thing to somebody typing on a
+  // phone: "lista confirmados", "lista-confirmados" and "lista_confirmados" are
+  // one command. Folded after the interrogative is stripped, so "cuantos
+  // confirmados" does not become "cuantos-confirmados" and stop matching.
+  const key = bare.replace(/[\s_-]+/g, "-");
+
+  return WORDS[key] ?? null;
 }
 
 export type Counts = {
@@ -110,6 +130,11 @@ export function formatCounts(command: OrganizerCommand, counts: Counts): string 
         counts,
         `${counts.declined} ${counts.declined === 1 ? "cancelado" : "cancelados"}`,
       );
+    case "lista_confirmados":
+    case "lista_cancelados":
+    case "lista_sin_respuesta":
+      // Built from names, not counts, so it never reaches here.
+      return HELP;
     case "liga":
       // Built from the event rather than counted, so it never reaches here.
       return HELP;
@@ -140,5 +165,43 @@ export const HELP = [
   "/cancelados — cuántos no van",
   "/registerlink — la liga de autorregistro para compartir",
   "",
+  "Y por nombre:",
+  "/lista-confirmados · /lista-cancelados · /lista-sin-respuesta",
+  "",
   "También entiendo «cuántos confirmados» sin la diagonal.",
 ].join("\n");
+
+
+/**
+ * A plain list of names.
+ *
+ * Names and nothing else. An organizador reading this on a phone is checking
+ * names off against something in their head, and a phone number or a group
+ * beside each one is noise they have to read past every line.
+ *
+ * Capped, because WhatsApp has a message limit and an event with three hundred
+ * guests would otherwise produce a message that fails to send rather than a
+ * long one.
+ */
+const MAX_NAMES = 120;
+
+export function formatNames(
+  eventName: string,
+  heading: string,
+  /** Said when the list is empty — "nadie cancelados" is not a sentence. */
+  empty: string,
+  names: string[],
+): string {
+  if (names.length === 0) return `${eventName}\n${empty}`;
+
+  const shown = names.slice(0, MAX_NAMES);
+  const rest = names.length - shown.length;
+
+  return [
+    `${eventName}`,
+    `${names.length} ${heading}:`,
+    "",
+    ...shown.map((name) => `* ${name}`),
+    ...(rest > 0 ? ["", `…y ${rest} más.`] : []),
+  ].join("\n");
+}
