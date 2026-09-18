@@ -86,6 +86,14 @@ Runs the Next.js app: the marketing site, the organizer app, and the auth API.
 
 - **⚠️ Environment variable changes need a redeploy.** They are not applied to
   an existing deployment.
+- **⚠️ Hobby crons run once a day, and Vercel enforces it at deploy time.**
+  Anything more frequent is refused outright — `*/15 * * * *` fails the build
+  with "Hobby accounts are limited to daily cron jobs". The rejected deploy is
+  harmless: production keeps serving the previous one. `vercel.json` therefore
+  schedules `/api/cron/passes` at `0 16 * * *`, which is 10:00 in Monterrey.
+  On Pro it becomes `*/15` and the QR delivery gap closes.
+- `vercel.json` rejects unknown keys, including a `_comment`. Notes about a
+  cron belong here, not in the file.
 - **⚠️ Deployment Protection is off** so the public site is reachable. Turning
   it on hides the site from Meta's reviewer and from guests.
 

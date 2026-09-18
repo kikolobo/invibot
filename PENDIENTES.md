@@ -105,19 +105,21 @@ evento con gente confirmando genera un mensaje cada pocos minutos, así que en
 la práctica salen a tiempo. El hueco es el último invitado de la noche, al que
 no le sigue nadie.
 
-**Falta un reloj de verdad.** Ya existe `/api/cron/passes`, protegido con
-`CRON_SECRET`. Falta:
+**El reloj ya existe, pero corre una vez al día.** `/api/cron/passes` está
+protegido con `CRON_SECRET` (ya en Vercel y en `SECRETS.local.md`) y
+`vercel.json` lo programa a las `0 16 * * *` — las 10 de la mañana en
+Monterrey.
 
-1. Poner `CRON_SECRET` en Vercel (`openssl rand -hex 32`).
-2. Decidir quién lo llama. **En Hobby los cron de Vercel corren una vez al
-   día**, que como red de seguridad alcanza — la ventana es de 24 horas — pero
-   puede entregar un QR a las 3 de la mañana. Con Pro se programa cada 5
-   minutos y el problema desaparece. Mientras tanto sirve cualquier pinger
-   externo.
+Se probó `*/15` y **Vercel rechaza el deploy**: en Hobby los cron son diarios y
+lo valida al desplegar. El deploy rechazado no hizo daño, producción siguió
+sirviendo el anterior.
 
-No se agregó `vercel.json` a propósito: no está confirmado si Vercel rechaza un
-cron sub-diario en Hobby, y un deploy roto en producción cuesta más que esperar
-a decidir el plan.
+Con eso queda un hueco chico y real: el último invitado que confirma, al que no
+le sigue tráfico, puede esperar hasta la mañana siguiente por su QR. La ventana
+de 24 horas aguanta, pero apenas — quien confirma poco después de las 10 am
+espera casi un día completo. **Con Pro se pone `*/15` y desaparece**; es el
+argumento más concreto que hay hoy para cambiar de plan, junto con que Hobby
+prohíbe el uso comercial.
 
 ---
 
