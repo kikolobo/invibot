@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { countryLabel } from "@/lib/events/places";
 import { eventMapsEmbedUrl, eventMapsUrl } from "@/lib/events/maps";
 import { and, count, eq, ne } from "drizzle-orm";
-import { TZDate } from "@date-fns/tz";
 import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
@@ -17,13 +16,19 @@ import { ArchiveEvent } from "./archive-event";
 
 export const metadata = { title: "Evento" };
 
-const dateFmt = new Intl.DateTimeFormat("es-MX", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const timeFmt = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit" });
+// Built per render with the event's own timeZone. Without that option Intl
+// formats in the runtime's zone, which on Vercel is UTC — the same bug that
+// told guests a Saturday-night party was on Sunday.
+const dateFmtFor = (timeZone: string) =>
+  new Intl.DateTimeFormat("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone,
+  });
+const timeFmtFor = (timeZone: string) =>
+  new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit", timeZone });
 
 /**
  * Where the event is, in words an organizer can act on.
@@ -81,8 +86,8 @@ export default async function EventoPage({
     .filter(Boolean)
     .join(", ");
 
-  // Render the date in the event's own timezone, not the server's.
-  const local = new TZDate(event.startsAt, event.timezone);
+  const showDate = dateFmtFor(event.timezone);
+  const showTime = timeFmtFor(event.timezone);
 
   return (
     <>
@@ -103,8 +108,8 @@ export default async function EventoPage({
           <div>
             <dt className="eyebrow">Cuándo</dt>
             <dd className="mt-1 text-ink first-letter:uppercase">
-              {dateFmt.format(local)}
-              <span className="text-ink-soft"> · {timeFmt.format(local)}</span>
+              {showDate.format(event.startsAt)}
+              <span className="text-ink-soft"> · {showTime.format(event.startsAt)}</span>
             </dd>
           </div>
           <div>

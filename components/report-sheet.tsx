@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import { TZDate } from "@date-fns/tz";
 import type { events } from "@/db/schema";
 import { formatEventWhere } from "@/lib/events/format";
 import { seatsOf, type FieldKey, type ReportSection } from "@/lib/reports/guest-report";
@@ -17,12 +16,17 @@ import { formatPhone } from "@/lib/phone";
  * cannot drift apart.
  */
 
-const dateFmt = new Intl.DateTimeFormat("es-MX", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
+// Built per render with the event's own timeZone. Without that option Intl
+// formats in the runtime's zone, which on Vercel is UTC — the same bug that
+// told guests a Saturday-night party was on Sunday.
+const dateFmtFor = (timeZone: string) =>
+  new Intl.DateTimeFormat("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone,
+  });
 
 /**
  * Column behaviour, not column widths.
@@ -82,7 +86,7 @@ export function ReportSheet({
       <header className="border-b border-line pb-4">
         <h2 className="font-display text-2xl text-ink">{event.name}</h2>
         <p className="mt-1 max-w-[46rem] text-[0.9rem] leading-relaxed text-ink-soft first-letter:uppercase">
-          {dateFmt.format(new TZDate(event.startsAt, event.timezone))}
+          {dateFmtFor(event.timezone).format(event.startsAt)}
           {formatEventWhere(event) && ` · ${formatEventWhere(event)}`}
         </p>
         <p className="mt-3 text-[0.85rem] text-ink-muted">

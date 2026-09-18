@@ -1,4 +1,3 @@
-import { TZDate } from "@date-fns/tz";
 import type { events } from "@/db/schema/events";
 import { eventMapsUrl, shortMapsLabel } from "./maps";
 import { countryLabel } from "./places";
@@ -14,33 +13,79 @@ import { countryLabel } from "./places";
 
 type EventRow = typeof events.$inferSelect;
 
-const dateFmt = new Intl.DateTimeFormat("es-MX", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-const timeFmt = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit" });
-
 /**
- * Always rendered in the event's own timezone: `startsAt` is an absolute
- * instant, and "7 PM" means seven in the evening where the party is, not where
- * the server happens to run.
+ * Formatters bound to a timezone, built once per zone.
+ *
+ * The `timeZone` option is the whole point and its absence was a real bug:
+ * `Intl.DateTimeFormat` without it formats in the *runtime's* zone. `TZDate`
+ * overrides `getHours()` and its siblings, but `Intl.format()` reads the epoch
+ * underneath and ignores all of that — so a date was correct on a laptop in
+ * Monterrey and a day late on Vercel, which runs in UTC. Guests were told
+ * "domingo 11 de octubre, 1:00 a.m." about a party at 7 on Saturday the 10th.
+ *
+ * Memoised because constructing an `Intl.DateTimeFormat` is not cheap and every
+ * invitation in a campaign formats the same event.
  */
+const dateFmts = new Map<string, Intl.DateTimeFormat>();
+const timeFmts = new Map<string, Intl.DateTimeFormat>();
+
+/** Falls back loudly rather than throwing: a bad zone must not kill a send. */
+function zoneOf(timezone: string): string {
+  try {
+    new Intl.DateTimeFormat("es-MX", { timeZone: timezone });
+    return timezone;
+  } catch {
+    console.error("[format] unusable timezone, falling back", timezone);
+    return "America/Mexico_City";
+  }
+}
+
+function dateFmtFor(timezone: string): Intl.DateTimeFormat {
+  const zone = zoneOf(timezone);
+  let fmt = dateFmts.get(zone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("es-MX", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      timeZone: zone,
+    });
+    dateFmts.set(zone, fmt);
+  }
+  return fmt;
+}
+
+function timeFmtFor(timezone: string): Intl.DateTimeFormat {
+  const zone = zoneOf(timezone);
+  let fmt = timeFmts.get(zone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("es-MX", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: zone,
+    });
+    timeFmts.set(zone, fmt);
+  }
+  return fmt;
+}
+
 /**
  * The day alone, no time. For sentences that carry the date inside them, where
  * "el sábado 25 de octubre, 9:00 p.m." turns one clause into two.
  */
 export function formatEventDate(event: Pick<EventRow, "startsAt" | "timezone">): string {
   // "sábado 24 de octubre", not "sábado, 24 de octubre". Intl puts the comma
-  // there and it is right for a heading, but this string is read mid-sentence —
-  // "el sábado, 24 de octubre. Mi nombre es:" stumbles where the plain form
-  // does not. `formatEventWhen` keeps the comma: it stands on its own.
-  return dateFmt.format(new TZDate(event.startsAt, event.timezone)).replace(/,\s+/, " ");
+  // there and it is right for a heading, but this string is read mid-sentence.
+  return dateFmtFor(event.timezone).format(event.startsAt).replace(/,\s+/, " ");
 }
 
+/**
+ * Always rendered in the event's own timezone: `startsAt` is an absolute
+ * instant, and "7 PM" means seven in the evening where the party is, not where
+ * the server happens to run.
+ */
 export function formatEventWhen(event: Pick<EventRow, "startsAt" | "timezone">): string {
-  const local = new TZDate(event.startsAt, event.timezone);
-  return `${dateFmt.format(local)}, ${timeFmt.format(local)}`;
+  return `${dateFmtFor(event.timezone).format(event.startsAt)}, ${timeFmtFor(event.timezone).format(event.startsAt)}`;
 }
 
 export function formatEventWhere(

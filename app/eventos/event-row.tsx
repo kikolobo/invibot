@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { TZDate } from "@date-fns/tz";
 import type { events } from "@/db/schema";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { CloneEvent } from "./clone-event";
 import { UnarchiveButton } from "./unarchive-button";
 
-const dateFmt = new Intl.DateTimeFormat("es-MX", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
+// Built per render with the event's own timeZone. Without that option Intl
+// formats in the runtime's zone, which on Vercel is UTC — the same bug that
+// told guests a Saturday-night party was on Sunday.
+const dateFmtFor = (timeZone: string) =>
+  new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "long", year: "numeric", timeZone });
 
 /**
  * One event in a list. Shared by "Mis eventos" and the archive, which differ
@@ -43,7 +42,7 @@ export function EventRow({
           <span className="eyebrow shrink-0">{eventKindLabels[event.kind].es}</span>
         </div>
         <p className="mt-1 text-[0.9rem] text-ink-soft">
-          {dateFmt.format(new TZDate(event.startsAt, event.timezone))}
+          {dateFmtFor(event.timezone).format(event.startsAt)}
           {event.venueName && ` · ${event.venueName}`}
         </p>
       </Link>
