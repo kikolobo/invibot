@@ -125,6 +125,24 @@ export const events = pgTable(
      */
     cardMediaPhoneNumberId: text("card_media_phone_number_id"),
 
+    /**
+     * The "Save the Date" teaser — a second, deliberately public image.
+     *
+     * Separate from the invitation card because their audiences are opposite.
+     * The card goes to a guest who has confirmed and carries the venue, which
+     * is why its bucket is private and why nothing here ever produces a
+     * shareable URL for it. The teaser is the picture shown to whoever a
+     * registration link reaches, which is by design a group chat and everyone
+     * they forward it to.
+     *
+     * Stored downscaled: a link preview is dropped silently by WhatsApp if the
+     * image is heavy, and an organizer would have no way to tell.
+     */
+    teaserR2Key: text("teaser_r2_key"),
+    teaserContentType: text("teaser_content_type"),
+    teaserBytes: integer("teaser_bytes"),
+    teaserUploadedAt: timestamp("teaser_uploaded_at", { withTimezone: true }),
+
     publishedAt: timestamp("published_at", { withTimezone: true }),
     /**
      * Soft delete. Separate from `status` on purpose: that column is the event's

@@ -1,34 +1,59 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { uploadCard, removeCard } from "@/lib/events/card";
+import type { ReactNode } from "react";
 import type { ActionState } from "@/lib/events/actions";
 
+type Action = (
+  eventId: string,
+  prev: ActionState & { ok?: string },
+  formData: FormData,
+) => Promise<ActionState & { ok?: string }>;
+
 /**
- * The invitation card, uploaded once per event.
+ * One uploaded image on an event.
  *
- * Sent as its own message right after a guest confirms, inside the 24-hour
- * window their own reply opens — which is why it costs nothing and why it has
- * to exist *before* invitations go out. A card uploaded afterwards can only
- * reach guests whose window is still open.
+ * Shared by the two of them because they behave identically and mean opposite
+ * things: the invitation goes privately to someone who has confirmed, the
+ * teaser goes publicly to whoever a shared link reaches. The copy is passed in
+ * so that difference is stated where the organizer is standing, not inferred
+ * from a field name.
  */
-export function EventCard({
+export function EventImage({
   eventId,
-  hasCard,
+  field,
+  endpoint,
+  title,
+  intro,
+  notice,
+  footnote,
+  hasImage,
   bytes,
   uploadedAt,
   storageReady,
-  invitedCount,
+  upload,
+  remove,
 }: {
   eventId: string;
-  hasCard: boolean;
+  /** The form field, and the R2 kind behind it. */
+  field: "card" | "teaser";
+  /** Where the organizer's own preview is streamed from. */
+  endpoint: string;
+  title: string;
+  intro: string;
+  /** Shown before the picker — for anything the organizer must know first. */
+  notice?: ReactNode;
+  /** Shown under it — for anything that only matters once. */
+  footnote?: ReactNode;
+  hasImage: boolean;
   bytes: number | null;
   uploadedAt: Date | null;
   storageReady: boolean;
-  invitedCount: number;
+  upload: Action;
+  remove: (eventId: string) => Promise<ActionState & { ok?: string }>;
 }) {
   const [state, formAction, pending] = useActionState<ActionState & { ok?: string }, FormData>(
-    uploadCard.bind(null, eventId),
+    upload.bind(null, eventId),
     {},
   );
   const [removing, startRemoving] = useTransition();
@@ -47,16 +72,15 @@ export function EventCard({
     if (state.ok) setChosen(null);
   }
 
-  // Busts the browser cache when a card is replaced at the same URL.
-  const src = `/api/eventos/${eventId}/card?v=${uploadedAt?.getTime() ?? 0}`;
+  // Busts the browser cache when an image is replaced at the same URL.
+  const src = `${endpoint}?v=${uploadedAt?.getTime() ?? 0}`;
 
   return (
     <section className="mt-12">
-      <h2 className="font-display text-2xl text-ink">La invitación</h2>
-      <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-muted">
-        Sube la imagen de tu invitación. Se la mandamos a cada invitado justo
-        después de que confirme, sin costo extra.
-      </p>
+      <h2 className="font-display text-2xl text-ink">{title}</h2>
+      <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-muted">{intro}</p>
+
+      {notice}
 
       {!storageReady && (
         <p className="mt-4 rounded-xl border border-dashed border-line bg-paper-deep p-4 text-[0.88rem] text-ink-muted">
@@ -64,14 +88,10 @@ export function EventCard({
         </p>
       )}
 
-      {hasCard && (
+      {hasImage && (
         <div className="mt-5 flex flex-wrap items-start gap-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt="Invitación"
-            className="w-48 rounded-xl border border-line bg-white"
-          />
+          <img src={src} alt={title} className="w-48 rounded-xl border border-line bg-white" />
           <div className="text-[0.85rem] text-ink-muted">
             {bytes !== null && <p>{(bytes / 1024).toFixed(0)} KB</p>}
             {uploadedAt && (
@@ -87,7 +107,7 @@ export function EventCard({
               disabled={removing}
               onClick={() =>
                 startRemoving(async () => {
-                  const result = await removeCard(eventId);
+                  const result = await remove(eventId);
                   setRemoveError(result.error ?? null);
                 })
               }
@@ -111,25 +131,19 @@ export function EventCard({
           >
             <input
               type="file"
-              name="card"
+              name={field}
               accept="image/jpeg,image/png"
               disabled={!storageReady || pending}
               onChange={(e) => setChosen(e.target.files?.[0]?.name ?? null)}
               className="sr-only"
             />
-            {hasCard ? "Elegir otra imagen" : "Elegir imagen"}
+            {hasImage ? "Elegir otra imagen" : "Elegir imagen"}
           </label>
           {chosen && <span className="text-[0.85rem] text-ink-soft">{chosen}</span>}
         </div>
         <p className="mt-2 text-[0.82rem] text-ink-muted">JPG o PNG, hasta 5 MB.</p>
 
-        {invitedCount > 0 && !hasCard && (
-          <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-muted">
-            Ya enviaste {invitedCount} {invitedCount === 1 ? "invitación" : "invitaciones"}.
-            Quien haya confirmado hace más de un día ya no puede recibir la imagen — WhatsApp
-            solo nos deja mandarla dentro de las 24 horas siguientes a su mensaje.
-          </p>
-        )}
+        {footnote}
 
         {state.error && <p className="mt-3 text-[0.88rem] text-accent">{state.error}</p>}
         {state.ok && <p className="mt-3 text-[0.88rem] text-ink-soft">{state.ok}</p>}
@@ -140,7 +154,7 @@ export function EventCard({
             disabled={!storageReady || pending}
             className="mt-4 rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
           >
-            {pending ? "Subiendo…" : hasCard ? "Reemplazar" : "Subir"}
+            {pending ? "Subiendo…" : hasImage ? "Reemplazar" : "Subir"}
           </button>
         )}
       </form>

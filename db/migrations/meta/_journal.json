@@ -141,6 +141,13 @@
       "when": 1789687765324,
       "tag": "0019_late_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789692216494,
+      "tag": "0020_handy_maddog",
+      "breakpoints": true
     }
   ]
 }

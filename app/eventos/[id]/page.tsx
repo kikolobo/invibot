@@ -10,7 +10,8 @@ import { requireOrg } from "@/lib/auth/session";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { r2FromEnv } from "@/lib/storage/r2";
 import { registrationLink } from "@/lib/guests/auto-register";
-import { EventCard } from "./event-card";
+import { uploadCard, removeCard, uploadTeaser, removeTeaser } from "@/lib/events/card";
+import { EventImage } from "./event-image";
 import { AutoRegister } from "./auto-register";
 import { ArchiveEvent } from "./archive-event";
 
@@ -70,6 +71,7 @@ export default async function EventoPage({
     .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "pending")));
 
   const archived = event.archivedAt !== null;
+  const storageReady = r2FromEnv() !== null;
 
   const mapsEmbed = eventMapsEmbedUrl(event);
   const mapsLink = eventMapsUrl(event);
@@ -176,13 +178,66 @@ export default async function EventoPage({
         )}
 
         {!archived && (
-          <EventCard
+          <EventImage
             eventId={event.id}
-            hasCard={Boolean(event.cardR2Key)}
+            field="card"
+            endpoint={`/api/eventos/${event.id}/card`}
+            title="La invitación"
+            intro="Sube la imagen de tu invitación. Se la mandamos a cada invitado justo después de que confirme, sin costo extra."
+            hasImage={Boolean(event.cardR2Key)}
             bytes={event.cardBytes}
             uploadedAt={event.cardUploadedAt}
-            storageReady={r2FromEnv() !== null}
-            invitedCount={invitedCount}
+            storageReady={storageReady}
+            upload={uploadCard}
+            remove={removeCard}
+            footnote={
+              invitedCount > 0 && !event.cardR2Key ? (
+                <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-muted">
+                  Ya enviaste {invitedCount}{" "}
+                  {invitedCount === 1 ? "invitación" : "invitaciones"}. Quien haya confirmado
+                  hace más de un día ya no puede recibir la imagen — WhatsApp solo nos deja
+                  mandarla dentro de las 24 horas siguientes a su mensaje.
+                </p>
+              ) : null
+            }
+          />
+        )}
+
+        {!archived && (
+          <EventImage
+            eventId={event.id}
+            field="teaser"
+            endpoint={`/api/eventos/${event.id}/teaser`}
+            title="El teaser «Save the Date»"
+            intro="Una segunda imagen, aparte de la invitación. Es la que aparece en WhatsApp cuando alguien comparte tu liga de autorregistro."
+            hasImage={Boolean(event.teaserR2Key)}
+            bytes={event.teaserBytes}
+            uploadedAt={event.teaserUploadedAt}
+            storageReady={storageReady}
+            upload={uploadTeaser}
+            remove={removeTeaser}
+            notice={
+              <div className="mt-4 rounded-xl border border-accent/40 bg-paper-deep p-4">
+                <p className="text-[0.88rem] font-medium text-ink">
+                  Esta imagen es pública. Trátala como un cartel en la calle.
+                </p>
+                <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                  Aparece al compartir la liga, y una liga se reenvía: la va a ver gente que
+                  no invitaste y gente a la que ellos se la pasen.{" "}
+                  <strong className="font-medium text-ink-soft">
+                    No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
+                    que circule.
+                  </strong>{" "}
+                  Para eso está la invitación de arriba, que sólo llega a quien ya confirmó.
+                </p>
+              </div>
+            }
+            footnote={
+              <p className="mt-2 text-[0.82rem] leading-relaxed text-ink-muted">
+                La achicamos al subirla: WhatsApp no muestra la vista previa si la imagen
+                pesa demasiado, y no avisa cuando decide no mostrarla.
+              </p>
+            }
           />
         )}
 
