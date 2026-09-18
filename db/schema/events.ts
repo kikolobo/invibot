@@ -80,6 +80,16 @@ export const events = pgTable(
      * instead of quietly resolving to somebody else's party.
      */
     registrationCode: text("registration_code").unique(),
+    /**
+     * The event's short code for staff, shown only to organizadores.
+     *
+     * Separate from `registrationCode` on purpose. That one is a working
+     * sign-up credential, and it rides inside every escalation an organizador
+     * might forward to a colleague — handing out registration access to anyone
+     * who reads the message. Same shape, different column, never shown to a
+     * guest.
+     */
+    staffCode: text("staff_code").unique(),
 
     // Behaviour-driving fields live as columns, not in `details`.
     rsvpRequired: boolean("rsvp_required").notNull().default(true),

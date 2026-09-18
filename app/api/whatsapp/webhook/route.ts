@@ -26,6 +26,9 @@ import { deliverOrSchedulePasses, sendDuePasses } from "@/lib/passes/send";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { handleAutoRegistro, type RegistrationAction } from "@/lib/guests/registration";
+import { organizerReply } from "@/lib/organizers";
+import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify";
+import { organizerEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
 
 type GuestRow = typeof guests.$inferSelect;
@@ -254,6 +257,55 @@ async function resolveGuest(message: InboundMessage): Promise<GuestRow | null> {
   return matches.find((row) => row.id === latest?.guestId) ?? matches[0];
 }
 
+/**
+ * Answers an organizador's command, or declines to.
+ *
+ * Returns false for everything that is not a command, including every message
+ * from an organizador who is simply talking — the counts live behind a small,
+ * closed vocabulary precisely so that deciding who is speaking never requires a
+ * guess.
+ */
+async function organizerCommand(
+  message: InboundMessage,
+  fromPhoneE164: string,
+): Promise<boolean> {
+  const reply = await organizerReply(fromPhoneE164, message.text);
+  if (!reply) return false;
+
+  const mine = await organizerEvents(fromPhoneE164);
+  if (mine.length === 0) return false;
+
+  // Their message opened the 24-hour window on every event they run, which is
+  // what lets the next escalation reach them free instead of as a template.
+  for (const { organizer } of mine) {
+    await noteOrganizerInbound(organizer.id, message.timestamp);
+  }
+
+  // Idempotent on the wamid, because Meta redelivers: without this a retried
+  // webhook answers the same "/confirmados" twice. The row doubles as the
+  // record that this message arrived at all — it matches no guest, which is
+  // exactly what this table is for.
+  const [row] = await db
+    .insert(unmatchedInbound)
+    .values({
+      phoneNumberId: message.phoneNumberId,
+      fromPhone: fromPhoneE164,
+      profileName: message.profileName,
+      body: message.text,
+      providerMessageId: message.wamid,
+      raw: message.raw as never,
+      receivedAt: message.timestamp,
+    })
+    .onConflictDoNothing({ target: unmatchedInbound.providerMessageId })
+    .returning();
+
+  // Seen before. Still handled — it must not fall through to the assistant.
+  if (!row) return true;
+
+  await replyToOrganizer(mine[0].event.id, fromPhoneE164, reply);
+  return true;
+}
+
 type Answerable = {
   guest: GuestRow;
   intent: GuestIntent;
@@ -275,6 +327,13 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
   // pasted into groups full of exactly those people. A pending question has to
   // beat `parseIntent`, or "sí" to "¿actualizo tu nombre?" is recorded as
   // confirming attendance by someone the host has not approved.
+  // An organizador asking us something. Checked before everything else and
+  // answered only when the message *is* a command — which is what lets the same
+  // phone be an organizador and a guest at once. A command is staff talking;
+  // anything else is the guest talking, and falls through untouched.
+  const command = await organizerCommand(message, fromPhoneE164);
+  if (command) return null;
+
   const registration = await handleAutoRegistro({
     fromPhoneE164,
     text: message.text,

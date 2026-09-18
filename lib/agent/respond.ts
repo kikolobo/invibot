@@ -9,6 +9,7 @@ import { normalizeQuestion } from "@/lib/events/facts";
 import { buildContext } from "./context";
 import { anthropicFromEnv, runAgentTurn } from "./run";
 import type { AgentAction } from "./tools";
+import { askOrganizer, responderFor } from "@/lib/organizers/notify";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -210,7 +211,7 @@ async function recordEscalation(
     return;
   }
 
-  await db
+  const [created] = await db
     .insert(escalations)
     .values({
       eventId: guest.eventId,
@@ -221,7 +222,46 @@ async function recordEscalation(
     })
     // Two guests asking the same thing at the same moment race here; the
     // index makes the loser a no-op rather than a duplicate ping.
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning();
+
+  // Nothing inserted means somebody else won the race and the organizador has
+  // already been asked. Six guests asking about kids is one ping.
+  if (!created) return;
+
+  await askResponder(created.id, guest.eventId, question);
+}
+
+/**
+ * Puts the question on the responder's phone.
+ *
+ * Never fatal. The escalation is already recorded and visible in the app, and
+ * an organizador whose WhatsApp we could not reach is a worse day than a
+ * crashed webhook — the guest is still waiting either way, and the answer can
+ * still be typed in `/hechos`.
+ */
+async function askResponder(
+  escalationId: string,
+  eventId: string,
+  question: string,
+): Promise<void> {
+  try {
+    const organizer = await responderFor(eventId);
+    if (!organizer) return;
+
+    const event = await db.query.events.findFirst({ where: eq(events.id, eventId) });
+    if (!event) return;
+
+    const ok = await askOrganizer(event, organizer, question);
+    if (!ok) return;
+
+    await db
+      .update(escalations)
+      .set({ askedOrganizerAt: new Date() })
+      .where(eq(escalations.id, escalationId));
+  } catch (error) {
+    console.error("[escalation] could not reach the responder", eventId, error);
+  }
 }
 
 /** Open questions for an event, newest first. */

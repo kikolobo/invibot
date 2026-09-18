@@ -47,6 +47,15 @@ export const approvalStatus = pgEnum("approval_status", [
   "rejected",
 ]);
 
+/**
+ * What an organizador may do.
+ *
+ * One value today, and an enum anyway: the alternative is a boolean that has to
+ * be widened into an enum the first time somebody may do less, and every read
+ * site rewritten at once.
+ */
+export const organizerRole = pgEnum("organizer_role", ["organizer"]);
+
 /** How the guest got onto the list. `self` is auto-registro. */
 export const guestSource = pgEnum("guest_source", ["manual", "self"]);
 

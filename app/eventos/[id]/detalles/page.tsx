@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events } from "@/db/schema";
+import { events, organizers } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { detailsToAnswers } from "@/lib/events/facts";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { DetallesForm } from "./detalles-form";
+import { Organizadores } from "./organizadores";
 
 export const metadata = { title: "Detalles del evento" };
 
@@ -25,6 +26,17 @@ export default async function Detalles({
   // so an archived event goes back to the overview, where its answers are shown.
   if (event.archivedAt) redirect(`/eventos/${event.id}`);
 
+  const team = await db
+    .select({
+      id: organizers.id,
+      fullName: organizers.fullName,
+      phoneE164: organizers.phoneE164,
+      isResponder: organizers.isResponder,
+    })
+    .from(organizers)
+    .where(eq(organizers.eventId, event.id))
+    .orderBy(asc(organizers.createdAt));
+
   return (
     <>
       <div>
@@ -42,6 +54,8 @@ export default async function Detalles({
           kind={event.kind}
           initialAnswers={detailsToAnswers(event.kind, event.details)}
         />
+
+        <Organizadores eventId={event.id} rows={team} staffCode={event.staffCode} />
       </div>
     </>
   );

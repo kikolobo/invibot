@@ -1,0 +1,1 @@
+ALTER TABLE "organizers" ADD COLUMN "last_inbound_at" timestamp with time zone;
