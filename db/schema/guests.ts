@@ -136,6 +136,16 @@ export const guests = pgTable(
     pendingQuestion: pendingQuestion("pending_question"),
     pendingQuestionAt: timestamp("pending_question_at", { withTimezone: true }),
     /**
+     * What the question is about — the name they proposed, for "¿actualizo tu
+     * nombre?".
+     *
+     * A column because the answer arrives in a different request, and the
+     * answer itself does not carry it: someone replying "sí" is agreeing to
+     * the name we quoted, not telling us they are called "sí". Which is
+     * precisely what the first version stored.
+     */
+    pendingQuestionValue: text("pending_question_value"),
+    /**
      * The last time we said anything to them about their registration.
      *
      * One timestamp serving two rules that turn out to be the same rule:

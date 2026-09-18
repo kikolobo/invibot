@@ -1,0 +1,1 @@
+ALTER TABLE "guests" ADD COLUMN "pending_question_value" text;

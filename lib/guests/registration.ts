@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { events, guests, suppressions } from "@/db/schema";
 import { normalizePhone, variantsOf } from "@/lib/phone";
 import { recordGuestEvent } from "./history";
-import { formatEventWhen } from "@/lib/events/format";
+import { formatEventDate } from "@/lib/events/format";
 import {
   parseRegistration,
   looksLikeAName,
@@ -27,7 +27,10 @@ type EventRow = typeof events.$inferSelect;
 
 export const COPY = {
   registered: (event: EventRow) =>
-    `Gracias por tu registro para ${event.name}, ${formatEventWhen(event)}. ¡Save the Date! Pronto te enviaremos tu invitación oficial.`,
+    // The date, not the time: "Save the Date" is about the day, and
+    // `formatEventWhen` ends in "p.m." — which collided with the full stop and
+    // printed "7:00 p.m..".
+    `Gracias por tu registro para ${event.name}, el ${formatEventDate(event)}. ¡Save the Date! Pronto te enviaremos tu invitación oficial.`,
   askName: "Disculpa, ¿cuál es tu nombre completo?",
   pending: "Tu registro aún no está procesado. En cuanto lo esté, te enviaremos tu invitación oficial.",
   alreadyConfirmed: "¡Ya estás registrado!",
@@ -82,7 +85,7 @@ export async function handleAutoRegistro(args: {
   if (pending) return answerQuestion(pending, text);
 
   const parsed = parseRegistration(text);
-  if (!parsed) return nothing;
+  if (!parsed) return await unapprovedWithoutCode(fromPhoneE164);
 
   const event = await db.query.events.findFirst({
     where: eq(events.registrationCode, parsed.code),
@@ -108,7 +111,31 @@ export async function handleAutoRegistro(args: {
 
   if (existing) return await existingGuest(existing, event, parsed.name);
 
-  return register(event, fromPhoneE164, parsed.name ?? cleanName(profileName ?? ""));
+  return register(event, fromPhoneE164, parsed.name, cleanName(profileName ?? ""));
+}
+
+/**
+ * Anything else an unapproved person sends.
+ *
+ * Without this they fell straight through to the ordinary pipeline and the
+ * assistant answered them — the send was refused downstream, so nothing leaked,
+ * but they got silence where the rules promise "tu registro aún no está
+ * procesado", and we paid for a model run to produce a message nobody could
+ * receive.
+ *
+ * Only when they are unapproved *everywhere*. Someone who is a real guest at
+ * one event and pending at another is still a real guest, and their questions
+ * belong to the assistant.
+ */
+async function unapprovedWithoutCode(phoneE164: string): Promise<RegistrationAction> {
+  const rows = await db.select().from(guests).where(phoneMatches(phoneE164));
+  if (rows.length === 0) return nothing;
+  if (rows.some((row) => row.approvalStatus === "approved")) return nothing;
+
+  if (rows.every((row) => row.approvalStatus === "rejected")) return { kind: "silent" };
+
+  const pending = rows.find((row) => row.approvalStatus === "pending")!;
+  return await noticeOnce(pending, COPY.pending);
 }
 
 /** Gate 1. "Off" and "closed" are the same thing to a guest, so one check. */
@@ -154,9 +181,13 @@ async function existingGuest(
 async function register(
   event: EventRow,
   phoneE164: string,
-  name: string | null,
+  /** What they typed after "mi nombre es:". Null when they left it blank. */
+  given: string | null,
+  /** Their WhatsApp profile name — a handle, and only ever a placeholder. */
+  handle: string | null,
 ): Promise<RegistrationAction> {
-  const fullName = name ?? "Sin nombre";
+  const name = given;
+  const fullName = given ?? handle ?? "Sin nombre";
 
   // Meta hands us the wa_id, which for Mexico is the legacy `+521…` form. Every
   // other phone in this database is canonical, and Meta itself rejects a send
@@ -176,9 +207,10 @@ async function register(
       accessToken: nanoid(24),
       approvalStatus: "pending",
       source: "self",
-      // `name` is what they typed; the fallback is their WhatsApp handle, which
-      // is a placeholder to replace at the first opportunity.
-      nameFromGuest: name !== null,
+      // Only what they typed counts as theirs. A WhatsApp handle standing in
+      // for a name is a guess, and saying otherwise here is what stops us ever
+      // replacing it.
+      nameFromGuest: given !== null,
       // Asked for now, answered next message. Written in the same statement as
       // the guest so a crash between the two cannot leave a guest nobody asked.
       pendingQuestion: name ? null : "name",
@@ -207,7 +239,9 @@ async function answerQuestion(
 ): Promise<RegistrationAction> {
   if (guest.pendingQuestion === "name_update") {
     const answer = readYesNo(text);
-    await clearQuestion(guest.id, answer === "yes" ? cleanName(text ?? "") : null);
+    // The name is the one we quoted in the question, not the word they replied
+    // with. Reading it off the reply renamed people to "sí".
+    await clearQuestion(guest.id, answer === "yes" ? guest.pendingQuestionValue : null);
 
     if (answer === "yes") return { kind: "reply", guestId: guest.id, text: COPY.nameUpdated };
     if (answer === "no") return { kind: "reply", guestId: guest.id, text: COPY.nameKept };
@@ -231,6 +265,7 @@ async function answerQuestion(
         nameFromGuest: true,
         pendingQuestion: null,
         pendingQuestionAt: null,
+        pendingQuestionValue: null,
         registrationNoticeAt: new Date(),
       })
       .where(eq(guests.id, guest.id));
@@ -290,6 +325,7 @@ async function adoptName(
       nameFromGuest: true,
       pendingQuestion: null,
       pendingQuestionAt: null,
+      pendingQuestionValue: null,
       registrationNoticeAt: new Date(),
     })
     .where(eq(guests.id, guest.id));
@@ -303,10 +339,8 @@ async function askNameUpdate(guest: GuestRow, name: string): Promise<Registratio
     .set({
       pendingQuestion: "name_update",
       pendingQuestionAt: new Date(),
+      pendingQuestionValue: name,
       registrationNoticeAt: new Date(),
-      // Parked on the row rather than in memory: the answer arrives in a
-      // different request, and there is nowhere else to keep it.
-      notes: `auto-registro: propuso llamarse "${name}"`,
     })
     .where(eq(guests.id, guest.id));
   return { kind: "reply", guestId: guest.id, text: COPY.askNameUpdate };
@@ -322,6 +356,7 @@ async function clearQuestion(guestId: string, name: string | null): Promise<void
     .set({
       pendingQuestion: null,
       pendingQuestionAt: null,
+      pendingQuestionValue: null,
       registrationNoticeAt: new Date(),
       ...(name ? { fullName: name, firstName: name.split(/\s+/)[0] } : {}),
     })

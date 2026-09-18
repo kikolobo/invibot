@@ -92,15 +92,25 @@ dejan de aceptar nuevos. Por eso contesta en vez de quedarse callado.
 |---|---|---|---|
 | NOMBRE | parece nombre | Save the Date | guarda, limpia |
 | NOMBRE | parece pregunta | vuelve a preguntar una vez | a la segunda, limpia y cae al comodín |
-| NOMBRE_NUEVO | afirmativo | *Listo, actualicé tu nombre.* | actualiza, limpia |
+| NOMBRE_NUEVO | afirmativo | *Listo, actualicé tu nombre.* | actualiza con el nombre **que propuso antes**, no con lo que contestó; limpia |
 | NOMBRE_NUEVO | negativo | *Perfecto, lo dejamos como está.* | limpia |
 | NOMBRE_NUEVO | ninguno | comodín | limpia |
 
 ### Compuerta 5 — comodín
 
 Pendiente y cualquier otra cosa → *Tu registro aún no está procesado. En cuanto
-lo esté, te enviaremos tu invitación oficial.* Con freno, y **callado los
-primeros minutos después del Save the Date**: contestarle «tu registro aún no
+lo esté, te enviaremos tu invitación oficial.*
+
+⚠️ Esto aplica **aunque el mensaje no traiga código**. Si no, un pendiente que
+simplemente escribe «¿dónde es?» se cae al flujo normal y le contesta el
+asistente. El envío se bloquea después en `deliver()`, así que no se filtra
+nada — pero el invitado recibe silencio donde las reglas prometen una
+respuesta, y pagamos una corrida del modelo para un mensaje que nadie puede
+recibir. Sólo aplica a quien está sin aprobar **en todos** sus eventos: alguien
+que ya es invitado en otro evento sigue siendo invitado, y sus preguntas son
+del asistente.
+
+Con freno, y **callado los primeros minutos después del Save the Date**: contestarle «tu registro aún no
 está procesado» a quien sólo dijo «gracias» se lee como un robot descompuesto.
 
 ---
