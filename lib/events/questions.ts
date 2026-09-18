@@ -412,6 +412,78 @@ const universal: Question[] = [
     factEs: "¿A qué hora termina el evento?",
   },
   {
+    key: "extras.musicType",
+    section: "detalles",
+    type: "text",
+    es: "¿Qué tipo de música va a haber en el evento?",
+    en: "What kind of music will there be?",
+    placeholder: { es: "Pop, banda y algo de electrónica", en: "Pop, banda and some electronic" },
+    guestVisible: true,
+    feedsAgent: true,
+    factEs: "¿Qué tipo de música va a haber?",
+  },
+  {
+    key: "extras.musicLoud",
+    section: "detalles",
+    type: "select",
+    es: "¿Es música fuerte?",
+    en: "Is the music loud?",
+    help: {
+      es: "Lo pregunta quien viene con niños, con alguien mayor, o quien quiere poder platicar.",
+      en: "Asked by guests bringing children or older relatives, or who want to be able to talk.",
+    },
+    options: [
+      { value: "yes", es: "Sí", en: "Yes" },
+      { value: "no", es: "No", en: "No" },
+      { value: "somewhat", es: "Más o menos", en: "Somewhat" },
+    ],
+    guestVisible: true,
+    feedsAgent: true,
+    factEs: "¿La música está muy fuerte?",
+  },
+  {
+    key: "extras.musicLive",
+    section: "detalles",
+    type: "select",
+    es: "¿Es en vivo o DJ?",
+    en: "Live music or a DJ?",
+    options: [
+      { value: "live", es: "En vivo", en: "Live" },
+      { value: "dj", es: "DJ", en: "DJ" },
+      { value: "both", es: "De las dos", en: "Both" },
+      // "undecided" is the one value the fact builder drops on purpose, so a
+      // guest asking gets the question escalated instead of being told we do
+      // not know.
+      { value: "undecided", es: "Aún no sé", en: "Not sure yet" },
+    ],
+    guestVisible: true,
+    feedsAgent: true,
+    factEs: "¿Hay música en vivo o DJ?",
+  },
+  {
+    /**
+     * A person to call.
+     *
+     * Left blank it creates no fact at all, so the assistant does what it does
+     * today and escalates to the organizador. Filled in, it becomes something
+     * it can hand over — which is what somebody lost outside a venue at
+     * midnight actually needs.
+     */
+    key: "extras.humanContact",
+    section: "detalles",
+    type: "text",
+    es: "¿A quién pueden contactar si necesitan hablar con una persona?",
+    en: "Who can guests contact if they need to reach a human?",
+    help: {
+      es: "Nombre y teléfono. Si lo dejas vacío, esas preguntas me las quedo y te las paso a ti.",
+      en: "Name and phone. Left empty, those questions come to you instead.",
+    },
+    placeholder: { es: "Ana, 81 1234 5678", en: "Ana, 81 1234 5678" },
+    guestVisible: true,
+    feedsAgent: true,
+    factEs: "¿Con quién puedo hablar si necesito ayuda o tengo un problema?",
+  },
+  {
     key: "accessibilityNote",
     section: "detalles",
     type: "text",
