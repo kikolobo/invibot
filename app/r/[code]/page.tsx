@@ -36,6 +36,15 @@ async function openEvent(code: string): Promise<EventRow | null> {
   return event;
 }
 
+/**
+ * The same words on the card and on the button.
+ *
+ * It says nothing about WhatsApp: this is read inside WhatsApp, by someone who
+ * got here from a WhatsApp message, and the line is too short to spend on where
+ * they already are.
+ */
+const CALL_TO_ACTION = "Toca aquí para registrarte y confirmar";
+
 /** "el cumpleaños de Ana" → "El cumpleaños de Ana". */
 const sentence = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -74,7 +83,7 @@ export async function generateMetadata({
   // host still has to approve. "Estás invitado" on the card followed by "tu
   // registro aún no está procesado" in the chat would read as a bait and switch.
   const title = `${describe(event)} · ${formatEventDate(event)}`;
-  const description = "Regístrate para recibir tu invitación.";
+  const description = CALL_TO_ACTION;
 
   // `v` is the upload time, so replacing the teaser cannot be served from a
   // cache holding the old picture.
@@ -119,7 +128,9 @@ export default async function RegistroLink({
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 py-16 text-center">
       <div>
         <p className="eyebrow">Registro</p>
-        <h1 className="mt-3 font-display text-3xl leading-tight text-ink">{describe(event)}</h1>
+        <h1 className="mt-3 font-display text-3xl leading-tight text-ink">
+          {describe(event)}
+        </h1>
         <p className="mt-2 text-[0.95rem] text-ink-muted">{sentence(formatEventDate(event))}</p>
       </div>
 
@@ -131,7 +142,7 @@ export default async function RegistroLink({
             href={destination}
             className="rounded-full bg-accent px-6 py-3 text-[0.95rem] text-paper"
           >
-            Abrir WhatsApp para registrarme
+            {CALL_TO_ACTION}
           </a>
           <OpenWhatsApp href={destination} />
         </>
