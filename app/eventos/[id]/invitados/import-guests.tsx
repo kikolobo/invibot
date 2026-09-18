@@ -77,7 +77,7 @@ export function ImportGuests({ eventId }: { eventId: string }) {
           type="button"
           onClick={check}
           disabled={!text.trim() || checking}
-          className="rounded-full border border-line bg-white px-5 py-2 text-sm text-ink transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          className="rounded-full border border-line bg-paper-deep px-5 py-2 text-sm text-ink transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
         >
           {checking ? "Revisando…" : "Revisar lista"}
         </button>
@@ -95,7 +95,7 @@ export function ImportGuests({ eventId }: { eventId: string }) {
               ` ${preview.suppressed.length} pidieron no ser contactados.`}
           </p>
 
-          <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-line bg-white">
+          <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-line bg-paper-deep">
             <table className="w-full text-left text-[0.85rem]">
               <tbody>
                 {preview.parsed.map((g) => {

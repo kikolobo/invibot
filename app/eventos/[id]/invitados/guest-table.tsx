@@ -178,7 +178,7 @@ export function GuestTable({
         />
       )}
 
-      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
+      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-paper-deep">
         <table className="w-full text-left text-[0.88rem]">
           <thead className="border-b border-line">
             <tr className="text-ink-muted">

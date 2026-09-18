@@ -63,7 +63,7 @@ export function ArchiveEvent({
   }
 
   return (
-    <div className="mt-10 rounded-xl border border-line bg-white p-5">
+    <div className="mt-10 rounded-xl border border-line bg-paper-deep p-5">
       <p className="text-[0.95rem] text-ink">¿Archivar este evento?</p>
       <p className="mt-1 text-[0.88rem] leading-relaxed text-ink-muted">
         Se guarda tal como está y deja de poder editarse

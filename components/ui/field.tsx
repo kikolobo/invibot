@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 const inputBase =
-  "w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-[0.95rem] text-ink " +
+  "w-full rounded-lg border border-line bg-paper-deep px-3.5 py-2.5 text-[0.95rem] text-ink " +
   "placeholder:text-ink-muted/70 outline-none transition-colors " +
   "focus:border-accent focus:ring-2 focus:ring-accent/15";
 
@@ -87,7 +87,7 @@ export function YesNo({
       ].map((o) => (
         <label
           key={o.label}
-          className="cursor-pointer rounded-full border border-line bg-white px-4 py-2 text-[0.85rem] text-ink-soft transition-colors has-checked:border-accent has-checked:bg-action has-checked:text-paper"
+          className="cursor-pointer rounded-full border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft transition-colors has-checked:border-accent has-checked:bg-action has-checked:text-paper"
         >
           <input
             type="radio"

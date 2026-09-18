@@ -32,7 +32,7 @@ export function AskedBy({ names }: { names: string[] }) {
       </button>
 
       {open && (
-        <span className="absolute left-0 top-6 z-10 block min-w-44 rounded-lg border border-line bg-white p-3 shadow-sm">
+        <span className="absolute left-0 top-6 z-10 block min-w-44 rounded-lg border border-line bg-paper-deep p-3 shadow-sm">
           <span className="block text-[0.72rem] uppercase tracking-wide text-ink-muted">
             {names.length === 1 ? "Preguntó" : "Preguntaron"}
           </span>

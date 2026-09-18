@@ -36,7 +36,7 @@ export default async function Reporte({
 
       <ReportControls eventId={id} shape={report.shape} />
 
-      <div className="mt-8 rounded-xl border border-line bg-white p-8">
+      <div className="mt-8 rounded-xl border border-line bg-paper-deep p-8">
         <ReportSheet
           event={report.event}
           sections={report.sections}

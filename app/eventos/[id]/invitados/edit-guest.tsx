@@ -54,7 +54,7 @@ export function EditGuest({
   );
 
   return (
-    <form action={formAction} className="rounded-xl border border-line bg-white p-4">
+    <form action={formAction} className="rounded-xl border border-line bg-paper-deep p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="fullName" defaultValue={guest.fullName} placeholder="Nombre completo" required />
         <Input
@@ -109,7 +109,7 @@ export function EditGuest({
             name="rsvpStatus"
             value={rsvp}
             onChange={(e) => setRsvp(e.target.value as GuestRow["rsvpStatus"])}
-            className="rounded-lg border border-line bg-white px-3 py-1.5 text-[0.88rem] text-ink outline-none focus:border-accent"
+            className="rounded-lg border border-line bg-paper-deep px-3 py-1.5 text-[0.88rem] text-ink outline-none focus:border-accent"
           >
             {rsvpChoices.map((choice) => (
               <option key={choice.value} value={choice.value}>
@@ -139,7 +139,7 @@ export function EditGuest({
               name="partySizeConfirmed"
               defaultValue={String(Math.min(guest.partySizeConfirmed ?? 1, maxConfirmable))}
               key={maxConfirmable}
-              className="rounded-lg border border-line bg-white px-3 py-1.5 text-[0.88rem] text-ink outline-none focus:border-accent"
+              className="rounded-lg border border-line bg-paper-deep px-3 py-1.5 text-[0.88rem] text-ink outline-none focus:border-accent"
             >
               {Array.from({ length: maxConfirmable }, (_, index) => index + 1).map((n) => (
                 <option key={n} value={n}>

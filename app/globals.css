@@ -1,13 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  --paper: #f5f3ef;
-  --paper-deep: #eae6df;
-  --ink: #0f0d0c;
-  --ink-soft: #4a443d;
-  --ink-muted: #837b71;
+  /* The app runs on the reference's dark band: warm near-black, warm off-white
+     type, and the yellow doing the pointing. "Paper" and "ink" keep their names
+     — they mean page and type, not white and black, and renaming them across
+     two hundred call sites would buy nothing. */
+  --paper: #0f0d0c;
+  --paper-deep: #17140f;
+  --ink: #f5f2ec;
+  --ink-soft: #b3aca2;
+  --ink-muted: #867f75;
   /* Three jobs that were sharing one colour, which is why none of them could
      change:
        accent  — links and inline actions. Stays warm rust: it has to read as
@@ -18,13 +22,13 @@
                  without having to be legible at 12px.
        danger  — errors. Was wearing the link colour, so a failure looked like
                  an invitation to click. */
-  --accent: #8f3a18;
-  --accent-soft: #b4491f;
-  --action: #14100e;
-  --action-soft: #332b25;
-  --danger: #b3261e;
-  --danger-soft: #cf3a30;
-  --line: #ded8ce;
+  --accent: #e0915c;
+  --accent-soft: #f0a873;
+  --action: #ffc800;
+  --action-soft: #ffd95e;
+  --danger: #ef6f62;
+  --danger-soft: #ff8b7e;
+  --line: #2a2520;
 
   /* Dark variant for the landing page: warm near-black against a warm
      off-white, with one saturated yellow doing all the pointing. Editorial
@@ -42,6 +46,13 @@
      It is a picture of WhatsApp, not part of our chrome — and in the app it is
      the simulator an organizer reads their own messages in, which should look
      the same today as it did last week. */
+  /* The landing's light bands. Fixed, because the page alternates and half of
+     it has to stay light while the app around it went dark. */
+  --cream: #f5f3ef;
+  --cream-ink: #14100e;
+  --cream-soft: #4a443d;
+  --cream-line: #ded8ce;
+
   --chat-surface: #111a2e;
   --chat-raised: #18243c;
   --chat-line: #253350;
@@ -76,6 +87,10 @@
   --color-night-line: var(--night-line);
   --color-bubble-in: var(--bubble-in);
   --color-bubble-out: var(--bubble-out);
+  --color-cream: var(--cream);
+  --color-cream-ink: var(--cream-ink);
+  --color-cream-soft: var(--cream-soft);
+  --color-cream-line: var(--cream-line);
   --color-chat-surface: var(--chat-surface);
   --color-chat-raised: var(--chat-raised);
   --color-chat-line: var(--chat-line);

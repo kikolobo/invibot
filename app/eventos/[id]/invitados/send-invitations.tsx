@@ -68,7 +68,7 @@ export function SendInvitations({
   if (report && !report.error) {
     const failures = report.outcomes?.filter((outcome) => !outcome.ok) ?? [];
     return (
-      <div className="mt-3 rounded-xl border border-line bg-white p-5">
+      <div className="mt-3 rounded-xl border border-line bg-paper-deep p-5">
         <p className="font-display text-xl text-ink">
           {report.sent === 1 ? "Invitación enviada" : `${report.sent} invitaciones enviadas`}
         </p>
@@ -100,7 +100,7 @@ export function SendInvitations({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-line bg-white p-5">
+    <div className="mt-3 rounded-xl border border-line bg-paper-deep p-5">
       {missing.length > 0 ? (
         <p className="text-[0.95rem] leading-relaxed text-ink">
           Antes de invitar falta llenar{" "}

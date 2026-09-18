@@ -41,7 +41,7 @@ export function CloneEvent({
   }
 
   return (
-    <form action={formAction} className="mt-4 space-y-4 rounded-xl border border-line bg-white p-5">
+    <form action={formAction} className="mt-4 space-y-4 rounded-xl border border-line bg-paper-deep p-5">
       <p className="font-display text-lg text-ink">Duplicar “{name}”</p>
 
       <Field label="Nombre del nuevo evento" error={err("name")}>

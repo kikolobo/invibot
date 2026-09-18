@@ -80,7 +80,7 @@ export function AgentChat({ eventId, eventName }: { eventId: string; eventName: 
           }}
           placeholder="Escribe como invitado…"
           disabled={pending}
-          className="w-full rounded-full border border-line bg-white px-4 py-2 text-[0.88rem] text-ink outline-none transition-colors placeholder:text-ink-muted/70 focus:border-accent disabled:opacity-50"
+          className="w-full rounded-full border border-line bg-paper-deep px-4 py-2 text-[0.88rem] text-ink outline-none transition-colors placeholder:text-ink-muted/70 focus:border-accent disabled:opacity-50"
         />
         <button
           type="button"

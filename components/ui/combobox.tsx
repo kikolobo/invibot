@@ -82,7 +82,7 @@ export function Combobox({
             setOpen(false);
           }
         }}
-        className="w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-[0.95rem] text-ink outline-none transition-colors placeholder:text-ink-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/15"
+        className="w-full rounded-lg border border-line bg-paper-deep px-3.5 py-2.5 text-[0.95rem] text-ink outline-none transition-colors placeholder:text-ink-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/15"
       />
 
       {open && items.length > 0 && (
@@ -92,7 +92,7 @@ export function Combobox({
           // Sized to its longest option rather than to the input: `w-max` fits
           // the content, with a floor so single short words still look like a
           // menu and a ceiling so a long group name cannot run off a phone.
-          className="absolute z-20 mt-1 max-h-56 w-max min-w-48 max-w-[min(22rem,90vw)] overflow-y-auto rounded-lg border border-line bg-white py-1 shadow-lg"
+          className="absolute z-20 mt-1 max-h-56 w-max min-w-48 max-w-[min(22rem,90vw)] overflow-y-auto rounded-lg border border-line bg-paper-deep py-1 shadow-lg"
         >
           {items.map((item, index) => (
             <li key={item ?? "__create__"} role="option" aria-selected={index === active}>

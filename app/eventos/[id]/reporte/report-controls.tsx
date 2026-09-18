@@ -83,7 +83,7 @@ export function ReportControls({
           id="filtro"
           value={shape.filter}
           onChange={(event) => router.push(hrefWith("filtro", event.target.value), { scroll: false })}
-          className="mt-2 rounded-lg border border-line bg-white px-3 py-2 text-[0.9rem] text-ink outline-none transition-colors focus:border-accent"
+          className="mt-2 rounded-lg border border-line bg-paper-deep px-3 py-2 text-[0.9rem] text-ink outline-none transition-colors focus:border-accent"
         >
           {Object.entries(filters).map(([key, label]) => (
             <option key={key} value={key}>
@@ -104,7 +104,7 @@ export function ReportControls({
             onChange={(event) =>
               router.push(hrefWith("agrupar", event.target.value), { scroll: false })
             }
-            className="mt-2 rounded-lg border border-line bg-white px-3 py-2 text-[0.9rem] text-ink outline-none transition-colors focus:border-accent"
+            className="mt-2 rounded-lg border border-line bg-paper-deep px-3 py-2 text-[0.9rem] text-ink outline-none transition-colors focus:border-accent"
           >
             {Object.entries(groupings).map(([key, label]) => (
               <option key={key} value={key}>

@@ -118,14 +118,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-paper px-6 py-24 sm:px-10 sm:py-28">
+      <section className="bg-cream px-6 py-24 sm:px-10 sm:py-28">
         <div className="mx-auto max-w-6xl">
-          <p className="eyebrow">Lo que no sabe, lo pregunta</p>
-          <h2 className="mt-6 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight text-ink sm:text-6xl">
+          <p className="eyebrow !text-cream-soft">Lo que no sabe, lo pregunta</p>
+          <h2 className="mt-6 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight text-cream-ink sm:text-6xl">
             Un agente de IA contesta las dudas de tus invitados. Y lo que no
             sabe, lo aprende de ti <em className="italic">una sola vez</em>.
           </h2>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-soft">
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-cream-soft">
             Te lo pregunta a ti por WhatsApp, le contesta a tu invitado con tus
             palabras y guarda la respuesta. El siguiente que pregunte lo mismo
             recibe la respuesta al instante, sin molestarte otra vez.
@@ -133,11 +133,11 @@ export default function Home() {
 
           <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:gap-16">
             <div>
-              <p className="eyebrow mb-4">En el teléfono de tu invitada</p>
+              <p className="eyebrow !text-cream-soft mb-4">En el teléfono de tu invitada</p>
               <Phone title="Boda Ana & Carlos" subtitle="en línea" lines={guestAsk} />
             </div>
             <div>
-              <p className="eyebrow mb-4">En el tuyo</p>
+              <p className="eyebrow !text-cream-soft mb-4">En el tuyo</p>
               <Phone title="Invibot" subtitle="tu asistente" lines={organizerAsk} />
             </div>
           </div>
@@ -160,18 +160,18 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-paper px-6 py-24 sm:px-10 sm:py-28">
+      <section className="bg-cream px-6 py-24 sm:px-10 sm:py-28">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-5xl leading-[1.05] tracking-tight text-ink sm:text-6xl">
+          <h2 className="font-display text-5xl leading-[1.05] tracking-tight text-cream-ink sm:text-6xl">
             ¿Tienes un <em className="italic">evento</em> cerca?
           </h2>
-          <p className="mt-6 text-lg leading-relaxed text-ink-soft">
+          <p className="mt-6 text-lg leading-relaxed text-cream-soft">
             Estamos trabajando con un número limitado de eventos para afinar el
             producto. Escríbenos y lo revisamos contigo.
           </p>
           <a
             href="mailto:hola@invibot.com?subject=Quiero%20probar%20Invibot"
-            className="mt-9 inline-flex items-center justify-center rounded-full border border-ink px-8 py-3.5 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink hover:text-paper"
+            className="mt-9 inline-flex items-center justify-center rounded-full border border-cream-ink px-8 py-3.5 text-sm font-medium tracking-wide text-cream-ink transition-colors hover:bg-cream-ink hover:text-cream"
           >
             hola@invibot.com
           </a>
