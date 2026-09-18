@@ -87,7 +87,7 @@ export function YesNo({
       ].map((o) => (
         <label
           key={o.label}
-          className="cursor-pointer rounded-full border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft transition-colors has-checked:border-accent has-checked:bg-action has-checked:text-paper"
+          className="cursor-pointer rounded-full border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft transition-colors has-checked:border-accent has-checked:bg-action has-checked:text-ink-onaction"
         >
           <input
             type="radio"
@@ -107,7 +107,7 @@ export function SubmitButton({ children }: { children: ReactNode }) {
   return (
     <button
       type="submit"
-      className="inline-flex items-center justify-center rounded-full bg-action px-7 py-3 text-sm font-medium text-paper transition-colors hover:bg-action-soft disabled:opacity-60"
+      className="inline-flex items-center justify-center rounded-full bg-action px-7 py-3 text-sm font-medium text-ink-onaction transition-colors hover:bg-action-soft disabled:opacity-60"
     >
       {children}
     </button>

@@ -89,7 +89,7 @@ export function EventNav({
                   <span
                     className={
                       "urgent" in link && link.urgent
-                        ? "rounded-full bg-action px-1.5 py-0.5 text-[0.7rem] font-medium leading-none text-paper"
+                        ? "rounded-full bg-action px-1.5 py-0.5 text-[0.7rem] font-medium leading-none text-ink-onaction"
                         : "text-[0.78rem] text-ink-muted"
                     }
                   >
@@ -164,7 +164,7 @@ function ArchiveCommand({ eventId, archived }: { eventId: string; archived: bool
           type="button"
           onClick={() => run(archiveEvent)}
           disabled={pending}
-          className="rounded-full bg-action px-3 py-1 text-[0.8rem] text-paper disabled:opacity-50"
+          className="rounded-full bg-action px-3 py-1 text-[0.8rem] text-ink-onaction disabled:opacity-50"
         >
           {pending ? "…" : "Archivar"}
         </button>

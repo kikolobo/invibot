@@ -91,7 +91,7 @@ export function SendInvitations({
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 rounded-full bg-action px-5 py-2 text-[0.9rem] text-paper"
+          className="mt-5 rounded-full bg-action px-5 py-2 text-[0.9rem] text-ink-onaction"
         >
           Listo
         </button>
@@ -187,7 +187,7 @@ export function SendInvitations({
             type="button"
             onClick={confirm}
             disabled={pending}
-            className="rounded-full bg-action px-5 py-2 text-[0.9rem] text-paper transition-opacity disabled:opacity-50"
+            className="rounded-full bg-action px-5 py-2 text-[0.9rem] text-ink-onaction transition-opacity disabled:opacity-50"
           >
             {pending
               ? "Enviando…"

@@ -77,7 +77,7 @@ export function ChangePassword({ minLength }: { minLength: number }) {
       <button
         type="submit"
         disabled={busy}
-        className="rounded-full bg-action px-6 py-2.5 text-[0.9rem] font-medium text-paper transition-colors hover:bg-action-soft disabled:opacity-50"
+        className="rounded-full bg-action px-6 py-2.5 text-[0.9rem] font-medium text-ink-onaction transition-colors hover:bg-action-soft disabled:opacity-50"
       >
         {busy ? "Cambiando…" : "Cambiar contraseña"}
       </button>

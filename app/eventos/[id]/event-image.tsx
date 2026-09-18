@@ -160,7 +160,7 @@ export function EventImage({
           <button
             type="submit"
             disabled={!storageReady || pending}
-            className="mt-4 rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+            className="mt-4 rounded-full bg-action px-5 py-2 text-[0.85rem] text-ink-onaction disabled:opacity-50"
           >
             {pending ? "Subiendo…" : hasImage ? "Reemplazar" : "Subir"}
           </button>

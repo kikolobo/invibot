@@ -151,7 +151,7 @@ export function Organizadores({
         <button
           type="submit"
           disabled={adding}
-          className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-ink-onaction disabled:opacity-50"
         >
           {adding ? "Agregando…" : "Agregar"}
         </button>
@@ -222,7 +222,7 @@ function EditRow({
           <button
             type="submit"
             disabled={pending}
-            className="rounded-full bg-action px-4 py-2 text-[0.82rem] text-paper disabled:opacity-50"
+            className="rounded-full bg-action px-4 py-2 text-[0.82rem] text-ink-onaction disabled:opacity-50"
           >
             {pending ? "Guardando…" : "Guardar"}
           </button>

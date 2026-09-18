@@ -93,7 +93,7 @@ export function EditForm({
                       setNotice(await notifyGuestsOfChange(eventId, state.summary!));
                       setNotifying(false);
                     }}
-                    className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+                    className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-ink-onaction disabled:opacity-50"
                   >
                     {notifying ? "Avisando…" : "Avisar a los invitados"}
                   </button>

@@ -41,7 +41,7 @@ export function ArchiveEvent({
           type="button"
           onClick={() => run(unarchiveEvent)}
           disabled={pending}
-          className="mt-4 rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="mt-4 rounded-full bg-action px-5 py-2 text-[0.85rem] text-ink-onaction disabled:opacity-50"
         >
           {pending ? "Restaurando…" : "Desarchivar"}
         </button>
@@ -76,7 +76,7 @@ export function ArchiveEvent({
           type="button"
           onClick={() => run(archiveEvent)}
           disabled={pending}
-          className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-ink-onaction disabled:opacity-50"
         >
           {pending ? "Archivando…" : "Archivar"}
         </button>

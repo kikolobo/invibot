@@ -60,7 +60,7 @@ export default function VariantePapel() {
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             <a
               href="mailto:hola@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
-              className="inline-flex items-center justify-center rounded-full bg-action px-7 py-3.5 text-sm font-medium text-paper transition-colors hover:bg-action-soft"
+              className="inline-flex items-center justify-center rounded-full bg-action px-7 py-3.5 text-sm font-medium text-ink-onaction transition-colors hover:bg-action-soft"
             >
               Quiero probarlo
             </a>
@@ -111,7 +111,7 @@ export default function VariantePapel() {
           </p>
           <a
             href="mailto:hola@invibot.com?subject=Quiero%20probar%20Invibot"
-            className="mt-9 inline-flex items-center justify-center rounded-full bg-action px-7 py-3.5 text-sm font-medium text-paper transition-colors hover:bg-action-soft"
+            className="mt-9 inline-flex items-center justify-center rounded-full bg-action px-7 py-3.5 text-sm font-medium text-ink-onaction transition-colors hover:bg-action-soft"
           >
             hola@invibot.com
           </a>

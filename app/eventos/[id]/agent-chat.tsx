@@ -86,7 +86,7 @@ export function AgentChat({ eventId, eventName }: { eventId: string; eventName: 
           type="button"
           onClick={send}
           disabled={pending || draft.trim().length === 0}
-          className="shrink-0 rounded-full bg-action px-4 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="shrink-0 rounded-full bg-action px-4 py-2 text-[0.85rem] text-ink-onaction disabled:opacity-50"
         >
           Enviar
         </button>

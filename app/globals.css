@@ -27,8 +27,15 @@
                  an invitation to click. */
   --accent: #f0b078;
   --accent-soft: #ffc79a;
-  --action: #ffc800;
-  --action-soft: #ffd95e;
+  /* The line colour, lifted. A saturated yellow was the loudest thing on every
+     screen and the app is not a page that needs shouting at — the button reads
+     as a button because it is lighter than everything around it, not because it
+     is a different colour. */
+  --action: #9c9488;
+  /* The label on a filled button. Its own token because the button is now a
+     light pill: the page colour sat at 2:1 on it and was never readable. */
+  --ink-onaction: #231f1b;
+  --action-soft: #ada598;
   --danger: #ff9d92;
   --danger-soft: #ffb3aa;
   --line: #6b645c;
@@ -56,14 +63,16 @@
   --cream-soft: #4a443d;
   --cream-line: #ded8ce;
 
-  --chat-surface: #111a2e;
-  --chat-raised: #18243c;
-  --chat-line: #253350;
-  --chat-text: #eef2f9;
-  --chat-soft: #98a6c0;
-  --chat-gold: #e0a458;
-  --bubble-in: #18243c;
-  --bubble-out: #2a4a83;
+  --chat-surface: #35322d;
+  --chat-raised: #413d37;
+  --chat-line: #4d4840;
+  --chat-text: #f2efe9;
+  --chat-soft: #bbb3a9;
+  --chat-gold: #e0a97a;
+  /* Theirs recedes, ours lifts — the difference is depth rather than hue, so
+     the mockup sits in the page instead of importing somebody else's brand. */
+  --bubble-in: #454039;
+  --bubble-out: #5e574d;
   --gold: #ffc800;
   --gold-soft: #ffd95e;
 }
@@ -77,6 +86,7 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-action: var(--action);
+  --color-ink-onaction: var(--ink-onaction);
   --color-action-soft: var(--action-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
