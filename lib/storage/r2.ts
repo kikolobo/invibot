@@ -47,10 +47,28 @@ export async function putObject(
   body: ArrayBuffer | Uint8Array,
   contentType: string,
 ): Promise<void> {
-  const response = await config.client.fetch(url(config, key), {
+  // A copy on its own ArrayBuffer: exactly the bytes, nothing either side.
+  const bytes = new Uint8Array(body);
+
+  // Signed here, sent with plain `fetch` — never `client.fetch`, which hands
+  // `fetch` a Request object. On Vercel something between us and the network
+  // rebuilds that Request, its body becomes a stream of unknown length, and it
+  // goes out chunked: R2 answers 411 MissingContentLength. It worked on every
+  // Node version and in a local production build, so the fix cannot rely on
+  // whoever wraps `fetch` — raw bytes and an explicit length leave no room.
+  const signed = await config.client.sign(url(config, key), {
     method: "PUT",
-    body: body as BodyInit,
+    body: bytes,
     headers: { "content-type": contentType },
+  });
+  const headers = new Headers(signed.headers);
+  headers.set("content-length", String(bytes.byteLength));
+
+  const response = await fetch(signed.url, {
+    method: "PUT",
+    headers,
+    body: bytes,
+    cache: "no-store",
   });
 
   if (!response.ok) {

@@ -178,7 +178,9 @@ export async function uploadTeaser(
   const key = `teasers/${eventId}/${Date.now()}.jpg`;
 
   try {
-    await putObject(r2, key, optimized.buffer as ArrayBuffer, "image/jpeg");
+    // The Buffer itself, not `.buffer`: that is the memory underneath, which
+    // can be larger than the image and start at an offset.
+    await putObject(r2, key, optimized, "image/jpeg");
   } catch (error) {
     console.error("[teaser] upload failed", eventId, error);
     return { error: "No pudimos guardar la imagen. Inténtalo otra vez." };

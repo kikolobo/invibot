@@ -50,7 +50,10 @@ export async function sendPasses(
         eventName: event.name,
       });
 
-      const uploaded = await uploadMedia(config, png.buffer as ArrayBuffer, "image/png", "acceso");
+      // Sliced to the image: `.buffer` alone is the memory underneath, which
+      // can be larger than the PNG and start at an offset.
+      const bytes = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
+      const uploaded = await uploadMedia(config, bytes, "image/png", "acceso");
       if (!uploaded.ok) {
         console.error("[pass] upload failed", pass.id, uploaded.title);
         continue;
