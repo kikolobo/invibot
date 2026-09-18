@@ -23,13 +23,28 @@ const tones = {
 
 export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
   const t = tones[tone];
+  const appButton =
+    tone === "night"
+      ? "border-gold/40 text-night-text hover:border-gold hover:text-gold"
+      : "border-line text-ink-soft hover:border-accent hover:text-accent";
+
   return (
-    <header className="px-6 py-6 sm:px-10">
+    <header className="flex items-center justify-between px-6 py-6 sm:px-10">
       <Link
         href="/"
         className={`font-display text-2xl tracking-tight transition-colors ${t.logo}`}
       >
         Invibot
+      </Link>
+
+      {/* One door for everybody. Signed in it opens the events list; signed out
+          it lands on the sign-in form, which is where somebody clicking "App"
+          expected to end up either way. */}
+      <Link
+        href="/eventos"
+        className={`rounded-full border px-5 py-2 text-sm transition-colors ${appButton}`}
+      >
+        App
       </Link>
     </header>
   );

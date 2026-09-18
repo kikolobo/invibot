@@ -3,6 +3,9 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { cookies } from "next/headers";
+import { APIError } from "better-auth/api";
+import { GATE_COOKIE, gateOpen } from "./signup-gate";
 
 /**
  * Organizer authentication. Guests never authenticate — they reach their
@@ -55,6 +58,27 @@ const createAuth = () =>
       // window stays short — 60s of saved queries is worth it, 5 minutes of
       // working back-button after signing out on a shared computer is not.
       cookieCache: { enabled: true, maxAge: 60 },
+    },
+    /**
+     * The signup gate, enforced where the account is created.
+     *
+     * The form asks for a passcode, but the form calls better-auth's public
+     * endpoint — so checking only there would be checking nothing. This runs on
+     * every user insert, whichever way the request arrived.
+     */
+    databaseHooks: {
+      user: {
+        create: {
+          before: async () => {
+            const jar = await cookies();
+            if (!gateOpen(jar.get(GATE_COOKIE)?.value)) {
+              throw new APIError("FORBIDDEN", {
+                message: "Necesitas un código de acceso para crear una cuenta.",
+              });
+            }
+          },
+        },
+      },
     },
     // Must stay last: it lets server actions set the session cookie.
     plugins: [nextCookies()],

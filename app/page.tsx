@@ -79,9 +79,15 @@ export default function Home() {
               ya confirmaron.
             </h1>
             <p className="mt-7 text-lg leading-relaxed text-night-soft">
-              Envía la invitación por WhatsApp y deja que un asistente registre
-              las confirmaciones y responda las dudas de cada invitado. Tú solo
-              revisas la lista.
+              Envía las invitaciones por WhatsApp y deja que un asistente con
+              inteligencia artificial administre las confirmaciones y responda
+              las dudas de cada invitado. Tú sólo revisas las listas.
+            </p>
+            <p className="mt-4 leading-relaxed text-night-soft">
+              Agrega a tus invitados tú mismo o comparte una liga de
+              autorregistro que tú apruebas. Controla el acceso con códigos QR
+              únicos por persona. Y varias cosas más que le suben el nivel al
+              control de tu evento.
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
               <a
