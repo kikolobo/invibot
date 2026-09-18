@@ -205,10 +205,10 @@ export default async function EventoPage({
               // says what is safe, and shouting it would dull the one next to
               // it that says what is not.
               <div className="mt-4 rounded-xl border border-line bg-paper-deep p-4">
-                <p className="text-[0.88rem] font-medium text-ink">
+                <p key="n1" className="text-[0.88rem] font-medium text-ink">
                   Esta imagen es privada. Aquí sí va todo.
                 </p>
-                <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                <p key="n2" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
                   Le llega a cada invitado en el momento en que confirma, y a nadie más. No
                   se publica en ningún lado, así que puede llevar la dirección, la hora y los
                   nombres sin problema. La de al lado es la que ve cualquiera que abra tu
@@ -241,18 +241,18 @@ export default async function EventoPage({
             remove={removeTeaser}
             notice={
               <div className="mt-4 rounded-xl border border-accent/40 bg-paper-deep p-4">
-                <p className="text-[0.88rem] font-medium text-ink">
+                <p key="n3" className="text-[0.88rem] font-medium text-ink">
                   Esta imagen es pública. Trátala como un cartel en la calle.
                 </p>
-                <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                <p key="n4" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
                   Aparece al compartir la liga, y una liga se reenvía: la va a ver gente que
                   no invitaste y gente a la que ellos se la pasen.
                 </p>
-                <p className="mt-1 text-[0.85rem] font-medium leading-relaxed text-ink-soft">
+                <p key="n5" className="mt-1 text-[0.85rem] font-medium leading-relaxed text-ink-soft">
                   No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
                   que circule.
                 </p>
-                <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                <p key="n6" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
                   Para eso está la invitación de al lado, que sólo llega a quien ya confirmó.
                 </p>
               </div>
