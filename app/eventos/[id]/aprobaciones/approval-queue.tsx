@@ -29,10 +29,13 @@ export function ApprovalQueue({
   eventId,
   pending,
   rejected,
+  groups,
 }: {
   eventId: string;
   pending: PendingGuest[];
   rejected: PendingGuest[];
+  /** Groups this event already uses, offered as suggestions. */
+  groups: string[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
@@ -40,6 +43,7 @@ export function ApprovalQueue({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [group, setGroup] = useState("");
   const [busy, start] = useTransition();
 
   if (pending.length === 0 && rejected.length === 0) return null;
@@ -59,7 +63,7 @@ export function ApprovalQueue({
 
   const decide = (ids: string[], approved: boolean) =>
     start(async () => {
-      await setGuestApproval(eventId, ids, approved);
+      await setGuestApproval(eventId, ids, approved, approved ? group : null);
       setSelected(new Set());
       setNote(null);
     });
@@ -70,7 +74,7 @@ export function ApprovalQueue({
    */
   const approveAndSend = (ids: string[]) =>
     start(async () => {
-      const report = await approveAndInvite(eventId, ids);
+      const report = await approveAndInvite(eventId, ids, group);
       setSelected(new Set());
       if (report.error) {
         setError(report.error);
@@ -193,6 +197,29 @@ export function ApprovalQueue({
       </ul>
 
       {chosen.length > 0 && (
+        <div className="mt-4 rounded-lg border border-line bg-paper p-4">
+          <label className="block text-[0.85rem] text-ink-soft">
+            Grupo para {chosen.length === 1 ? "esta persona" : `estas ${chosen.length} personas`}
+            <span className="text-ink-muted"> (opcional)</span>
+            <input
+              list={`grupos-${eventId}`}
+              value={group}
+              onChange={(e) => setGroup(e.target.value)}
+              placeholder="Amigos, Oficina, Familia…"
+              className="mt-1 block w-full max-w-sm rounded-lg border border-line bg-paper-deep px-3 py-2 text-[0.9rem] text-ink"
+            />
+          </label>
+          {/* Existing groups as suggestions, and anything typed becomes a new
+              one — the vocabulary is whatever the organizer actually uses. */}
+          <datalist id={`grupos-${eventId}`}>
+            {groups.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+        </div>
+      )}
+
+      {chosen.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
@@ -226,8 +253,8 @@ export function ApprovalQueue({
       {pending.length > 0 && (
         <p className="mt-4 text-[0.8rem] leading-relaxed text-ink-muted">
           «Aprobar y enviar» les manda su invitación en el momento. «Sólo aprobar» los pasa a
-          la lista y la invitación sale después, cuando tú la envíes. Rechazar deja de
-          contestarles, sin avisarles.
+          la lista y la invitación sale después, cuando tú la envíes. El grupo es opcional y
+          se aplica a todos los seleccionados. Rechazar deja de contestarles, sin avisarles.
         </p>
       )}
 

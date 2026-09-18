@@ -214,9 +214,12 @@ export async function sendInvitations(
 export async function approveAndInvite(
   eventId: string,
   guestIds: string[],
+  groupName?: string | null,
 ): Promise<InviteReport> {
   if (guestIds.length === 0) return { sent: 0, failed: 0, outcomes: [] };
 
-  await setGuestApproval(eventId, guestIds, true);
+  // The group lands before the invitation, so the template that greets them is
+  // built from a guest who is already filed where they belong.
+  await setGuestApproval(eventId, guestIds, true, groupName);
   return sendInvitations(eventId, guestIds);
 }

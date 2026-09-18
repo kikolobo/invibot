@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { registrationLink } from "@/lib/guests/auto-register";
+import { listGroups } from "@/lib/guests/actions";
 import { ApprovalQueue, type PendingGuest } from "./approval-queue";
 
 export const metadata = { title: "Aprobaciones" };
@@ -44,6 +45,7 @@ export default async function Aprobaciones({
   const pending = awaiting.filter((g) => g.approvalStatus === "pending") as PendingGuest[];
   const rejected = awaiting.filter((g) => g.approvalStatus === "rejected") as PendingGuest[];
   const link = registrationLink(event);
+  const groups = await listGroups(event.id);
 
   return (
     <>
@@ -73,7 +75,12 @@ export default async function Aprobaciones({
         </div>
       )}
 
-      <ApprovalQueue eventId={event.id} pending={pending} rejected={rejected} />
+      <ApprovalQueue
+        eventId={event.id}
+        pending={pending}
+        rejected={rejected}
+        groups={groups}
+      />
     </>
   );
 }

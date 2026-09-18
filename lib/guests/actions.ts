@@ -355,6 +355,15 @@ export async function setGuestApproval(
   eventId: string,
   guestIds: string[],
   approved: boolean,
+  /**
+   * Optional group for everyone being let in at once.
+   *
+   * Self-registered people arrive with no group at all, and the moment an
+   * organizer knows who they are is the moment they know which group — "these
+   * six are from the office". Making them approve first and then go sort the
+   * guest list is how a list ends up with forty ungrouped names on it.
+   */
+  groupName?: string | null,
 ) {
   const event = await ownedEvent(eventId);
   if (!event || guestIds.length === 0) return;
@@ -373,6 +382,18 @@ export async function setGuestApproval(
     })
     .where(and(eq(guests.eventId, eventId), inArray(guests.id, guestIds)))
     .returning({ id: guests.id, phoneE164: guests.phoneE164, fullName: guests.fullName });
+
+  if (approved && groupName?.trim()) {
+    // Created on the spot when it does not exist, same as typing a new group on
+    // the guest form — the vocabulary is whatever the organizer actually uses.
+    const groupId = await resolveGroup(eventId, groupName);
+    if (groupId) {
+      await db
+        .update(guests)
+        .set({ groupId, updatedAt: new Date() })
+        .where(and(eq(guests.eventId, eventId), inArray(guests.id, guestIds)));
+    }
+  }
 
   if (approved) {
     const phones = rows.flatMap((row) => (row.phoneE164 ? variantsOf(row.phoneE164) : []));
