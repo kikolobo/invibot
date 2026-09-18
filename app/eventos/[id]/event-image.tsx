@@ -76,7 +76,8 @@ export function EventImage({
   const src = `${endpoint}?v=${uploadedAt?.getTime() ?? 0}`;
 
   return (
-    <section className="mt-12">
+    // No margin of its own: these sit side by side now, and the row places them.
+    <section>
       <h2 className="font-display text-2xl text-ink">{title}</h2>
       <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-muted">{intro}</p>
 

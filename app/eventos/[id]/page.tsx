@@ -177,7 +177,11 @@ export default async function EventoPage({
           />
         )}
 
+        {/* Side by side because they are a pair and read as a choice: the one
+            that stays private on the left, the one that goes out in public on
+            the right. Stacked below lg, where two of these would be cramped. */}
         {!archived && (
+        <div className="mt-12 grid items-start gap-10 lg:grid-cols-2 lg:gap-8">
           <EventImage
             eventId={event.id}
             field="card"
@@ -201,9 +205,7 @@ export default async function EventoPage({
               ) : null
             }
           />
-        )}
 
-        {!archived && (
           <EventImage
             eventId={event.id}
             field="teaser"
@@ -239,11 +241,8 @@ export default async function EventoPage({
               </p>
             }
           />
+        </div>
         )}
-
-
-
-
       </div>
     </>
   );
