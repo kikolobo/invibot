@@ -81,7 +81,7 @@ export function GuestTable({
     const ids = [...selected];
     const names = rows.filter((r) => ids.includes(r.id)).map((r) => r.fullName);
     const label = names.length === 1 ? names[0] : `${names.length} invitados`;
-    if (!window.confirm(`¿Quitar a ${label} de la lista?`)) return;
+    if (!window.confirm(`¿Borrar a ${label} de la lista?`)) return;
     startTransition(async () => {
       await deleteGuests(eventId, ids);
       setSelected(new Set());
@@ -154,7 +154,7 @@ export function GuestTable({
               disabled={pending}
               className="rounded-full border border-accent px-4 py-1.5 text-[0.85rem] text-accent transition-colors hover:bg-accent hover:text-paper disabled:opacity-50"
             >
-              {pending ? "Quitando…" : "Quitar"}
+              {pending ? "Borrando…" : "Borrar"}
             </button>
           </div>
         )}
