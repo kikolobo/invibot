@@ -76,7 +76,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         />
       </Field>
 
-      {error && <p className="text-[0.9rem] text-accent">{error}</p>}
+      {error && <p className="text-[0.9rem] text-danger">{error}</p>}
 
       <div className="flex flex-wrap items-center gap-5">
         <SubmitButton>

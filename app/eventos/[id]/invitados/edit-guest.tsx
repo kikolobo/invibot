@@ -177,13 +177,13 @@ export function EditGuest({
         </p>
       )}
 
-      {state.error && <p className="mt-3 text-[0.85rem] text-accent">{state.error}</p>}
+      {state.error && <p className="mt-3 text-[0.85rem] text-danger">{state.error}</p>}
 
       <div className="mt-4 flex items-center gap-3">
         <button
           type="submit"
           disabled={pending}
-          className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
         >
           {pending ? "Guardando…" : "Guardar"}
         </button>

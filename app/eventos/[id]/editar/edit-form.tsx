@@ -57,7 +57,7 @@ export function EditForm({
   return (
     <>
       {state.ok && changed.length > 0 && !dismissed && (
-        <section className="mb-8 rounded-xl border border-accent/30 bg-accent/5 p-5">
+        <section className="mb-8 rounded-xl border border-accent/30 bg-action/5 p-5">
           <p className="font-display text-lg text-ink">
             Guardado. Cambiaste {changed.map((c) => changeLabels[c]).join(", ")}.
           </p>
@@ -93,7 +93,7 @@ export function EditForm({
                       setNotice(await notifyGuestsOfChange(eventId, state.summary!));
                       setNotifying(false);
                     }}
-                    className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+                    className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
                   >
                     {notifying ? "Avisando…" : "Avisar a los invitados"}
                   </button>
@@ -235,7 +235,7 @@ export function EditForm({
           </label>
         </div>
 
-        {state.error && <p className="text-[0.9rem] text-accent">{state.error}</p>}
+        {state.error && <p className="text-[0.9rem] text-danger">{state.error}</p>}
 
         <div className="flex items-center gap-4">
           <SubmitButton>{pending ? "Guardando…" : "Guardar cambios"}</SubmitButton>

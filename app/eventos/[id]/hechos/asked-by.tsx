@@ -24,7 +24,7 @@ export function AskedBy({ names }: { names: string[] }) {
         title="Quién preguntó"
         className={`ml-2 grid size-4 place-items-center rounded-full border text-[0.6rem] font-medium leading-none transition-colors ${
           open
-            ? "border-accent bg-accent text-paper"
+            ? "border-accent bg-action text-paper"
             : "border-ink-muted/50 text-ink-muted hover:border-accent hover:text-accent"
         }`}
       >

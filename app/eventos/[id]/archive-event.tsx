@@ -41,11 +41,11 @@ export function ArchiveEvent({
           type="button"
           onClick={() => run(unarchiveEvent)}
           disabled={pending}
-          className="mt-4 rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="mt-4 rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
         >
           {pending ? "Restaurando…" : "Desarchivar"}
         </button>
-        {error && <p className="mt-3 text-[0.88rem] text-accent">{error}</p>}
+        {error && <p className="mt-3 text-[0.88rem] text-danger">{error}</p>}
       </div>
     );
   }
@@ -70,13 +70,13 @@ export function ArchiveEvent({
         {guestCount > 0 && `, incluidos sus ${guestCount} invitados`}. Puedes
         desarchivarlo cuando quieras.
       </p>
-      {error && <p className="mt-3 text-[0.88rem] text-accent">{error}</p>}
+      {error && <p className="mt-3 text-[0.88rem] text-danger">{error}</p>}
       <div className="mt-4 flex items-center gap-3">
         <button
           type="button"
           onClick={() => run(archiveEvent)}
           disabled={pending}
-          className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
         >
           {pending ? "Archivando…" : "Archivar"}
         </button>

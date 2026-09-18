@@ -21,7 +21,7 @@ function InviteCard({ card }: { card: NonNullable<Line["card"]> }) {
         {card.kind}
       </p>
       <p className="mt-2 font-display text-xl leading-tight text-ink">{card.hosts}</p>
-      <div className="mx-auto my-2.5 h-px w-8 bg-accent/40" />
+      <div className="mx-auto my-2.5 h-px w-8 bg-action/40" />
       <p className="text-[0.65rem] uppercase tracking-[0.12em] text-ink-soft">
         {card.date}
       </p>

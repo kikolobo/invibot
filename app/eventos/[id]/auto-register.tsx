@@ -71,7 +71,7 @@ export function AutoRegister({
           disabled={pending}
           onClick={() => (on ? setConfirmingOff(true) : apply(true))}
           className={`mt-1 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
-            on ? "bg-accent" : "bg-line"
+            on ? "bg-action" : "bg-line"
           }`}
         >
           <span
@@ -93,7 +93,7 @@ export function AutoRegister({
               type="button"
               onClick={() => apply(false)}
               disabled={pending}
-              className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+              className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
             >
               {pending ? "Desactivando…" : "Desactivar"}
             </button>
@@ -137,7 +137,7 @@ export function AutoRegister({
         </p>
       )}
 
-      {error && <p className="mt-3 text-[0.88rem] text-accent">{error}</p>}
+      {error && <p className="mt-3 text-[0.88rem] text-danger">{error}</p>}
     </div>
   );
 }

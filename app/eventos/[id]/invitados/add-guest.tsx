@@ -94,7 +94,7 @@ export function AddGuest({
         </div>
       )}
 
-      {state.error && <p className="mt-3 text-[0.88rem] text-accent">{state.error}</p>}
+      {state.error && <p className="mt-3 text-[0.88rem] text-danger">{state.error}</p>}
       {state.ok && <p className="mt-3 text-[0.88rem] text-ink-soft">{state.ok}</p>}
 
       <div className="mt-4">

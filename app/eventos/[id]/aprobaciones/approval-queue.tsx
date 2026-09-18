@@ -225,7 +225,7 @@ export function ApprovalQueue({
             type="button"
             onClick={() => approveAndSend(chosen)}
             disabled={busy}
-            className="rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+            className="rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
           >
             {busy ? "Enviando…" : `Aprobar y enviar invitación (${chosen.length})`}
           </button>
@@ -258,7 +258,7 @@ export function ApprovalQueue({
         </p>
       )}
 
-      {error && <p className="mt-3 text-[0.88rem] text-accent">{error}</p>}
+      {error && <p className="mt-3 text-[0.88rem] text-danger">{error}</p>}
 
       {rejected.length > 0 && (
         <div className="mt-5 border-t border-line pt-4">

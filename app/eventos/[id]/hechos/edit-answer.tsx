@@ -96,8 +96,8 @@ export function EditAnswer({
       <form action={formAction} className="mt-2">
         <Textarea name="value" rows={2} defaultValue={answer} />
 
-        {state.error && <p className="mt-2 text-[0.85rem] text-accent">{state.error}</p>}
-        {closeError && <p className="mt-2 text-[0.85rem] text-accent">{closeError}</p>}
+        {state.error && <p className="mt-2 text-[0.85rem] text-danger">{state.error}</p>}
+        {closeError && <p className="mt-2 text-[0.85rem] text-danger">{closeError}</p>}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button

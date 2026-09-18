@@ -120,7 +120,7 @@ export function EventImage({
             >
               {removing ? "Quitando…" : "Quitar"}
             </button>
-            {removeError && <p className="mt-2 text-accent">{removeError}</p>}
+            {removeError && <p className="mt-2 text-danger">{removeError}</p>}
           </div>
         </div>
       )}
@@ -153,14 +153,14 @@ export function EventImage({
 
         {footnote}
 
-        {state.error && <p className="mt-3 text-[0.88rem] text-accent">{state.error}</p>}
+        {state.error && <p className="mt-3 text-[0.88rem] text-danger">{state.error}</p>}
         {state.ok && <p className="mt-3 text-[0.88rem] text-ink-soft">{state.ok}</p>}
 
         {chosen && (
           <button
             type="submit"
             disabled={!storageReady || pending}
-            className="mt-4 rounded-full bg-accent px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+            className="mt-4 rounded-full bg-action px-5 py-2 text-[0.85rem] text-paper disabled:opacity-50"
           >
             {pending ? "Subiendo…" : hasImage ? "Reemplazar" : "Subir"}
           </button>

@@ -86,13 +86,13 @@ export function AgentChat({ eventId, eventName }: { eventId: string; eventName: 
           type="button"
           onClick={send}
           disabled={pending || draft.trim().length === 0}
-          className="shrink-0 rounded-full bg-accent px-4 py-2 text-[0.85rem] text-paper disabled:opacity-50"
+          className="shrink-0 rounded-full bg-action px-4 py-2 text-[0.85rem] text-paper disabled:opacity-50"
         >
           Enviar
         </button>
       </div>
 
-      {error && <p className="mt-3 max-w-prose text-[0.85rem] text-accent">{error}</p>}
+      {error && <p className="mt-3 max-w-prose text-[0.85rem] text-danger">{error}</p>}
 
       {actions.length > 0 && (
         <div className="mt-5 max-w-prose rounded-xl border border-line bg-paper-deep p-4">

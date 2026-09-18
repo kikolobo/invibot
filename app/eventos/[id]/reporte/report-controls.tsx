@@ -36,7 +36,7 @@ export function ReportControls({
 
   const pill = (active: boolean) =>
     `rounded-full border px-3 py-1 text-[0.82rem] transition-colors ${
-      active ? "border-accent bg-accent text-paper" : "border-line text-ink-soft hover:border-accent"
+      active ? "border-accent bg-action text-paper" : "border-line text-ink-soft hover:border-accent"
     }`;
 
   // The print view reads exactly the parameters shown here.
@@ -136,7 +136,7 @@ export function ReportControls({
           href={printHref}
           target="_blank"
           rel="noopener"
-          className="h-fit self-end rounded-full bg-accent px-4 py-1 text-[0.82rem] leading-5 text-paper"
+          className="h-fit self-end rounded-full bg-action px-4 py-1 text-[0.82rem] leading-5 text-paper"
         >
           Imprimir
         </Link>
@@ -180,7 +180,7 @@ export function ReportControls({
                     scroll={false}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[0.82rem] transition-colors ${
                       active
-                        ? "border-accent bg-accent text-paper"
+                        ? "border-accent bg-action text-paper"
                         : "border-line text-ink-soft hover:border-accent"
                     }`}
                   >

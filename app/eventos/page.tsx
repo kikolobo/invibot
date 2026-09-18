@@ -36,7 +36,7 @@ export default async function Eventos() {
           <h1 className="font-display text-4xl text-ink sm:text-5xl">Mis eventos</h1>
           <Link
             href="/eventos/nuevo"
-            className="shrink-0 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-accent-soft"
+            className="shrink-0 rounded-full bg-action px-5 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-action-soft"
           >
             Nuevo evento
           </Link>

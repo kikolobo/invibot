@@ -91,7 +91,7 @@ export function SendInvitations({
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 rounded-full bg-accent px-5 py-2 text-[0.9rem] text-paper"
+          className="mt-5 rounded-full bg-action px-5 py-2 text-[0.9rem] text-paper"
         >
           Listo
         </button>
@@ -179,7 +179,7 @@ export function SendInvitations({
         </>
       )}
 
-      {report?.error && <p className="mt-4 text-[0.9rem] text-accent">{report.error}</p>}
+      {report?.error && <p className="mt-4 text-[0.9rem] text-danger">{report.error}</p>}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {missing.length === 0 && recipients.length > 0 && (
@@ -187,7 +187,7 @@ export function SendInvitations({
             type="button"
             onClick={confirm}
             disabled={pending}
-            className="rounded-full bg-accent px-5 py-2 text-[0.9rem] text-paper transition-opacity disabled:opacity-50"
+            className="rounded-full bg-action px-5 py-2 text-[0.9rem] text-paper transition-opacity disabled:opacity-50"
           >
             {pending
               ? "Enviando…"

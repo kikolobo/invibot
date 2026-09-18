@@ -169,7 +169,7 @@ export function NuevoForm() {
         </label>
       </div>
 
-      {state.error && <p className="text-[0.9rem] text-accent">{state.error}</p>}
+      {state.error && <p className="text-[0.9rem] text-danger">{state.error}</p>}
 
       <SubmitButton>Continuar</SubmitButton>
     </form>

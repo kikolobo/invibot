@@ -36,12 +36,12 @@ export function PasscodeForm() {
         />
       </label>
 
-      {state.error && <p className="text-[0.88rem] text-accent">{state.error}</p>}
+      {state.error && <p className="text-[0.88rem] text-danger">{state.error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full bg-accent px-6 py-3 text-[0.9rem] text-paper disabled:opacity-50"
+        className="w-full rounded-full bg-action px-6 py-3 text-[0.9rem] text-paper disabled:opacity-50"
       >
         {pending ? "Comprobando…" : "Continuar"}
       </button>

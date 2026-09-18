@@ -8,11 +8,22 @@
   --ink: #0f0d0c;
   --ink-soft: #4a443d;
   --ink-muted: #837b71;
-  /* Kept warm and dark rather than moved to the yellow. The yellow earns its
-     loudness on black; on this off-white it cannot carry an error message or a
-     link, and a palette where the alarm colour is unreadable is not a palette. */
+  /* Three jobs that were sharing one colour, which is why none of them could
+     change:
+       accent  — links and inline actions. Stays warm rust: it has to read as
+                 "you can press this" in running text.
+       action  — filled buttons. Near-black, the way the reference sets its
+                 light sections: off-white page, black pill, type doing the
+                 work. The yellow stays on the dark bands, where it can be loud
+                 without having to be legible at 12px.
+       danger  — errors. Was wearing the link colour, so a failure looked like
+                 an invitation to click. */
   --accent: #8f3a18;
   --accent-soft: #b4491f;
+  --action: #14100e;
+  --action-soft: #332b25;
+  --danger: #b3261e;
+  --danger-soft: #cf3a30;
   --line: #ded8ce;
 
   /* Dark variant for the landing page: warm near-black against a warm
@@ -51,6 +62,10 @@
   --color-ink-muted: var(--ink-muted);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-action: var(--action);
+  --color-action-soft: var(--action-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
   --color-line: var(--line);
 
   --color-night: var(--night);

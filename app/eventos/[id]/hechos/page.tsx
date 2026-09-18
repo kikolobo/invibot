@@ -93,7 +93,7 @@ export default async function Preguntas({
               {pending.length === 1 ? "1 pregunta" : `${pending.length} preguntas`}
             </span>
           </h2>
-          <ul className="mt-4 space-y-5 rounded-xl border border-accent/30 bg-accent/5 p-5">
+          <ul className="mt-4 space-y-5 rounded-xl border border-accent/30 bg-action/5 p-5">
             {pending.map((item) => (
               <AnswerEscalation
                 key={item.id}

@@ -153,7 +153,7 @@ export function DetallesForm({
         </section>
       ))}
 
-      {state.error && <p className="mt-6 text-[0.9rem] text-accent">{state.error}</p>}
+      {state.error && <p className="mt-6 text-[0.9rem] text-danger">{state.error}</p>}
 
       {/* One button for the whole questionnaire, not one per tab. Guardar saves
           every section, so moving between tabs loses nothing — but leaving the

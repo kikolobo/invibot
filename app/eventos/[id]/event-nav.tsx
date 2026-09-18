@@ -89,7 +89,7 @@ export function EventNav({
                   <span
                     className={
                       "urgent" in link && link.urgent
-                        ? "rounded-full bg-accent px-1.5 py-0.5 text-[0.7rem] font-medium leading-none text-paper"
+                        ? "rounded-full bg-action px-1.5 py-0.5 text-[0.7rem] font-medium leading-none text-paper"
                         : "text-[0.78rem] text-ink-muted"
                     }
                   >
@@ -136,7 +136,7 @@ function ArchiveCommand({ eventId, archived }: { eventId: string; archived: bool
         >
           {pending ? "Restaurando…" : "Desarchivar"}
         </button>
-        {error && <p className="px-3 pt-1 text-[0.78rem] text-accent">{error}</p>}
+        {error && <p className="px-3 pt-1 text-[0.78rem] text-danger">{error}</p>}
       </>
     );
   }
@@ -158,13 +158,13 @@ function ArchiveCommand({ eventId, archived }: { eventId: string; archived: bool
       <p className="text-[0.82rem] leading-relaxed text-ink-soft">
         ¿Archivar? Deja de poder editarse; nada se borra.
       </p>
-      {error && <p className="mt-1 text-[0.78rem] text-accent">{error}</p>}
+      {error && <p className="mt-1 text-[0.78rem] text-danger">{error}</p>}
       <div className="mt-2 flex items-center gap-3">
         <button
           type="button"
           onClick={() => run(archiveEvent)}
           disabled={pending}
-          className="rounded-full bg-accent px-3 py-1 text-[0.8rem] text-paper disabled:opacity-50"
+          className="rounded-full bg-action px-3 py-1 text-[0.8rem] text-paper disabled:opacity-50"
         >
           {pending ? "…" : "Archivar"}
         </button>

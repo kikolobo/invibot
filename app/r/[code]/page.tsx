@@ -143,7 +143,7 @@ export default async function RegistroLink({
               page for anyone whose browser did not run it. */}
           <a
             href={destination}
-            className="rounded-full bg-accent px-6 py-3 text-[0.95rem] text-paper"
+            className="rounded-full bg-action px-6 py-3 text-[0.95rem] text-paper"
           >
             {CALL_TO_ACTION}
           </a>

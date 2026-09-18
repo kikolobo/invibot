@@ -81,7 +81,7 @@ export function ImportGuests({ eventId }: { eventId: string }) {
         >
           {checking ? "Revisando…" : "Revisar lista"}
         </button>
-        {previewError && <p className="text-[0.88rem] text-accent">{previewError}</p>}
+        {previewError && <p className="text-[0.88rem] text-danger">{previewError}</p>}
       </div>
 
       {preview && (
@@ -141,7 +141,7 @@ export function ImportGuests({ eventId }: { eventId: string }) {
         </div>
       )}
 
-      {state.error && <p className="mt-3 text-[0.88rem] text-accent">{state.error}</p>}
+      {state.error && <p className="mt-3 text-[0.88rem] text-danger">{state.error}</p>}
       {state.ok && <p className="mt-3 text-[0.88rem] text-ink-soft">{state.ok}</p>}
     </div>
   );

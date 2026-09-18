@@ -79,8 +79,8 @@ export function AnswerEscalation({
           placeholder="Contesta como se lo dirías a un invitado…"
           required
         />
-        {state.error && <p className="mt-2 text-[0.85rem] text-accent">{state.error}</p>}
-        {error && <p className="mt-2 text-[0.85rem] text-accent">{error}</p>}
+        {state.error && <p className="mt-2 text-[0.85rem] text-danger">{state.error}</p>}
+        {error && <p className="mt-2 text-[0.85rem] text-danger">{error}</p>}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button

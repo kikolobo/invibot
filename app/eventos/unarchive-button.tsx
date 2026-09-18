@@ -22,7 +22,7 @@ export function UnarchiveButton({ eventId }: { eventId: string }) {
       >
         {pending ? "Restaurando…" : "Desarchivar"}
       </button>
-      {error && <p className="mt-2 text-[0.85rem] text-accent">{error}</p>}
+      {error && <p className="mt-2 text-[0.85rem] text-danger">{error}</p>}
     </>
   );
 }

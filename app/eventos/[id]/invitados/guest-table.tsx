@@ -119,7 +119,7 @@ export function GuestTable({
               setSelected(new Set(pendingIds));
               setSending(true);
             }}
-            className="shrink-0 rounded-full bg-accent px-4 py-2 text-[0.85rem] text-paper"
+            className="shrink-0 rounded-full bg-action px-4 py-2 text-[0.85rem] text-paper"
           >
             Enviar invitaciones pendientes
           </button>
@@ -144,7 +144,7 @@ export function GuestTable({
               type="button"
               onClick={() => setSending(true)}
               disabled={pending}
-              className="rounded-full bg-accent px-4 py-1.5 text-[0.85rem] text-paper transition-opacity disabled:opacity-50"
+              className="rounded-full bg-action px-4 py-1.5 text-[0.85rem] text-paper transition-opacity disabled:opacity-50"
             >
               Enviar invitación
             </button>
@@ -152,7 +152,7 @@ export function GuestTable({
               type="button"
               onClick={removeSelected}
               disabled={pending}
-              className="rounded-full border border-accent px-4 py-1.5 text-[0.85rem] text-accent transition-colors hover:bg-accent hover:text-paper disabled:opacity-50"
+              className="rounded-full border border-accent px-4 py-1.5 text-[0.85rem] text-accent transition-colors hover:bg-action hover:text-paper disabled:opacity-50"
             >
               {pending ? "Borrando…" : "Borrar"}
             </button>
