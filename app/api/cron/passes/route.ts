@@ -1,14 +1,16 @@
 import { sendDuePasses } from "@/lib/passes/send";
 import { remindTomorrowsGuests } from "@/lib/passes/remind";
+import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
 
 /**
  * The daily pass run: the day-before message for tomorrow's events, and any
  * pass whose wait is over.
  *
- * The day-before message lives here and only here. The cron fires at 10:00 in
- * Monterrey, which is the hour "¡Es mañana!" should arrive; nothing driven by
+ * The day-before message lives here and only here. The cron fires at 11:00 in
+ * Monterrey, which is an hour "¡Es mañana!" should arrive at; nothing driven by
  * inbound traffic may send it, or it lands whenever somebody else happens to
- * write.
+ * write. Eleven rather than ten so the run also falls inside the hours the RSVP
+ * nudge is allowed to use.
  *
  * The due passes are the other half. A QR follows its card by forty-five
  * minutes and nothing here can hold a timer that long — Inngest is still a
@@ -40,5 +42,6 @@ export async function GET(request: Request) {
 
   const reminded = await remindTomorrowsGuests();
   const sent = await sendDuePasses();
-  return Response.json({ reminded, sent }, { status: 200 });
+  const nudged = await remindUnansweredRsvps();
+  return Response.json({ reminded, sent, nudged }, { status: 200 });
 }

@@ -96,6 +96,17 @@ export function formatEventTime(event: Pick<EventRow, "startsAt" | "timezone">):
   return timeFmtFor(event.timezone).format(event.startsAt);
 }
 
+/** The hour of the day, 0–23, where the party is. */
+export function localHour(at: Date, timezone: string): number {
+  return Number(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      hour12: false,
+      timeZone: zoneOf(timezone),
+    }).format(at),
+  );
+}
+
 /**
  * The event's calendar day where the party is, as `YYYY-MM-DD`, offset by
  * `plusDays`. What "mañana" means has to be decided in the event's zone: at

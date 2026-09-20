@@ -83,6 +83,28 @@ export function dayBeforeReply(
 }
 
 /**
+ * The one nudge a self-registered guest gets when their invitation goes
+ * unanswered — free-form, because their own registration opened the window, and
+ * with the invitation's own buttons, which cost nothing inside it.
+ */
+export function rsvpReminderReply(
+  facts: Pick<ReplyFacts, "name" | "eventName" | "when">,
+  withCompanion: boolean,
+): string {
+  return [
+    `Hola ${facts.name} 👋`,
+    "",
+    `¿Nos confirmas si podrás acompañarnos a ${facts.eventName}?`,
+    "",
+    `📅 ${facts.when}`,
+    "",
+    withCompanion
+      ? "Tu invitación incluye un lugar para ti y un acompañante. Contéstame aquí abajo 👇"
+      : "Contéstame aquí abajo 👇",
+  ].join("\n");
+}
+
+/**
  * Why a guest asking for their passes did not get them. Only for the button
  * path — the assistant is handed the same reasons and says it in its own words.
  */

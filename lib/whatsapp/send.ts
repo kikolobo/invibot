@@ -16,6 +16,8 @@ import {
   sendTemplate,
   sendImage,
   sendLocation,
+  sendButtons,
+  type ReplyButton,
   type LocationPayload,
   type SendResult,
   type TemplateComponent,
@@ -111,6 +113,23 @@ export async function sendTemplateToGuest(
     },
     (account, to) =>
       sendTemplate(account, to, template.name, template.language, template.components ?? []),
+  );
+}
+
+/**
+ * Text with quick replies, free-form. Same window rule as `sendTextToGuest`,
+ * which is the point: inside the window the buttons an invitation needs a
+ * template for are free and need no approval.
+ */
+export async function sendButtonsToGuest(
+  guestId: string,
+  body: string,
+  buttons: ReplyButton[],
+  kind: SendKind = "reminder",
+  config?: WhatsAppConfig,
+): Promise<SendOutcome> {
+  return deliver({ guestId, kind, requireOpenWindow: true, body, config }, (account, to) =>
+    sendButtons(account, to, body, buttons),
   );
 }
 

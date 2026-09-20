@@ -110,6 +110,10 @@ está enterrado en el chat cuando lo buscan en la puerta.
 - `recordatorio_evento` salió de la biblioteca: nunca se usó y esta lo
   reemplaza. Sigue existiendo en Meta; se puede borrar allá cuando convenga.
 
+**Ojo con el cron:** ahora corre a las `0 17 * * *` (11:00 de Monterrey, antes
+las 10:00), porque el empujón de confirmación de auto-registro sólo puede salir
+entre 11:00 y 20:00 y el cron tenía que caer dentro.
+
 **Estado al 2026-09-18:** migración `0029` aplicada (dev y producción
 comparten la base de Neon). Las dos plantillas se sometieron en los dos WABAs:
 en producción `acceso_evento_acompanante` ya está **APPROVED / UTILITY** y

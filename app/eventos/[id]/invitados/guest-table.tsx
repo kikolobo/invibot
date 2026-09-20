@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useTransition } from "react";
-import { deleteGuests } from "@/lib/guests/actions";
+import { confirmGuests, deleteGuests } from "@/lib/guests/actions";
 import { formatPhone } from "@/lib/phone";
 import { inviteLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
 import type { TemplateName } from "@/lib/whatsapp/templates";
@@ -58,6 +58,7 @@ export function GuestTable({
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -76,6 +77,28 @@ export function GuestTable({
   // failed. `invite.eligible` is built by the same module the send action
   // uses, so this button can never offer someone the action would refuse.
   const pendingIds = rows.map((row) => row.id).filter((id) => id in invite.eligible);
+
+  // Everyone still silent. The host reads "entregada" or "leída" on these rows
+  // and knows the answer came some other way — at the office, in a group chat —
+  // which is exactly the list they want to tick off in one go.
+  const silentIds = rows.filter((row) => row.rsvpStatus === "no_response").map((row) => row.id);
+
+  const selectedRows = rows.filter((row) => selected.has(row.id));
+  const canBringCompanion = selectedRows.some((row) => row.partySizeAllowed > 1);
+
+  function confirmSelected(withCompanion: boolean) {
+    const ids = [...selected];
+    const label = ids.length === 1 ? selectedRows[0].fullName : `${ids.length} invitados`;
+    const seats = withCompanion
+      ? " con acompañante (a quien su invitación se lo permita)"
+      : "";
+    if (!window.confirm(`¿Confirmar la asistencia de ${label}${seats}?`)) return;
+    startTransition(async () => {
+      const result = await confirmGuests(eventId, ids, withCompanion);
+      setNote(result.ok ?? result.error ?? null);
+      setSelected(new Set());
+    });
+  }
 
   function removeSelected() {
     const ids = [...selected];
@@ -138,6 +161,17 @@ export function GuestTable({
           />
           {selected.size > 0 ? `${selected.size} seleccionados` : "Seleccionar todos"}
         </label>
+        {silentIds.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSelected(new Set(silentIds))}
+            className="text-[0.85rem] text-ink-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
+          >
+            {silentIds.length === 1
+              ? "Seleccionar al que no ha respondido"
+              : `Seleccionar los ${silentIds.length} sin responder`}
+          </button>
+        )}
         {selected.size > 0 && !sending && (
           <div className="flex items-center gap-3">
             <button
@@ -150,6 +184,24 @@ export function GuestTable({
             </button>
             <button
               type="button"
+              onClick={() => confirmSelected(false)}
+              disabled={pending}
+              className="rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+            >
+              Confirmar
+            </button>
+            {canBringCompanion && (
+              <button
+                type="button"
+                onClick={() => confirmSelected(true)}
+                disabled={pending}
+                className="rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                Confirmar con +1
+              </button>
+            )}
+            <button
+              type="button"
               onClick={removeSelected}
               disabled={pending}
               className="rounded-full border border-accent px-4 py-1.5 text-[0.85rem] text-accent transition-colors hover:bg-action hover:text-ink-onaction disabled:opacity-50"
@@ -159,6 +211,19 @@ export function GuestTable({
           </div>
         )}
       </div>
+
+      {note && (
+        <p className="mt-2 rounded-xl border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft">
+          {note}{" "}
+          <button
+            type="button"
+            onClick={() => setNote(null)}
+            className="text-ink-muted transition-colors hover:text-accent"
+          >
+            Cerrar
+          </button>
+        </p>
+      )}
 
       {sending && (
         <SendInvitations

@@ -225,6 +225,44 @@ export function sendImage(
   });
 }
 
+export type ReplyButton = {
+  /** Comes back on the webhook as `interactive.button_reply.id`. */
+  payload: string;
+  /** What the guest reads. Meta caps it at 20 characters. */
+  label: string;
+};
+
+/**
+ * Buttons without a template.
+ *
+ * The same quick replies an approved template carries, except that inside the
+ * 24-hour window they need no approval at all and cost nothing — and the
+ * payloads are ours, so `parseIntent` reads a tap here exactly as it reads a
+ * tap on the invitation. Three at most; Meta rejects a fourth.
+ */
+export function sendButtons(
+  config: WhatsAppConfig,
+  to: string,
+  body: string,
+  buttons: ReplyButton[],
+): Promise<SendResult> {
+  return post(config, {
+    recipient_type: "individual",
+    to: toRecipient(to),
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: body },
+      action: {
+        buttons: buttons.slice(0, 3).map((button) => ({
+          type: "reply",
+          reply: { id: button.payload, title: button.label.slice(0, 20) },
+        })),
+      },
+    },
+  });
+}
+
 export type LocationPayload = {
   latitude: number;
   longitude: number;

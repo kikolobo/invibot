@@ -23,6 +23,7 @@ import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { deliverOrSchedulePasses, requestPasses, sendDuePasses } from "@/lib/passes/send";
+import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
 import { passesUnavailableReply } from "@/lib/whatsapp/replies";
 import { buildComponents } from "@/lib/whatsapp/templates";
 import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
@@ -114,6 +115,14 @@ export async function POST(request: Request) {
       await sendDuePasses();
     } catch (error) {
       console.error("[pass] opportunistic sweep failed", error);
+    }
+    // The RSVP nudge rides along for the same reason: it has to land late in a
+    // guest's own 24-hour window and at a decent hour, which a once-a-day cron
+    // cannot promise on its own. It checks both before sending anything.
+    try {
+      await remindUnansweredRsvps();
+    } catch (error) {
+      console.error("[rsvp] opportunistic sweep failed", error);
     }
   });
 

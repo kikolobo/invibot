@@ -325,6 +325,92 @@ export async function updateGuest(
   return { ok: `Guardado.${note}` };
 }
 
+/**
+ * Confirming a batch of guests the organizer already heard from elsewhere.
+ *
+ * The case this exists for: the invitation was read and never answered, and the
+ * host knows perfectly well those forty people are coming because they said so
+ * at the office, in a group chat, or over the phone. Ticking them off one form
+ * at a time is the same punishment `setGuestApproval` exists to avoid.
+ *
+ * `withCompanion` is a request, not a promise. Seats are clamped per guest to
+ * what each one was actually offered, so a list that mixes single and +1
+ * invitations confirms each at its own size rather than granting places that do
+ * not exist. Someone who already declined is skipped: the host may have swept
+ * them up in "select all", and silently overturning a guest's own "no" is the
+ * one thing this must never do.
+ *
+ * Nothing is sent. This records what the host already knows; a message telling
+ * a guest they confirmed something they never typed would read as a mistake.
+ * Their QR still reaches them on its own the day before the party.
+ */
+export async function confirmGuests(
+  eventId: string,
+  guestIds: string[],
+  withCompanion: boolean,
+): Promise<GuestActionState> {
+  const event = await ownedEvent(eventId);
+  if (!event) return { error: "No encontramos ese evento." };
+  if (guestIds.length === 0) return { error: "No hay nadie seleccionado." };
+
+  const rows = await db
+    .select()
+    .from(guests)
+    .where(and(eq(guests.eventId, eventId), inArray(guests.id, guestIds)));
+
+  let confirmed = 0;
+  let companions = 0;
+  let declined = 0;
+
+  for (const guest of rows) {
+    if (guest.rsvpStatus === "declined") {
+      declined++;
+      continue;
+    }
+
+    const seats = withCompanion ? Math.min(2, guest.partySizeAllowed) : 1;
+    if (guest.rsvpStatus === "confirmed" && guest.partySizeConfirmed === seats) continue;
+
+    await db
+      .update(guests)
+      .set({
+        rsvpStatus: "confirmed",
+        partySizeConfirmed: seats,
+        // Their own answer keeps its moment; this is the first one for anybody
+        // the host is answering on behalf of.
+        rsvpRespondedAt: guest.rsvpRespondedAt ?? new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(guests.id, guest.id));
+
+    await recordGuestEvent({
+      guestId: guest.id,
+      eventId,
+      type: guest.rsvpStatus === "confirmed" ? "party_size_changed" : "confirmed",
+      at: new Date(),
+      source: "organizer",
+      detail: { seats, from: guest.rsvpStatus },
+    });
+
+    confirmed++;
+    if (seats > 1) companions++;
+  }
+
+  revalidatePath(`/eventos/${eventId}/invitados`);
+  revalidatePath(`/eventos/${eventId}`);
+
+  if (confirmed === 0) {
+    return declined > 0
+      ? { error: "Nadie cambió: los seleccionados ya dijeron que no podrán." }
+      : { ok: "Nadie cambió: ya estaban así." };
+  }
+
+  const people = confirmed === 1 ? "1 invitado" : `${confirmed} invitados`;
+  const plus = companions > 0 ? `, ${companions} con acompañante` : "";
+  const skipped = declined > 0 ? ` (${declined} sin tocar porque ya habían dicho que no)` : "";
+  return { ok: `Confirmaste ${people}${plus}.${skipped}` };
+}
+
 export async function deleteGuests(eventId: string, guestIds: string[]) {
   const event = await ownedEvent(eventId);
   if (!event || guestIds.length === 0) return;

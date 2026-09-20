@@ -182,6 +182,16 @@ export const guests = pgTable(
     passesRemindedAt: timestamp("passes_reminded_at", { withTimezone: true }),
 
 
+    /**
+     * When the one free-form nudge to answer the invitation went out.
+     *
+     * Only ever set once. A guest who registered themselves opened a 24-hour
+     * window by doing so, and this is the reminder that fits inside it without
+     * a template — see `lib/guests/rsvp-reminder.ts`. Null means it has not
+     * been sent; it is never cleared, because a second nudge is nagging.
+     */
+    rsvpReminderSentAt: timestamp("rsvp_reminder_sent_at", { withTimezone: true }),
+
     optedOut: boolean("opted_out").notNull().default(false),
     optedOutAt: timestamp("opted_out_at", { withTimezone: true }),
 

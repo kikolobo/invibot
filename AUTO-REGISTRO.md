@@ -180,6 +180,37 @@ Un mensaje entrante desde su propio número es consentimiento nuevo, y más firm
 que cualquier casilla. Sin esto la aprobación funciona, la invitación nunca sale
 y nadie se entera: `deliver()` bloquea los números suprimidos.
 
+## El recordatorio de confirmación
+
+Quien se registró solo abrió una ventana de 24 horas al escribirnos, y dentro de
+ella los botones de la invitación **no necesitan plantilla y no cuestan nada**.
+Si su invitación se queda sin respuesta, sale un empujón con esos mismos botones
+(`lib/guests/rsvp-reminder.ts`), una sola vez por invitado.
+
+Las tres condiciones, todas a la vez:
+
+- **Tarde dentro de la ventana:** cuando le quedan 8 horas o menos. En la
+  práctica, unas 16 horas después de su último mensaje.
+- **A una hora decente:** entre las 11:00 y las 20:00 en la zona del evento. Si
+  la ventana se cierra de madrugada, el último momento decente es la tarde
+  anterior; si ya no queda ninguno, no se manda nada. Un recordatorio vale menos
+  que lo que la persona opine de nosotros.
+- **Sin pisar otro mensaje:** nada en las 2 horas siguientes a algo que le
+  mandamos.
+
+Sólo para `source = 'self'`, aprobados, con invitación entregada y `rsvp_status`
+todavía en `no_response`. Quien contesta de cualquier forma deja de ser
+candidato, que es justo lo que se pedía. `guests.rsvp_reminder_sent_at` lo marca
+y **nunca se limpia**: un segundo empujón ya es insistir.
+
+Los botones llevan los payloads de `invitacion_evento` (o los de la versión con
+acompañante, si su invitación incluye +1), así que un toque aquí entra por
+`parseIntent` exactamente igual que uno en la plantilla.
+
+**Quién lo dispara:** el cron diario de las 11:00 de Monterrey y, entre tanto,
+el tráfico entrante del webhook. Las dos condiciones de tiempo se revisan en
+cada barrido, así que un barrido a deshora no manda nada.
+
 ## Casos raros
 
 - **Mensajes que no son texto** (sticker, foto, audio): `text` viene nulo, así
