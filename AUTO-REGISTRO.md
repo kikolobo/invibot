@@ -132,6 +132,24 @@ está procesado» a quien sólo dijo «gracias» se lee como un robot descompues
 
 ---
 
+## El nombre, al guardarlo
+
+Todo nombre que entra por aquí pasa por `cleanName`, que además de recortar
+espacios y la puntuación suelta de «mi nombre es: Juan.» le da **mayúsculas de
+nombre propio**: "JUAN PEREZ" y "juan perez" quedan los dos como "Juan Perez".
+
+- Las partículas se quedan en minúscula a media frase: "Juan de la Cruz", no
+  "Juan De La Cruz". Al principio sí van con mayúscula, porque "De la Cruz"
+  suelto es un apellido.
+- **Lo que trae mayúsculas adentro no se toca.** "McDonald", "DeLeón" y
+  "LaSalle" se escribieron así a propósito, y corregir a alguien su propio
+  nombre es peor que no hacer nada.
+- Dos mayúsculas solas — "LG", "JR" — tampoco: son iniciales o una marca, y
+  "Lg" es peor que cualquiera de las dos. Con tres se comería a Ana, Eva y Luz.
+- Se quitan los emoji, porque un nombre de WhatsApp es "Kiko 🎧" y una lista de
+  invitados no. Si el nombre era **sólo** emoji se deja tal cual: algo es mejor
+  que nada, y el anfitrión lo corrige al aprobar.
+
 ## Datos
 
 **Campo en `guests`, no una tabla aparte.** `conversations`, `messages`,

@@ -169,13 +169,84 @@ function nameFrom(text: string): string | null {
 }
 
 /**
+ * The little words inside a Spanish name, which stay lowercase in the middle of
+ * one: "Juan de la Cruz", not "Juan De La Cruz". First position still
+ * capitalises — "De la Cruz" on its own is a surname, not a preposition.
+ */
+const PARTICLES = new Set([
+  "de", "del", "la", "las", "lo", "los", "y", "e",
+  // Portuguese and Italian surnames are common enough here to be worth it.
+  "da", "das", "do", "dos", "di", "du", "van", "von", "der", "den", "el",
+]);
+
+const upper = (text: string) => text.toLocaleUpperCase("es");
+const lower = (text: string) => text.toLocaleLowerCase("es");
+
+/**
+ * Capitalises across the separators that live inside names: "garcía-lópez",
+ * "o'connor", and the dots of "j.r." — which without this became "J.r.".
+ */
+const capitalizeParts = (word: string) =>
+  word
+    .split(/([-'’.])/)
+    .map((part) => part.replace(/^(\p{L})/u, (letter) => upper(letter)))
+    .join("");
+
+/**
+ * A name as a guest list should print it.
+ *
+ * People type their name into WhatsApp however they are holding the phone:
+ * "JUAN PEREZ", "juan perez", "jUan". The host sees all three in one column
+ * and tidies them by hand, which is work a title-caser can do.
+ *
+ * Only tokens typed in one case are touched. Anything with capitals inside it
+ * was deliberate — "McDonald", "DeLeón", "LaSalle" — and rewriting those would
+ * be correcting people about their own names.
+ */
+export function properCase(value: string): string {
+  return value
+    .split(" ")
+    .map((token, index) => {
+      const isAllLower = token === lower(token);
+      const isAllUpper = token === upper(token);
+      // Mixed case: their choice, left alone.
+      if (!isAllLower && !isAllUpper) return token;
+
+      // Two capitals and nothing else is initials or a brand — "LG", "JR" —
+      // and "Lg" is worse than either. Three would swallow Ana, Eva and Luz.
+      if (isAllUpper && !isAllLower && token.replace(/\P{L}/gu, "").length <= 2) return token;
+
+      const word = lower(token);
+      if (index > 0 && PARTICLES.has(word)) return word;
+      return capitalizeParts(word);
+    })
+    .join(" ");
+}
+
+/**
  * A name, or null. Capped rather than rejected on length: someone who writes a
  * sentence still gets registered, and the host fixes it when approving — the
  * phone number is the part that had to be right, and it already is.
+ *
+ * Tidied on the way in rather than on the way out: this is what the host reads
+ * in the approval queue, what the invitation greets them by, and what the door
+ * list prints. The emoji go with it — a WhatsApp handle is "Kiko 🎧" and a
+ * guest list is not — unless they were the whole name, in which case something
+ * is better than nothing.
  */
 export function cleanName(value: string): string | null {
-  const name = value.replace(/\s+/g, " ").trim().slice(0, 80);
-  return name.length > 0 ? name : null;
+  const withoutEmoji = value
+    .replace(/[\p{Extended_Pictographic}\p{So}\uFE0F]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const name = (withoutEmoji || value.replace(/\s+/g, " ").trim())
+    // Trailing punctuation from "mi nombre es: Juan." or a typed "Ana,".
+    .replace(/^["'«“]+|["'»”.,;:!¡]+$/g, "")
+    .trim()
+    .slice(0, 80);
+
+  return name.length > 0 ? properCase(name) : null;
 }
 
 const INTERROGATIVES =
