@@ -41,7 +41,9 @@ for (const seats of [1, 2]) {
     for (const qr of [false, true]) {
       const context = await buildContext(
         { ...event, venueLat: pin ? 25.6621 : null, venueLng: pin ? -100.3552 : null, qrEnabled: qr },
-        { ...guest, partySizeAllowed: seats },
+        // No companion on file: the cases that matter are the ones where the
+        // assistant still has to ask for the name.
+        { ...guest, partySizeAllowed: seats, companions: [] },
       );
       contexts.set(`${seats}:${pin}:${qr}`, context);
     }

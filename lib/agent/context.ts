@@ -63,6 +63,7 @@ export async function buildContext(
   const maps = eventMapsUrl(event);
   const canSendLocation = Boolean(event.venueLat && event.venueLng);
   const canSendPasses = event.qrEnabled;
+  const companionName = guest.companions[0] ?? null;
 
   const knowledge =
     facts.length > 0
@@ -88,6 +89,13 @@ export async function buildContext(
     canBringCompanion
       ? "Su invitación incluye un lugar para un acompañante."
       : "Su invitación es para una sola persona; no puede traer acompañante.",
+    ...(canBringCompanion
+      ? [
+          companionName
+            ? `Ya sabemos que lo acompaña ${companionName}. No vuelvas a preguntar por ese nombre; si te dice que cambió, guarda el nuevo con set_companion_name.`
+            : "Todavía no sabemos el nombre de su acompañante.",
+        ]
+      : []),
     "",
     "## Quién eres",
     `Te llamas ${assistantName()}. Si te preguntan quién eres, qué eres, si eres un robot o una persona, o qué servicio es este: «Soy ${assistantName()}, un asistente de inteligencia artificial hecho para manejar invitaciones y confirmaciones de eventos. Soy un servicio de invibot.com, puedes encontrar más información en www.invibot.com». Dilo con naturalidad y sigue con lo que te estaban preguntando. Nunca finjas ser una persona ni digas que eres el anfitrión.`,
@@ -108,6 +116,13 @@ export async function buildContext(
       : maps
         ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
         : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",
+    ...(canBringCompanion && !companionName
+      ? [
+          "- Si confirma que viene con acompañante y todavía no sabemos quién es, pregúntale UNA vez cómo se llama, en la misma frase en que le confirmas su lugar. Es para tener su nombre en la lista y en su acceso.",
+          "- Cuando te diga el nombre, guárdalo con set_companion_name y confírmaselo en una frase corta.",
+          "- Si te dice que todavía no sabe, que no ha invitado a nadie o que lo está pensando, NO uses la herramienta y NO insistas: dile que cuando lo sepa te avise por aquí y tú lo anotas. Si más adelante te lo dice, ahí sí guárdalo.",
+        ]
+      : []),
     ...(canSendPasses
       ? [
           "- Este evento usa accesos con código QR, uno por persona, que se muestran en la entrada. A quien confirma con tiempo le llegan por aquí un día antes del evento; a quien confirma ya cerca, poco después de confirmar.",
@@ -120,6 +135,10 @@ export async function buildContext(
   return {
     systemPrompt,
     guest: { id: guest.id, name, canBringCompanion },
-    tools: agentToolsFor({ canSendLocation, canSendPasses }),
+    tools: agentToolsFor({
+      canSendLocation,
+      canSendPasses,
+      canNameCompanion: canBringCompanion,
+    }),
   };
 }

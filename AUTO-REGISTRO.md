@@ -150,6 +150,23 @@ nombre propio**: "JUAN PEREZ" y "juan perez" quedan los dos como "Juan Perez".
   invitados no. Si el nombre era **sólo** emoji se deja tal cual: algo es mejor
   que nada, y el anfitrión lo corrige al aprobar.
 
+## El nombre del acompañante
+
+Cuando alguien confirma con +1 y no sabemos a quién trae, el asistente lo
+pregunta **una vez**, en la misma frase en que le confirma su lugar — y la
+confirmación por botón también lo pregunta, porque ese mensaje es libre y puede.
+
+- Si dice el nombre, se guarda con `set_companion_name` y aparece en la lista,
+  en el CSV y en el QR del acompañante.
+- Si dice que **todavía no sabe**, que no ha invitado a nadie o que lo está
+  pensando, no se guarda nada y no se insiste: se le dice que cuando lo sepa
+  avise. Si lo dice después, ahí se anota.
+- El modelo decide cuándo preguntar; `lib/guests/companion.ts` decide qué es un
+  nombre. Hacen falta las dos mitades: sólo con el prompt, tarde o temprano
+  «todavía no sé» termina impreso en el pase de alguien.
+- También quita el parentesco cuando viene pegado: «mi esposa Ana» se guarda
+  como "Ana", y «mi esposa» a secas no se guarda.
+
 ## Datos
 
 **Campo en `guests`, no una tabla aparte.** `conversations`, `messages`,

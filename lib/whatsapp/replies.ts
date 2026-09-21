@@ -28,6 +28,8 @@ export type ReplyFacts = {
    * worse than no preview.
    */
   assistant: string;
+  /** Their +1 by name, when we already have it — then nobody asks again. */
+  companionName?: string | null;
 };
 
 /**
@@ -41,6 +43,12 @@ export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): st
     withCompanion
       ? `Tu lugar y el de tu acompañante están confirmados para ${facts.eventName}.`
       : `Tu lugar está confirmado para ${facts.eventName}.`,
+    // Asked here because this is the moment they are holding the thread. The
+    // approved template cannot ask it, which is fine: whoever falls back to it
+    // can still be asked by the assistant later.
+    ...(withCompanion && !facts.companionName
+      ? ["", "¿Cómo se llama quien te acompaña? Así lo anoto en la lista."]
+      : []),
     "",
     `📅 ${facts.when}`,
     ...(facts.addressLines?.length

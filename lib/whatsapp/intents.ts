@@ -211,6 +211,7 @@ export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<st
     addressLines: formatEventAddressLines(event),
     mapsUrl: guestMapsLink(event),
     assistant: assistantName(),
+    companionName: guest.companions[0] ?? null,
   };
 
   if (intent === "rsvp_no") return declineReply(facts);

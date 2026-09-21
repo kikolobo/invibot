@@ -166,6 +166,22 @@ export const cases: EvalCase[] = [
     because: "Without QR passes there is nothing to send, and a promised code that never arrives is worse than none.",
   },
   {
+    name: "writes down the companion when named",
+    messages: ["sí voy, llevo a mi esposa Ana Lopez"],
+    seats: 2,
+    expectTools: ["confirm_attendance", "set_companion_name"],
+    because:
+      "The name is the whole point of asking: it goes on the door list and on the companion's own pass.",
+  },
+  {
+    name: "does not store «todavía no sé» as a name",
+    messages: ["ahí estaré, voy con alguien", "todavía no sé a quién voy a llevar"],
+    seats: 2,
+    forbidTools: ["set_companion_name"],
+    because:
+      "«Todavía no sé» stored as a name is printed on somebody's QR. The guest is told to say the name when they have it, and nothing is written until then.",
+  },
+  {
     name: "keeps a confirmation after a follow-up question",
     messages: ["ahí estaré", "¿y cómo me visto?"],
     expectTools: ["confirm_attendance"],

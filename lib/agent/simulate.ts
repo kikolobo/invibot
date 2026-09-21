@@ -85,6 +85,8 @@ export async function simulateReply(
         return "Enviado al anfitrión. Avísale al invitado que le confirmas en cuanto sepas.";
       case "send_passes":
         return PASSES_SENT;
+      case "set_companion_name":
+        return `Guardado: lo acompaña ${action.name}. Confírmaselo en una frase corta y sigue con lo que estaban hablando.`;
     }
   }, tools);
 

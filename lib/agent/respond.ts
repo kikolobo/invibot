@@ -13,6 +13,7 @@ import { askOrganizer, responderFor } from "@/lib/organizers/notify";
 import { requestPasses } from "@/lib/passes/send";
 import type { WhatsAppConfig } from "@/lib/whatsapp/client";
 import { passesToolResult } from "./passes";
+import { recordCompanionName } from "@/lib/guests/companion";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -152,6 +153,17 @@ async function perform(
 
     case "send_location":
       return sendVenuePin(guest);
+
+    case "set_companion_name": {
+      const outcome = await recordCompanionName(guest.id, action.name);
+      if (outcome.ok) {
+        return `Guardado: lo acompaña ${outcome.name}. Confírmaselo en una frase corta y sigue con lo que estaban hablando.`;
+      }
+      if (outcome.reason === "not_allowed") {
+        return "No se guardó: su invitación es para una sola persona. No le prometas un lugar extra.";
+      }
+      return "No se guardó: eso no parece un nombre. Si te dijo que todavía no sabe, dile que cuando lo sepa te avise y tú lo anotas; no insistas.";
+    }
 
     case "send_passes":
       // By id, not the row in hand: a confirmation earlier in this same turn

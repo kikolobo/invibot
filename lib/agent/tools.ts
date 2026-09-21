@@ -16,7 +16,8 @@ export type AgentAction =
   | { tool: "opt_out" }
   | { tool: "escalate_question"; question: string }
   | { tool: "send_location" }
-  | { tool: "send_passes" };
+  | { tool: "send_passes" }
+  | { tool: "set_companion_name"; name: string };
 
 const locationTool: Anthropic.Tool = {
   name: "send_location",
@@ -31,6 +32,24 @@ const passesTool: Anthropic.Tool = {
   description:
     "Send the guest their entry pass — the QR code shown at the door, one per person coming. Use it when they ask for their pass, access, QR, code, ticket or entrada, or say they lost or cannot find it. It sends the same codes they already have, never new ones. The result tells you whether it went out or why not; relay that and nothing else.",
   input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+  strict: true,
+};
+
+const companionTool: Anthropic.Tool = {
+  name: "set_companion_name",
+  description:
+    "Write down the name of the person this guest is bringing. Use it the moment they say who is coming with them — «voy con mi esposa Ana», «se llama Luis», or just «Ana López» after you asked. Pass the person's name only, never a whole sentence. Do NOT use it when they say they do not know yet, have not invited anyone yet, or are still deciding: that is not a name, and it would be printed on their pass.",
+  input_schema: {
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        description: "The companion's name as the guest gave it, nothing else.",
+      },
+    },
+    required: ["name"],
+    additionalProperties: false,
+  },
   strict: true,
 };
 
@@ -98,11 +117,14 @@ export function agentToolsFor(options: {
   canSendLocation: boolean;
   /** Only events that use QR passes; elsewhere there is nothing to send. */
   canSendPasses: boolean;
+  /** Only a guest whose invitation has room for someone else. */
+  canNameCompanion: boolean;
 }): Anthropic.Tool[] {
   return [
     ...agentTools,
     ...(options.canSendLocation ? [locationTool] : []),
     ...(options.canSendPasses ? [passesTool] : []),
+    ...(options.canNameCompanion ? [companionTool] : []),
   ];
 }
 
@@ -120,5 +142,7 @@ export function describeAction(action: AgentAction): string {
       return "Manda la ubicación del lugar como mapa de WhatsApp";
     case "send_passes":
       return "Le manda sus accesos (QR)";
+    case "set_companion_name":
+      return `Guarda el nombre de su acompañante: “${action.name}”`;
   }
 }
