@@ -125,15 +125,6 @@ export default async function Invitados({
 
 
 
-      <div className="mt-6 flex justify-end">
-        <a
-          href={`/api/eventos/${event.id}/guests.csv`}
-          className="text-[0.85rem] text-ink-muted transition-colors hover:text-accent"
-        >
-          Exportar a CSV
-        </a>
-      </div>
-
       <div className="mt-3">
         <GuestTable
           eventId={event.id}

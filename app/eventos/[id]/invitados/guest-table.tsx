@@ -177,27 +177,27 @@ export function GuestTable({
       // puesto, que es cuando hace falta entenderla.
       label: "Conf. últ. 24H",
       ids: recent.confirmed,
-      seeing: "Viendo a quienes confirmaron en las últimas 24 horas",
+      what: "quienes confirmaron en las últimas 24 horas",
     },
     reg24: {
       label: "Reg. últ. 24H",
       ids: recent.approved,
-      seeing: "Viendo los auto-registros que aprobaste en las últimas 24 horas",
+      what: "los auto-registros que aprobaste en las últimas 24 horas",
     },
     confirmados: {
       label: "Confirmados",
       ids: rows.filter(isConfirmed).map((row) => row.id),
-      seeing: "Viendo a los confirmados",
+      what: "los confirmados",
     },
     pendientes: {
       label: "Sin responder",
       ids: rows.filter((row) => row.rsvpStatus === "no_response").map((row) => row.id),
-      seeing: "Viendo a quienes no han respondido",
+      what: "quienes no han respondido",
     },
     lugares: {
       label: "Lugares",
       ids: rows.filter(withCompanion).map((row) => row.id),
-      seeing: "Viendo a los confirmados que vienen acompañados",
+      what: "los confirmados que vienen acompañados",
     },
   } as const;
 
@@ -339,7 +339,7 @@ export function GuestTable({
   // que acabas de tocar cambiaría debajo de tu dedo.
   const stats = (
     <dl className="mt-6 flex flex-wrap items-start gap-x-10 gap-y-3 border-y border-line py-5">
-      <div className="text-ink">{tile(null, rows.length)}</div>
+
       {/* "Lugares" a secas: el renglón lo agradece y el número vive junto a
           "Confirmados", que es lo que lo explica. El reporte sí dice "Lugares
           confirmados", donde se lee solo. */}
@@ -357,23 +357,51 @@ export function GuestTable({
     </dl>
   );
 
-  const filterChip = filter && (
-    <p className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft">
-      {filters[filter].seeing} ({visible.length}
-      {visible.length === 1 ? " invitado" : " invitados"})
-      <button
-        type="button"
-        onClick={() => setFilter(null)}
-        className="text-ink-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
+  /**
+   * El renglón bajo el título: cuántos hay, y qué estás viendo si filtraste.
+   *
+   * Un solo lugar contando. El total no es una casilla hermana de las otras —
+   * es el denominador, y todas las demás son pedazos de él — y con filtro
+   * puesto es el número que cambió, así que la explicación va justo ahí.
+   */
+  const summary = (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[0.85rem] text-ink-muted">
+      <p>
+        {filter ? (
+          <>
+            Viendo{" "}
+            <span className="text-ink">
+              {visible.length} de {rows.length}
+            </span>{" "}
+            · {filters[filter].what} ·{" "}
+            <button
+              type="button"
+              onClick={() => setFilter(null)}
+              className="underline-offset-4 transition-colors hover:text-accent hover:underline"
+            >
+              Quitar filtro
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="text-ink">{rows.length}</span>{" "}
+            {rows.length === 1 ? "invitado en la lista" : "invitados en la lista"}
+          </>
+        )}
+      </p>
+      <a
+        href={`/api/eventos/${eventId}/guests.csv`}
+        className="transition-colors hover:text-accent"
       >
-        Quitar filtro
-      </button>
-    </p>
+        Exportar a CSV
+      </a>
+    </div>
   );
 
   if (rows.length === 0) {
     return (
       <div>
+        {summary}
         {stats}
         <div className="mt-3 flex justify-end">{addButton}</div>
         <p className="mt-3 rounded-xl border border-dashed border-line bg-paper-deep p-8 text-center text-ink-muted">
@@ -386,8 +414,8 @@ export function GuestTable({
 
   return (
     <div>
+      {summary}
       {stats}
-      {filterChip}
 
       {!archived && pendingIds.length > 0 && !sending && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-paper-deep p-4">
