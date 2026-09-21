@@ -160,12 +160,15 @@ export function GuestTable({
 
   const filters = {
     confirmados: {
-      label: "Confirmados últ. 24 h",
+      // Abreviado para que las seis casillas quepan en un renglón. La etiqueta
+      // de arriba de la tabla dice la frase completa cuando el filtro está
+      // puesto, que es cuando hace falta entenderla.
+      label: "Conf. últ. 24H",
       ids: recent.confirmed,
       seeing: "Viendo a quienes confirmaron en las últimas 24 horas",
     },
     registros: {
-      label: "Auto-registros aprobados últ. 24 h",
+      label: "Auto-Reg. últ. 24H",
       ids: recent.approved,
       seeing: "Viendo los auto-registros que aprobaste en las últimas 24 horas",
     },
