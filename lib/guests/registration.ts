@@ -11,6 +11,7 @@ import {
   cleanName,
   readYesNo,
 } from "./auto-register";
+import { splitNames, fullNameOf, type SplitPerson } from "./name-split";
 
 type GuestRow = typeof guests.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -18,9 +19,13 @@ type EventRow = typeof events.$inferSelect;
 /**
  * Auto-registro: the conversation rules.
  *
- * Every reply here is a fixed string. The assistant is never consulted, which
+ * Every reply here is a fixed string. No assistant writes a word of this, which
  * is the whole safety property: an unapproved registrant cannot be talked into
  * revealing the venue, because nothing that knows the venue is in the loop.
+ *
+ * One model call does happen, in `name-split.ts`, and it is a parser: it is
+ * handed the name line and nothing else, and returns a structure. What it
+ * cannot do is speak — every sentence below is still written here.
  * It also means this path costs nothing per message and can be reasoned about
  * exhaustively — see AUTO-REGISTRO.md for the table these functions implement.
  */
@@ -39,6 +44,22 @@ export const COPY = {
   nameUpdated: "Listo, actualicé tu nombre.",
   nameKept: "Perfecto, lo dejamos como está.",
   closed: "El evento ya está cerrado. ¡Gracias!",
+
+  /**
+   * Asked once and only once. If they answer with something that is not a
+   * name, the registration stands as it is and the host fixes it at approval —
+   * pressing twice for a surname is how a registration link stops being easy.
+   */
+  askFullName: (who: string) => `Gracias 🙌 Disculpa, ¿cuál sería el nombre completo de ${who}?`,
+  askBothNames: "Gracias 🙌 ¿Cuáles serían sus nombres completos, para la lista de asistentes?",
+
+  /** They registered two people for an event that seats one. */
+  soloEvent:
+    "Este evento es individual. Si gustas, contacta al organizador para que envíe una invitación adicional.",
+
+  /** They registered three or more. */
+  onlyPlusOne:
+    "Este evento sólo permite un acompañante. Si requieres ingresar a más personas o una invitación adicional, contacta al organizador.",
 } as const;
 
 /**
@@ -177,6 +198,95 @@ async function existingGuest(
   return await noticeOnce(guest, COPY.pending);
 }
 
+/**
+ * What a registration line means, once two people can arrive on one.
+ *
+ * `note` and the third person onwards are the host's problem, not a reason to
+ * refuse anybody: they are kept in the guest's notes and the guest is told
+ * plainly what the invitation actually seats.
+ */
+type Registered = {
+  fullName: string;
+  companions: string[];
+  /** Appended to the reply, after the Save the Date. */
+  notice: string | null;
+  /** Whose full name is still missing, for the single question we may ask. */
+  missing: "first" | "second" | "both" | null;
+  /** First names, so the question can use them. */
+  who: string[];
+  notes: string | null;
+};
+
+async function readRegistration(
+  given: string,
+  maxPartySize: number,
+): Promise<Registered | null> {
+  const split = await splitNames(given);
+  if (!split.ok) return null;
+
+  const people = split.names.people;
+  if (people.length === 0) return null;
+
+  // One person and a note — "Ana y familia", "Ana +1". The companion has no
+  // name, but the guest's own name is "Ana" and not the whole line.
+  if (people.length === 1) {
+    if (!split.names.note) return null;
+    return {
+      fullName: fullNameOf(people[0]),
+      companions: [],
+      notice: null,
+      missing: null,
+      who: [people[0].first],
+      notes: `Escribió: «${given}»`,
+    };
+  }
+
+  const seats = Math.max(1, maxPartySize);
+  const kept = people.slice(0, seats);
+  const spare = people.slice(seats);
+
+  const notes = [
+    split.names.note ? `Escribió: «${given}»` : null,
+    spare.length > 0 ? `También mencionó: ${spare.map(fullNameOf).join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(". ") || null;
+
+  const notice =
+    seats < 2 ? COPY.soloEvent : spare.length > 0 ? COPY.onlyPlusOne : null;
+
+  const missingFor = (person: SplitPerson | undefined) => Boolean(person && !person.last);
+  const missing =
+    kept.length < 2
+      ? null
+      : missingFor(kept[0]) && missingFor(kept[1])
+        ? "both"
+        : missingFor(kept[0])
+          ? "first"
+          : missingFor(kept[1])
+            ? "second"
+            : null;
+
+  return {
+    fullName: fullNameOf(kept[0]),
+    companions: kept.slice(1).map(fullNameOf),
+    notice,
+    missing,
+    who: kept.map((person) => person.first),
+    notes,
+  };
+}
+
+/** The one question we may ask about a pair of names, or nothing. */
+function questionFor(registered: Registered): { text: string; value: string } | null {
+  if (!registered.missing) return null;
+  if (registered.missing === "both") {
+    return { text: COPY.askBothNames, value: "both" };
+  }
+  const who = registered.missing === "first" ? registered.who[0] : registered.who[1];
+  return { text: COPY.askFullName(who), value: registered.missing };
+}
+
 /** Gate 3. */
 async function register(
   event: EventRow,
@@ -187,7 +297,13 @@ async function register(
   handle: string | null,
 ): Promise<RegistrationAction> {
   const name = given;
-  const fullName = given ?? handle ?? "Sin nombre";
+
+  // Two people on one line — "Laura y Pedro Bap". Read before anything is
+  // written, because it decides the name, the companion and the reply at once.
+  const pair = given ? await readRegistration(given, event.maxPartySize) : null;
+  const question = pair ? questionFor(pair) : null;
+
+  const fullName = pair?.fullName ?? given ?? handle ?? "Sin nombre";
 
   // Meta hands us the wa_id, which for Mexico is the legacy `+521…` form. Every
   // other phone in this database is canonical, and Meta itself rejects a send
@@ -204,6 +320,8 @@ async function register(
       phoneE164: normalized?.e164 ?? phoneE164,
       phoneVariants: normalized?.variants ?? variantsOf(phoneE164),
       partySizeAllowed: event.maxPartySize,
+      companions: pair?.companions ?? [],
+      notes: pair?.notes ?? null,
       accessToken: nanoid(24),
       approvalStatus: "pending",
       source: "self",
@@ -213,8 +331,9 @@ async function register(
       nameFromGuest: given !== null,
       // Asked for now, answered next message. Written in the same statement as
       // the guest so a crash between the two cannot leave a guest nobody asked.
-      pendingQuestion: name ? null : "name",
-      pendingQuestionAt: name ? null : new Date(),
+      pendingQuestion: name ? (question ? "full_names" : null) : "name",
+      pendingQuestionAt: name && !question ? null : new Date(),
+      pendingQuestionValue: question?.value ?? null,
       registrationNoticeAt: new Date(),
     })
     .returning();
@@ -229,7 +348,16 @@ async function register(
     at: new Date(),
   });
 
-  return { kind: "reply", guestId: guest.id, text: name ? COPY.registered(event) : COPY.askName };
+  if (!name) return { kind: "reply", guestId: guest.id, text: COPY.askName };
+
+  // One message, not three: the Save the Date, then what the invitation seats,
+  // then the single question. Each of those as its own message is a phone
+  // buzzing four times for one registration.
+  const text = [COPY.registered(event), pair?.notice, question?.text]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return { kind: "reply", guestId: guest.id, text };
 }
 
 /** Gate 4. */
@@ -237,6 +365,12 @@ async function answerQuestion(
   guest: GuestRow,
   text: string | null,
 ): Promise<RegistrationAction> {
+  // The surname (or the pair of them) we asked for once. Whatever comes back,
+  // the question is closed: asking twice is the loop this file exists to avoid.
+  if (guest.pendingQuestion === "full_names") {
+    return await answerFullNames(guest, text);
+  }
+
   if (guest.pendingQuestion === "name_update") {
     const answer = readYesNo(text);
     // The name is the one we quoted in the question, not the word they replied
@@ -289,6 +423,85 @@ async function answerQuestion(
 
   await clearQuestion(guest.id, null);
   return await noticeOnce(guest, COPY.pending);
+}
+
+/**
+ * They answered the one question about the two names, or they did not.
+ *
+ * Either way it ends here. A usable answer replaces the names; anything else
+ * leaves the registration exactly as it already was, which is a complete
+ * registration with a first name missing a surname — the host sees both names
+ * in the approval queue and can type it themselves.
+ */
+async function answerFullNames(
+  guest: GuestRow,
+  text: string | null,
+): Promise<RegistrationAction> {
+  const missing = guest.pendingQuestionValue;
+  const answer = text?.trim() ?? "";
+
+  const clear = {
+    pendingQuestion: null,
+    pendingQuestionAt: null,
+    pendingQuestionValue: null,
+    registrationNoticeAt: new Date(),
+  } as const;
+
+  const companion = guest.companions[0] ?? null;
+  let fullName = guest.fullName;
+  let companions = guest.companions;
+  let understood = false;
+
+  // "Cuáles serían sus nombres completos" is answered with two names again, so
+  // it goes back through the same splitter.
+  if (missing === "both") {
+    const split = await splitNames(answer);
+    if (split.ok && split.names.people.length >= 2) {
+      fullName = fullNameOf(split.names.people[0]);
+      companions = [fullNameOf(split.names.people[1])];
+      understood = true;
+    }
+  } else if (looksLikeAName(answer)) {
+    // One name was asked for, so the answer is that name — but an answer that
+    // is only a surname ("Cantú", "de Hoyos") completes the name we already
+    // have instead of replacing it. Decided by whether the given name they
+    // already told us appears in the answer, not by counting words: "de Hoyos"
+    // is two words and still no first name.
+    const given = cleanName(answer)!;
+    const current = missing === "second" ? (companion ?? "") : guest.fullName;
+    const knownFirst = current.split(/\s+/)[0] ?? "";
+    const fold = (text: string) =>
+      text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const namesThem = given
+      .split(/\s+/)
+      .some((word) => fold(word) === fold(knownFirst));
+
+    const whole = namesThem || !knownFirst ? given : `${knownFirst} ${given}`;
+    const tidy = cleanName(whole) ?? given;
+
+    if (missing === "second" && companion) companions = [tidy];
+    else fullName = tidy;
+    understood = true;
+  }
+
+  await db
+    .update(guests)
+    .set({
+      ...clear,
+      ...(understood
+        ? { fullName, firstName: fullName.split(/\s+/)[0], companions, nameFromGuest: true }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(guests.id, guest.id));
+
+  // Nothing is said back on a failed answer. They already have their Save the
+  // Date; "no entendí" to someone who just wrote their friend's name is a
+  // worse message than silence.
+  if (!understood) return { kind: "silent" };
+
+  const both = [fullName, ...companions].filter(Boolean).join(" y ");
+  return { kind: "reply", guestId: guest.id, text: `Listo, quedan registrados ${both} 🙌` };
 }
 
 /**

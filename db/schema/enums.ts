@@ -66,7 +66,16 @@ export const guestSource = pgEnum("guest_source", ["manual", "self"]);
  * rather than run through `parseIntent` — where "sí" to "¿actualizo tu
  * nombre?" would otherwise be recorded as confirming attendance.
  */
-export const pendingQuestion = pgEnum("pending_question", ["name", "name_update"]);
+export const pendingQuestion = pgEnum("pending_question", [
+  "name",
+  "name_update",
+  /**
+   * Two people registered on one line and at least one surname is missing.
+   * `pendingQuestionValue` holds who we are short of, so the answer knows
+   * which name it completes.
+   */
+  "full_names",
+]);
 
 export const channel = pgEnum("channel", ["whatsapp", "sms", "email"]);
 

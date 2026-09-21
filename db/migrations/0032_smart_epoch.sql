@@ -1,0 +1,1 @@
+ALTER TYPE "public"."pending_question" ADD VALUE 'full_names';

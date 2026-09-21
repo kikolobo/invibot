@@ -150,6 +150,59 @@ nombre propio**: "JUAN PEREZ" y "juan perez" quedan los dos como "Juan Perez".
   invitados no. Si el nombre era **sólo** emoji se deja tal cual: algo es mejor
   que nada, y el anfitrión lo corrige al aprobar.
 
+## Dos nombres en una línea
+
+Mucha gente se registra en pareja: «Laura y Pedro Bap». Antes eso era **un**
+invitado llamado así, impreso tal cual en la lista de la puerta y en su pase.
+Ahora se lee como dos personas: la primera es el invitado y la segunda queda en
+`companions`, que es el campo que ya alimenta la lista, el CSV y el QR.
+
+**El modelo sólo parte nombres; no conversa.** Recibe únicamente la línea del
+nombre — nunca el evento, la fecha ni el lugar — y devuelve una estructura. Los
+textos que lee el invitado siguen siendo fijos, con huecos. La propiedad de
+seguridad de este archivo se mantiene: nada que conozca el evento le habla a
+alguien que el anfitrión no ha aprobado.
+
+Tres cercos, en `lib/guests/name-split.ts`:
+
+1. **Prefiltro.** Sólo se llama al modelo si hay separador (` y `, `&`, `+`,
+   `,`). «Marcela Zambrano» no cuesta nada y ni siquiera sale de la máquina.
+2. **Salida estructurada.** Esquema fijo con zod; nunca texto libre.
+3. **Cada palabra devuelta debe estar en el original.** Es el único error que
+   vale la pena blindar: un modelo servicial convierte «Laura y Pedro Bap» en
+   «Laura Bap y Pedro Bap». Las dos lecturas son plausibles, sólo una es lo que
+   escribieron, y la otra le pone a Laura un apellido que quizá no es suyo.
+
+Si algo falla — sin llave de API, límite de tasa, forma inesperada — **el
+registro nunca se bloquea**: se guarda la línea tal cual, como antes, y el
+anfitrión la corrige al aprobar.
+
+### La pregunta, una sola vez
+
+| Escriben | Se guarda | Se pregunta |
+|---|---|---|
+| Kiko Lobo y Eugenia de Hoyos | Kiko Lobo + Eugenia de Hoyos | nada |
+| Kiko Lobo y Eugenia | Kiko Lobo + Eugenia | «¿cuál sería el nombre completo de Eugenia?» |
+| Laura y Pedro Bap | Laura + Pedro Bap | «¿cuál sería el nombre completo de Laura?» |
+| Kiko y Eugenia | Kiko + Eugenia | «¿cuáles serían sus nombres completos?» |
+
+Va **pegada al Save the Date, en el mismo mensaje**: tres mensajes seguidos por
+un registro es un teléfono vibrando cuatro veces.
+
+Y se pregunta **una vez**. Si contestan un nombre, se guarda; si contestan
+«ahorita te digo», no se responde nada y el registro se queda como estaba — con
+los dos nombres, uno sin apellido, que el anfitrión ve y corrige. Si contestan
+sólo el apellido («De Hoyos»), completa el nombre que ya teníamos en vez de
+reemplazarlo.
+
+### Cuando no caben
+
+- **Evento individual:** se registra al primero y se le dice *«Este evento es
+  individual. Si gustas, contacta al organizador para que envíe una invitación
+  adicional.»* El segundo nombre queda en las notas del invitado, para ti.
+- **Tres o más:** se registran los dos que caben y se le dice *«Este evento sólo
+  permite un acompañante…»*. Los demás, a las notas.
+
 ## El nombre del acompañante
 
 Cuando alguien confirma con +1 y no sabemos a quién trae, el asistente lo

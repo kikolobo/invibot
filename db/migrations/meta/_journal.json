@@ -225,6 +225,13 @@
       "when": 1789950934003,
       "tag": "0031_futuristic_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789955341040,
+      "tag": "0032_smart_epoch",
+      "breakpoints": true
     }
   ]
 }
