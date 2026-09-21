@@ -154,6 +154,7 @@ export function GuestTable({
   const [editing, setEditing] = useState<string | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [filter, setFilter] = useState<null | keyof typeof filters>(null);
   const [sortKey, setSortKey] = useState<SortKey>("grupo");
   const [ascending, setAscending] = useState(true);
@@ -245,6 +246,10 @@ export function GuestTable({
   // and knows the answer came some other way — at the office, in a group chat —
   // which is exactly the list they want to tick off in one go.
   const silentIds = visible.filter((row) => row.rsvpStatus === "no_response").map((row) => row.id);
+
+  // Con selección la fila cambia de oficio: deja de servir para mirar y pasa a
+  // servir para actuar. Mientras se manda, el panel de envío manda la escena.
+  const acting = selected.size > 0 && !sending;
 
   const selectedRows = rows.filter((row) => selected.has(row.id));
   const canBringCompanion = selectedRows.some((row) => row.partySizeAllowed > 1);
@@ -406,7 +411,15 @@ export function GuestTable({
         </div>
       )}
 
-      <div className={`flex min-h-9 items-center justify-between gap-4 ${archived ? "hidden" : ""}`}>
+      {/* Una fila que se transforma. Sin selección es para mirar —ordenar,
+          agregar—; con selección es para actuar, y lo de mirar estorba. Se
+          queda pegada arriba mientras haya selección: en una lista larga, los
+          botones que elegiste allá arriba ya no se ven cuando bajas. */}
+      <div
+        className={`flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2 ${
+          archived ? "hidden" : ""
+        } ${acting ? "sticky top-0 z-30 -mx-2 border-b border-line bg-paper px-2 py-2" : ""}`}
+      >
         <label className="flex items-center gap-2 text-[0.85rem] text-ink-muted">
           <input
             type="checkbox"
@@ -416,9 +429,18 @@ export function GuestTable({
             }
             className="size-4 accent-[var(--accent)]"
           />
-          {selected.size > 0 ? `${selected.size} seleccionados` : "Seleccionar todos"}
+          {selected.size > 0 ? (
+            <span className="text-ink">
+              {selected.size} {selected.size === 1 ? "seleccionado" : "seleccionados"}
+              {/* Con filtro puesto, sobre qué se va a actuar no es obvio. */}
+              {filter && ` de los ${visible.length} que estás viendo`}
+            </span>
+          ) : (
+            "Seleccionar todos"
+          )}
         </label>
-        {silentIds.length > 0 && (
+
+        {!acting && silentIds.length > 0 && (
           <button
             type="button"
             onClick={() => setSelected(new Set(silentIds))}
@@ -429,35 +451,38 @@ export function GuestTable({
               : `Seleccionar los ${silentIds.length} sin responder`}
           </button>
         )}
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-[0.85rem] text-ink-muted">
-            Ordenar por
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="rounded-lg border border-line bg-paper-deep px-2 py-1 text-[0.85rem] text-ink outline-none focus:border-accent"
-            >
-              {sorts.map((sort) => (
-                <option key={sort.key} value={sort.key}>
-                  {sort.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={() => setAscending((up) => !up)}
-            title={ascending ? "Ascendente" : "Descendente"}
-            aria-label={ascending ? "Orden ascendente" : "Orden descendente"}
-            className="inline-flex size-6 items-center justify-center rounded-full border border-line text-[0.75rem] text-ink-muted transition-colors hover:border-accent hover:text-accent"
-          >
-            {ascending ? "↑" : "↓"}
-          </button>
-          {selected.size === 0 && addButton}
-        </div>
 
-        {selected.size > 0 && !sending && (
+        {!acting && (
           <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-[0.85rem] text-ink-muted">
+              Ordenar por
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="rounded-lg border border-line bg-paper-deep px-2 py-1 text-[0.85rem] text-ink outline-none focus:border-accent"
+              >
+                {sorts.map((sort) => (
+                  <option key={sort.key} value={sort.key}>
+                    {sort.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => setAscending((up) => !up)}
+              title={ascending ? "Ascendente" : "Descendente"}
+              aria-label={ascending ? "Orden ascendente" : "Orden descendente"}
+              className="inline-flex size-6 items-center justify-center rounded-full border border-line text-[0.75rem] text-ink-muted transition-colors hover:border-accent hover:text-accent"
+            >
+              {ascending ? "↑" : "↓"}
+            </button>
+            {addButton}
+          </div>
+        )}
+
+        {acting && (
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => setSending(true)}
@@ -484,13 +509,56 @@ export function GuestTable({
                 Confirmar con +1
               </button>
             )}
+
+            {/* Lo único que no se deshace, detrás del ⋯. Es el único lugar
+                donde un menú se gana su lugar: esconder lo que no quieres
+                tocar por accidente, a un dedo de «Confirmar». */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMoreOpen((open) => !open)}
+                disabled={pending}
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                aria-label="Más acciones"
+                className="inline-flex size-7 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                ⋯
+              </button>
+              {moreOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Cerrar"
+                    onClick={() => setMoreOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-50 mt-2 min-w-40 rounded-xl border border-line bg-paper p-1 shadow-xl"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        removeSelected();
+                      }}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-[0.85rem] text-danger transition-colors hover:bg-paper-deep"
+                    >
+                      {pending ? "Borrando…" : "Borrar de la lista"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={removeSelected}
-              disabled={pending}
-              className="rounded-full border border-accent px-4 py-1.5 text-[0.85rem] text-accent transition-colors hover:bg-action hover:text-ink-onaction disabled:opacity-50"
+              onClick={() => setSelected(new Set())}
+              className="text-[0.85rem] text-ink-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
             >
-              {pending ? "Borrando…" : "Borrar"}
+              Quitar selección
             </button>
           </div>
         )}
