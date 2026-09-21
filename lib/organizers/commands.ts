@@ -22,6 +22,7 @@ export type OrganizerCommand =
   | "lista_confirmados"
   | "lista_cancelados"
   | "lista_sin_respuesta"
+  | "reporte"
   | "ayuda";
 
 const WORDS: Record<string, OrganizerCommand> = {
@@ -57,6 +58,11 @@ const WORDS: Record<string, OrganizerCommand> = {
   "listar-sin-respuesta": "lista_sin_respuesta",
   "lista-pendientes": "lista_sin_respuesta",
   "sin-respuesta": "lista_sin_respuesta",
+  reporte: "reporte",
+  reportes: "reporte",
+  report: "reporte",
+  corte: "reporte",
+  resumen: "reporte",
   ayuda: "ayuda",
   help: "ayuda",
   menu: "ayuda",
@@ -130,6 +136,9 @@ export function formatCounts(command: OrganizerCommand, counts: Counts): string 
         counts,
         `${counts.declined} ${counts.declined === 1 ? "cancelado" : "cancelados"}`,
       );
+    case "reporte":
+      // Se arma en `report.ts`, con las cuentas de las últimas 24 horas.
+      return HELP;
     case "lista_confirmados":
     case "lista_cancelados":
     case "lista_sin_respuesta":
@@ -163,6 +172,7 @@ export const HELP = [
   "/confirmados — cuántos van y cuántos lugares",
   "/invitados — cuántos hay en la lista",
   "/cancelados — cuántos no van",
+  "/reporte — el corte de las últimas 24 horas",
   "/registerlink — la liga de autorregistro para compartir",
   "",
   "Y por nombre:",

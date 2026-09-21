@@ -468,6 +468,44 @@ export const templates = {
   },
 
   /**
+   * El corte diario, para el organizador cuya ventana ya cerró.
+   *
+   * Cinco variables en vez de once: cada línea llega armada ("3 nuevos · 42 en
+   * total") en lugar de un parámetro por número. Meta rechaza las plantillas
+   * con más variables que texto, y un renglón entero es más fácil de leer en la
+   * revisión que una hilera de huecos.
+   */
+  reporte_diario: {
+    name: "reporte_diario",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "organizer_relay",
+    header: { format: "TEXT", text: "Reporte diario" },
+    // "Corte de" al principio no es adorno: Meta rechaza un cuerpo que empieza
+    // con variable, y ese fue el primer intento.
+    body: [
+      "Corte de {{1}} · últimas 24 horas",
+      "",
+      "✅ Confirmados: {{2}}",
+      "🎟️ Lugares: {{3}}",
+      "🙋 Auto-registros: {{4}}",
+      "❌ Cancelados: {{5}}",
+      "❓ Preguntas: {{6}}",
+      "",
+      "Escríbeme /reporte cuando quieras el corte del momento.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Confirmados: nuevos y total", example: "3 nuevos · 42 en total" },
+      { description: "Lugares: nuevos y total", example: "5 nuevos · 77 en total" },
+      { description: "Auto-registros: nuevos y por aprobar", example: "2 nuevos · 1 por aprobar" },
+      { description: "Cancelados: nuevos y total", example: "0 nuevos · 3 en total" },
+      { description: "Preguntas: nuevas y sin responder", example: "1 nueva · 2 sin responder" },
+    ],
+    footer,
+  },
+
+  /**
    * The organizer half of the escalation loop: a guest asked something the event
    * facts do not cover, so the organizer is asked once on their own WhatsApp.
    */

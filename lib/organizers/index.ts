@@ -12,6 +12,7 @@ import {
   type OrganizerCommand,
 } from "./commands";
 import { registrationLink } from "@/lib/guests/auto-register";
+import { formatReport, reportFor } from "./report";
 
 type OrganizerRow = typeof organizers.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -135,6 +136,16 @@ export async function organizerReply(
       lines.push(
         formatNames(event.name, list.heading, list.empty, await namesFor(event.id, command)),
       );
+    }
+    return lines.join("\n\n");
+  }
+
+  if (command === "reporte") {
+    // El mismo texto que sale solo a las 11:00, para que pedirlo y recibirlo
+    // no se vean como dos cosas distintas.
+    const lines: string[] = [];
+    for (const { event } of mine.slice(0, 5)) {
+      lines.push(formatReport(await reportFor(event)));
     }
     return lines.join("\n\n");
   }
