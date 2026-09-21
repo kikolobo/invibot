@@ -35,6 +35,14 @@ export type InboundMessage = {
   /** Set when the guest tapped a quick-reply button on a template. */
   buttonPayload: string | null;
   /**
+   * Contactos compartidos desde la libreta.
+   *
+   * `waId` sólo viene cuando esa persona usa WhatsApp, que es exactamente la
+   * validación que necesita el alta por contacto: si falta, no hay a dónde
+   * mandarle nada.
+   */
+  contacts: SharedContact[];
+  /**
    * The `wamid` of *our* message this one replies to, when WhatsApp says so.
    *
    * This is how an inbound message names the event it belongs to. A phone
@@ -44,6 +52,14 @@ export type InboundMessage = {
   contextWamid: string | null;
   type: string;
   raw: unknown;
+};
+
+export type SharedContact = {
+  /** Como lo tiene guardado quien lo compartió: "Ana López", "Mamá", "Kiko 🎧". */
+  name: string | null;
+  phone: string | null;
+  /** El número tal como WhatsApp lo conoce, cuando esa persona está en WhatsApp. */
+  waId: string | null;
 };
 
 export type StatusUpdate = {
@@ -118,6 +134,25 @@ export function parseWebhook(body: unknown): {
 
         const context = message.context as { id?: string } | undefined;
 
+        const shared = (message.contacts ?? []) as {
+          name?: { formatted_name?: string; first_name?: string };
+          phones?: { phone?: string; wa_id?: string }[];
+        }[];
+
+        // Un contacto puede traer varios teléfonos; el que sirve es el que
+        // está en WhatsApp, y si ninguno lo está, el primero — para poder
+        // decir de quién se trata al rechazarlo.
+        const contacts: SharedContact[] = shared.map((contact) => {
+          const phones = contact.phones ?? [];
+          const onWhatsApp = phones.find((phone) => phone.wa_id);
+          const chosen = onWhatsApp ?? phones[0];
+          return {
+            name: contact.name?.formatted_name ?? contact.name?.first_name ?? null,
+            phone: chosen?.phone ?? chosen?.wa_id ?? null,
+            waId: onWhatsApp?.wa_id ?? null,
+          };
+        });
+
         messages.push({
           wamid: String(message.id ?? ""),
           contextWamid: context?.id ? String(context.id) : null,
@@ -127,6 +162,7 @@ export function parseWebhook(body: unknown): {
           profileName,
           text,
           buttonPayload,
+          contacts,
           type,
           raw: message,
         });

@@ -52,6 +52,20 @@ export const organizers = pgTable(
      */
     lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
 
+    /**
+     * Lo que le preguntamos y estamos esperando que conteste.
+     *
+     * Mismo truco que `guests.pending_question`, y por la misma razón: el
+     * siguiente mensaje de este número se lee como respuesta a esto y no como
+     * un mensaje suelto. Hoy sólo lo usa el alta por contacto compartido — a
+     * qué evento va, o cómo se llama de verdad alguien que en la libreta está
+     * como "Mamá".
+     */
+    pendingAction: text("pending_action"),
+    pendingActionAt: timestamp("pending_action_at", { withTimezone: true }),
+    /** Los contactos a medio procesar, con lo que ya se decidió de cada uno. */
+    pendingPayload: jsonb("pending_payload"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

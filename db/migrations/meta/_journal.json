@@ -239,6 +239,13 @@
       "when": 1789957679998,
       "tag": "0033_strong_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789980575643,
+      "tag": "0034_dear_proudstar",
+      "breakpoints": true
     }
   ]
 }

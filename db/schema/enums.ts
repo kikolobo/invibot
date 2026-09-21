@@ -57,7 +57,8 @@ export const approvalStatus = pgEnum("approval_status", [
 export const organizerRole = pgEnum("organizer_role", ["organizer"]);
 
 /** How the guest got onto the list. `self` is auto-registro. */
-export const guestSource = pgEnum("guest_source", ["manual", "self"]);
+/** `contact` es un contacto que un organizador compartió por WhatsApp. */
+export const guestSource = pgEnum("guest_source", ["manual", "self", "contact"]);
 
 /**
  * A question we asked an unapproved registrant and are waiting on.
@@ -168,6 +169,8 @@ export const guestEventType = pgEnum("guest_event_type", [
   "self_registered",
   "approved",
   "rejected",
+  /** Entró porque un organizador compartió su contacto por WhatsApp. */
+  "contact_added",
   /**
    * The one nudge to answer an invitation. `detail.via` says whether it went
    * free-form inside the guest's own window or as a paid template once it had

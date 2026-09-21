@@ -237,6 +237,30 @@ confirmación por botón también lo pregunta, porque ese mensaje es libre y pue
 - También quita el parentesco cuando viene pegado: «mi esposa Ana» se guarda
   como "Ana", y «mi esposa» a secas no se guarda.
 
+## Altas por contacto compartido
+
+Un organizador comparte un contacto por WhatsApp y esa persona queda en la
+lista. Para el anfitrión que va manejando y se acuerda de tres personas.
+
+- **Sólo organizadores.** El contacto que comparte un invitado se descarta sin
+  responder: si no, cualquiera mete gente a la fiesta de alguien más.
+- **Sólo con WhatsApp.** WhatsApp devuelve `wa_id` únicamente cuando esa persona
+  usa WhatsApp; sin eso no se agrega y se dice por qué. Un invitado al que no se
+  le puede escribir es una fila muerta en la lista.
+- **Aprobados y sin invitar.** El anfitrión ya decidió que esa persona va;
+  cuándo se le invita es otra decisión, y caen solos en "Enviar invitaciones
+  pendientes".
+- **El nombre de la libreta se revisa.** "Mamá", "Jefe" y "Vecina" no son
+  nombres para una lista de puerta, así que se pregunta —*«en tu contacto
+  aparece como Mamá, ¿cómo se llama?»*— y se agrega con lo que contesten. Si lo
+  que contestan tampoco sirve, se suelta el asunto: insistir no es persistencia.
+- **Duplicados y bajas:** quien ya está en la lista se reporta como tal, y quien
+  pidió no recibir mensajes no entra.
+- **Con varios eventos se pregunta a cuál**, con los contactos guardados
+  mientras tanto. Quince minutos y caduca.
+- El historial del invitado dice que llegó por contacto y quién lo compartió
+  (`guest_events`, tipo `contact_added`).
+
 ## Datos
 
 **Campo en `guests`, no una tabla aparte.** `conversations`, `messages`,

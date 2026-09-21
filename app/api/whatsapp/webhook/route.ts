@@ -29,6 +29,13 @@ import { buildComponents } from "@/lib/whatsapp/templates";
 import { configForPhoneNumberId, markRead, sendText, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { handleAutoRegistro, type RegistrationAction } from "@/lib/guests/registration";
 import { organizerReply, organizerAnswer } from "@/lib/organizers";
+import {
+  answerPending,
+  continueWith,
+  handleSharedContacts,
+  pendingOf,
+  remember,
+} from "@/lib/organizers/contacts";
 import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify";
 import { organizerEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
@@ -317,6 +324,87 @@ async function organizerCommand(
 }
 
 /**
+ * Un organizador compartiendo contactos, o contestando lo que le preguntamos
+ * sobre ellos.
+ *
+ * Sólo organizadores: el contacto que comparte un invitado se descarta sin
+ * más. Si no, cualquiera podría meter gente a la fiesta de alguien más con
+ * sólo compartir una tarjeta.
+ *
+ * Devuelve true cuando se hizo cargo del mensaje, igual que los otros caminos
+ * de organizador — y por la misma razón: lo que atiende aquí no debe caer
+ * después en auto-registro ni en el asistente.
+ */
+async function organizerContacts(
+  message: InboundMessage,
+  fromPhoneE164: string,
+): Promise<boolean> {
+  const mine = await organizerEvents(fromPhoneE164);
+  if (mine.length === 0) return false;
+
+  const organizer = mine[0].organizer;
+  const waiting = pendingOf(organizer);
+
+  // Una respuesta citando un mensaje es una respuesta a una pregunta de un
+  // invitado, no al nombre que le preguntamos. Esa la atiende `organizerAnswered`.
+  const answering =
+    waiting && !message.contextWamid
+      ? await answerPending(organizer, mine, message.text)
+      : null;
+
+  const result =
+    answering === null && message.contacts.length > 0
+      ? await handleSharedContacts({ fromPhoneE164, contacts: message.contacts })
+      : null;
+
+  if (answering === null && !result) return false;
+
+  // Idempotente en el wamid, porque Meta reenvía: sin esto un reintento
+  // agregaría a la misma gente dos veces.
+  const [row] = await db
+    .insert(unmatchedInbound)
+    .values({
+      phoneNumberId: message.phoneNumberId,
+      fromPhone: fromPhoneE164,
+      profileName: message.profileName,
+      body: message.text ?? `[contactos: ${message.contacts.length}]`,
+      providerMessageId: message.wamid,
+      raw: message.raw as never,
+      receivedAt: message.timestamp,
+    })
+    .onConflictDoNothing({ target: unmatchedInbound.providerMessageId })
+    .returning();
+
+  // Visto antes. Atendido de todos modos, para que no siga su camino.
+  if (!row) return true;
+
+  for (const { organizer: each } of mine) {
+    await noteOrganizerInbound(each.id, message.timestamp);
+  }
+
+  let reply = answering;
+  if (result) {
+    // Varios eventos: la pregunta viene con los contactos guardados, para
+    // procesarlos en cuanto conteste cuál.
+    if (result.asking.length === 0 && mine.length > 1 && message.contacts.length > 0) {
+      await remember(organizer.id, "contact_event", {
+        eventId: result.eventId,
+        eventName: "",
+        organizerName: organizer.fullName,
+        contacts: message.contacts,
+      });
+      reply = result.text;
+    } else {
+      const event = mine.find((row) => row.event.id === result.eventId)?.event;
+      reply = await continueWith(organizer, result.eventId, event?.name ?? "", result);
+    }
+  }
+
+  if (reply) await replyToOrganizer(mine[0].event.id, fromPhoneE164, reply);
+  return true;
+}
+
+/**
  * An organizador's reply to a question we put on their phone.
  *
  * The answer reaches the guests waiting on it and is written into the event's
@@ -384,6 +472,13 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
   // anything else is the guest talking, and falls through untouched.
   const command = await organizerCommand(message, fromPhoneE164);
   if (command) return null;
+
+  // Contactos compartidos, y lo que preguntamos sobre ellos. Debajo de los
+  // comandos —"/confirmados" nunca es el nombre de nadie— y arriba de todo lo
+  // demás, para que un organizador que además es invitado no termine hablando
+  // con el asistente sobre la tarjeta que acaba de mandar.
+  const shared = await organizerContacts(message, fromPhoneE164);
+  if (shared) return null;
 
   // An organizador answering a guest's question. Below commands so that
   // "/confirmados" is never mistaken for an answer, and above everything else
