@@ -298,8 +298,15 @@ export function GuestTable({
     0,
   );
 
-  const tile = (key: keyof typeof filters, shows?: number) => {
-    const { label, ids } = filters[key];
+  /**
+   * Una casilla que filtra. `null` es "En la lista": quita cualquier filtro y
+   * queda marcada cuando no hay ninguno, así que la fila entera se lee como un
+   * juego de opciones y no como un número suelto entre botones.
+   */
+  const tile = (key: keyof typeof filters | null, shows?: number) => {
+    const { label, ids } = key
+      ? filters[key]
+      : { label: "En la lista", ids: rows.map((row) => row.id) };
     const on = filter === key;
     const value = shows ?? ids.length;
     return (
@@ -322,10 +329,7 @@ export function GuestTable({
   // que acabas de tocar cambiaría debajo de tu dedo.
   const stats = (
     <dl className="mt-6 flex flex-wrap items-start gap-x-10 gap-y-3 border-y border-line py-5">
-      <div>
-        <dt className="eyebrow">En la lista</dt>
-        <dd className="mt-1 font-display text-2xl text-ink">{rows.length}</dd>
-      </div>
+      <div className="text-ink">{tile(null, rows.length)}</div>
       {/* "Lugares" a secas: el renglón lo agradece y el número vive junto a
           "Confirmados", que es lo que lo explica. El reporte sí dice "Lugares
           confirmados", donde se lee solo. */}
