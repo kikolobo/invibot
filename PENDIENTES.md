@@ -88,6 +88,20 @@ los glifos se convierten a trazos.
 
 ---
 
+## 0.6 Recordatorio del evento — **listo**
+
+Todo confirmado recibe un recordatorio **3 días antes** (ajustable por evento en
+Editar; 0 o 1 lo apagan, porque el día anterior ya tiene el suyo). Sale del cron
+diario de las 11:00 junto con lo demás, una sola vez por invitado
+(`guests.event_reminded_at`), libre si su ventana está abierta y con la
+plantilla `recordatorio_evento` —aprobada y UTILITY en los dos WABAs— si no.
+
+Llena el hueco que dejaba el mensaje del día anterior: ése sólo le llega a quien
+todavía no tiene su QR, así que quien confirmaba con semanas de anticipación no
+volvía a saber de nosotros hasta la fiesta.
+
+---
+
 ## 0.7 Los QR salen el día antes — **falta que Meta apruebe las plantillas**
 
 Quien confirma con más de **48 horas** de anticipación ya no recibe el QR al

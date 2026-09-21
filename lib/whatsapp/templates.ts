@@ -256,6 +256,42 @@ export const templates = {
   },
 
   /**
+   * The nudge a few days out, for everyone already coming.
+   *
+   * Utility because it follows an invitation they accepted. Deliberately plain:
+   * the day and the place, and an open door to ask something. Anything more
+   * enthusiastic reads as marketing, and Meta reclassifies what it disagrees
+   * with at five times the price.
+   *
+   * Older than the rest of this library — it sat here unused for weeks, was
+   * removed when the day-before message took its job, and came back when the
+   * gap became obvious: the day-before message only reaches a guest who does
+   * not have their pass yet, so somebody who confirmed early heard nothing
+   * between their confirmation and the party.
+   */
+  recordatorio_evento: {
+    name: "recordatorio_evento",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "reminder",
+    body: [
+      "Hola {{1}}, te recuerdo {{2}}.",
+      "",
+      "📅 {{3}}",
+      "📍 {{4}}",
+      "",
+      "¿Necesitas algo? Escríbeme por aquí.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
+      { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer,
+  },
+
+  /**
    * The invitation, asked again, for a guest who never answered it.
    *
    * The free-form version of this (`rsvpReminderReply`) is better and costs

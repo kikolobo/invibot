@@ -608,6 +608,11 @@ const basicsEditSchema = z.object({
   rsvpRequired: z.boolean().default(true),
   allowPlusOnes: z.boolean().default(false),
   qrEnabled: z.boolean().default(false),
+  /**
+   * 0 turns the reminder off; 1 is treated as off too, because the day before
+   * already has its own message. Thirty days out it stops being a reminder.
+   */
+  reminderDaysBefore: z.coerce.number().int().min(0).max(30).default(3),
 });
 
 /**
@@ -652,6 +657,7 @@ export async function updateEventBasics(
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
     qrEnabled: formData.get("qrEnabled") === "on",
+    reminderDaysBefore: formData.get("reminderDaysBefore") ?? 3,
   });
 
   if (!parsed.success) {
@@ -716,6 +722,7 @@ export async function updateEventBasics(
       allowPlusOnes: v.allowPlusOnes,
       maxPartySize,
       qrEnabled: v.qrEnabled,
+      reminderDaysBefore: v.reminderDaysBefore,
       updatedAt: new Date(),
     })
     .where(eq(events.id, eventId))

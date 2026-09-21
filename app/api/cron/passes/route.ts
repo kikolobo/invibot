@@ -1,10 +1,11 @@
 import { sendDuePasses } from "@/lib/passes/send";
 import { remindTomorrowsGuests } from "@/lib/passes/remind";
 import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
+import { remindUpcomingEvents } from "@/lib/events/remind";
 
 /**
- * The daily pass run: the day-before message for tomorrow's events, and any
- * pass whose wait is over.
+ * The daily run: "faltan tres días" for the events that are three days out,
+ * the day-before message for tomorrow's, and any pass whose wait is over.
  *
  * The day-before message lives here and only here. The cron fires at 11:00 in
  * Monterrey, which is an hour "¡Es mañana!" should arrive at; nothing driven by
@@ -40,8 +41,9 @@ export async function GET(request: Request) {
     return new Response("Forbidden", { status: 403 });
   }
 
+  const upcoming = await remindUpcomingEvents();
   const reminded = await remindTomorrowsGuests();
   const sent = await sendDuePasses();
   const nudged = await remindUnansweredRsvps();
-  return Response.json({ reminded, sent, nudged }, { status: 200 });
+  return Response.json({ upcoming, reminded, sent, nudged }, { status: 200 });
 }

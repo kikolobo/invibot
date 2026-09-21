@@ -193,6 +193,14 @@ export const guests = pgTable(
 
 
     /**
+     * When this guest got the "faltan N días" reminder for their event.
+     *
+     * Per guest rather than per event so a sweep that dies halfway does not
+     * decide the whole list was told, and so somebody added late still gets it.
+     */
+    eventRemindedAt: timestamp("event_reminded_at", { withTimezone: true }),
+
+    /**
      * When the one free-form nudge to answer the invitation went out.
      *
      * Only ever set once. A guest who registered themselves opened a 24-hour

@@ -55,6 +55,7 @@ export default async function Editar({
             rsvpRequired: event.rsvpRequired,
             allowPlusOnes: event.allowPlusOnes,
             qrEnabled: event.qrEnabled,
+            reminderDaysBefore: event.reminderDaysBefore,
           }}
           date={`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`}
           time={`${pad(local.getHours())}:${pad(local.getMinutes())}`}

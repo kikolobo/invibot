@@ -100,6 +100,16 @@ export const events = pgTable(
      * thirty in someone's garden does not want a door policy, and a code
      * arriving unasked reads as bureaucracy.
      */
+    /**
+     * How many days before the party everyone coming is reminded of it.
+     *
+     * Zero turns it off. One is not honoured either: the day before belongs to
+     * "¡Es mañana!", and two messages on the same morning is one too many.
+     * Three by default — close enough to be useful, far enough that a change of
+     * plan still has time to reach us.
+     */
+    reminderDaysBefore: integer("reminder_days_before").notNull().default(3),
+
     qrEnabled: boolean("qr_enabled").notNull().default(false),
     maxPartySize: integer("max_party_size").notNull().default(1),
     capacity: integer("capacity"),

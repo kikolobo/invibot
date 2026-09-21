@@ -66,6 +66,23 @@ export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): st
 }
 
 /**
+ * Mirrors `recordatorio_evento`, for a guest whose window happens to be open
+ * when the reminder goes out — same words, no charge.
+ */
+export function eventReminderReply(
+  facts: Pick<ReplyFacts, "name" | "eventName" | "when"> & { where: string },
+): string {
+  return [
+    `Hola ${facts.name}, te recuerdo ${facts.eventName}.`,
+    "",
+    `📅 ${facts.when}`,
+    `📍 ${facts.where}`,
+    "",
+    "¿Necesitas algo? Escríbeme por aquí.",
+  ].join("\n");
+}
+
+/**
  * Mirrors the `acceso_evento` pair, for a guest whose window happens to be open
  * the morning before — same words, no charge, and the pass follows without
  * waiting for a tap.

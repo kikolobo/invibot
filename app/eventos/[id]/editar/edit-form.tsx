@@ -36,6 +36,7 @@ export function EditForm({
     rsvpRequired: boolean;
     allowPlusOnes: boolean;
     qrEnabled: boolean;
+    reminderDaysBefore: number;
   };
   date: string;
   time: string;
@@ -213,6 +214,28 @@ export function EditForm({
               <span className="block text-[0.82rem] text-ink-muted">
                 Aplica a las invitaciones que falten por enviar. Quien ya tiene la suya se
                 queda como está.
+              </span>
+            </span>
+          </label>
+
+          <label className="flex items-start gap-3">
+            <span className="mt-0.5">
+              <input
+                type="number"
+                name="reminderDaysBefore"
+                min={0}
+                max={30}
+                defaultValue={event.reminderDaysBefore}
+                className="w-16 rounded-lg border border-line bg-paper-deep px-2 py-1 text-[0.9rem] text-ink outline-none focus:border-accent"
+              />
+            </span>
+            <span>
+              <span className="text-[0.95rem] font-medium text-ink">
+                Días antes para recordarles
+              </span>
+              <span className="block text-[0.82rem] text-ink-muted">
+                A todos los confirmados, una sola vez. El día anterior ya tiene su propio
+                mensaje, así que 0 o 1 lo apagan.
               </span>
             </span>
           </label>
