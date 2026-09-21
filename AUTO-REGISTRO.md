@@ -187,25 +187,36 @@ ella los botones de la invitación **no necesitan plantilla y no cuestan nada**.
 Si su invitación se queda sin respuesta, sale un empujón con esos mismos botones
 (`lib/guests/rsvp-reminder.ts`), una sola vez por invitado.
 
-Las tres condiciones, todas a la vez:
+**Gratis si se puede, de paga si no.** Dentro de la ventana salen los botones
+libres. Una vez cerrada sale de todos modos, con la plantilla aprobada
+`recordatorio_confirmacion` (o la versión con acompañante) — cuesta, y por eso
+se intenta primero el camino gratis, pero un invitado que nunca contestó vale
+más que el precio del mensaje.
 
-- **Tarde dentro de la ventana:** cuando le quedan 8 horas o menos. En la
-  práctica, unas 16 horas después de su último mensaje.
-- **A una hora decente:** entre las 11:00 y las 20:00 en la zona del evento. Si
-  la ventana se cierra de madrugada, el último momento decente es la tarde
-  anterior; si ya no queda ninguno, no se manda nada. Un recordatorio vale menos
-  que lo que la persona opine de nosotros.
+Las condiciones:
+
+- **Tarde dentro de la ventana** (camino gratis): cuando le quedan 8 horas o
+  menos, o sea unas 16 horas después de su último mensaje. Pasada la ventana ya
+  no hay nada que esperar: se cerró 24 horas después de que escribió, que es
+  justo el silencio que esto contesta.
+- **A una hora decente, siempre:** entre las 11:00 y las 20:00 en la zona del
+  evento, tome el camino que tome.
 - **Sin pisar otro mensaje:** nada en las 2 horas siguientes a algo que le
   mandamos.
+
+Si el envío falla — plantilla todavía en revisión, ventana que se cerró entre la
+comprobación y el envío — **se libera la marca** y el siguiente barrido lo vuelve
+a intentar. Marcar como recordado a alguien a quien no le llegó nada es dejarlo
+sin recordatorio para siempre.
 
 Sólo para `source = 'self'`, aprobados, con invitación entregada y `rsvp_status`
 todavía en `no_response`. Quien contesta de cualquier forma deja de ser
 candidato, que es justo lo que se pedía. `guests.rsvp_reminder_sent_at` lo marca
 y **nunca se limpia**: un segundo empujón ya es insistir.
 
-Los botones llevan los payloads de `invitacion_evento` (o los de la versión con
-acompañante, si su invitación incluye +1), así que un toque aquí entra por
-`parseIntent` exactamente igual que uno en la plantilla.
+Los botones — libres o de plantilla — llevan los payloads de `invitacion_evento`
+(o los de la versión con acompañante, si su invitación incluye +1), así que un
+toque aquí entra por `parseIntent` exactamente igual que uno en la invitación.
 
 **Quién lo dispara:** el cron diario de las 11:00 de Monterrey y, entre tanto,
 el tráfico entrante del webhook. Las dos condiciones de tiempo se revisan en

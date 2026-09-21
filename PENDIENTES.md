@@ -114,6 +114,12 @@ está enterrado en el chat cuando lo buscan en la puerta.
 las 10:00), porque el empujón de confirmación de auto-registro sólo puede salir
 entre 11:00 y 20:00 y el cron tenía que caer dentro.
 
+**Estado al 2026-09-20:** `acceso_evento` y `acceso_evento_acompanante` están
+**APPROVED / UTILITY** en los dos WABAs. Lo que sigue en revisión es el par
+`recordatorio_confirmacion`, que es el respaldo de paga del empujón de
+auto-registro cuando la ventana de 24 horas ya cerró. Mientras no esté aprobado,
+ese envío falla, se libera la marca y se reintenta en el siguiente barrido.
+
 **Estado al 2026-09-18:** migración `0029` aplicada (dev y producción
 comparten la base de Neon). Las dos plantillas se sometieron en los dos WABAs:
 en producción `acceso_evento_acompanante` ya está **APPROVED / UTILITY** y

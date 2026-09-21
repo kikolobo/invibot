@@ -256,6 +256,83 @@ export const templates = {
   },
 
   /**
+   * The invitation, asked again, for a guest who never answered it.
+   *
+   * The free-form version of this (`rsvpReminderReply`) is better and costs
+   * nothing, but it only exists while the guest's own 24-hour window is open.
+   * Once it closes this is the only way to ask, so the pair exists to ask
+   * anyway rather than to give up on a silent guest.
+   *
+   * UTILITY rather than MARKETING: it follows an invitation this person asked
+   * for by registering themselves, and asks them to complete it. Meta
+   * reclassifies what it disagrees with, so watch the category after approval —
+   * marketing here costs roughly five times as much.
+   *
+   * Paired like the invitation it chases, because the buttons differ: a guest
+   * with a companion has three ways to answer and a guest without has two.
+   * Same payloads as the invitation, so a tap lands in `parseIntent` the same.
+   */
+  recordatorio_confirmacion: {
+    name: "recordatorio_confirmacion",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "reminder",
+    header: { format: "TEXT", text: "¿Nos confirmas?" },
+    body: [
+      "Hola {{1}} 👋",
+      "",
+      "Te mandamos tu invitación a {{2}} y todavía no tenemos tu respuesta.",
+      "",
+      "📅 {{3}}",
+      "📍 {{4}}",
+      "",
+      "Confírmanos aquí abajo 👇",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
+      { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer,
+    buttons: [
+      { label: "Sí, asistiré", payload: "RSVP_YES" },
+      { label: "No podré", payload: "RSVP_NO" },
+    ],
+  },
+
+  /** The same nudge for a guest whose invitation includes a companion. */
+  recordatorio_confirmacion_acompanante: {
+    name: "recordatorio_confirmacion_acompanante",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "reminder",
+    header: { format: "TEXT", text: "¿Nos confirmas?" },
+    body: [
+      "Hola {{1}} 👋",
+      "",
+      "Te mandamos tu invitación a {{2}} y todavía no tenemos tu respuesta. Incluye un lugar para ti y un acompañante.",
+      "",
+      "📅 {{3}}",
+      "📍 {{4}}",
+      "",
+      "Confírmanos aquí abajo 👇",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Fecha y hora en la zona del evento", example: "sábado 14 de marzo, 5:00 PM" },
+      { description: "Lugar", example: "Hacienda San Pedro, Monterrey" },
+    ],
+    footer,
+    buttons: [
+      { label: "Asistiré solo", payload: "RSVP_YES_SOLO" },
+      { label: "Con +1", payload: "RSVP_YES_PLUS_ONE" },
+      { label: "No asistiré", payload: "RSVP_NO" },
+    ],
+  },
+
+  /**
    * The day before, for a confirmed guest who does not have their QR yet.
    *
    * A reminder and a delivery in one. The pass itself cannot ride along — it is
