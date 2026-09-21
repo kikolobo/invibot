@@ -369,9 +369,26 @@ export function GuestTable({
                     <button
                       type="button"
                       onClick={() => setEditing(guest.id)}
-                      className="text-[0.82rem] text-ink-muted transition-colors hover:text-accent"
+                      title={`Editar a ${guest.fullName}`}
+                      aria-label={`Editar a ${guest.fullName}`}
+                      className="inline-flex size-5 items-center justify-center rounded-full border border-line align-middle text-ink-muted transition-colors hover:border-accent hover:text-accent"
                     >
-                      Editar
+                      {/* Drawn rather than an emoji: ✏️ arrives in colour and a
+                          different shape on every platform, and this one sits
+                          beside the (i), where they have to match. */}
+                      <svg
+                        viewBox="0 0 16 16"
+                        className="size-3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M11.2 2.3a1.6 1.6 0 0 1 2.3 2.3L5.4 12.7l-3 .7.7-3z" />
+                        <path d="M10.3 3.4 12.4 5.5" />
+                      </svg>
                     </button>
                   )}
                 </td>
