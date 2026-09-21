@@ -75,8 +75,13 @@ export function SiteFooter({ tone = "paper" }: { tone?: Tone }) {
           </a>
         </nav>
       </div>
+      {/* Quién opera esto, dicho en el sitio. Lo pide la política de nombre
+          para mostrar de WhatsApp: el nombre del negocio verificado —Movic
+          Technologies— tiene que poder reconocerse desde la marca, y esta
+          línea es lo que revisa quien evalúa la solicitud. */}
       <p className={`mx-auto mt-8 max-w-5xl text-xs ${t.muted}`}>
-        © {new Date().getFullYear()} Invibot. Hecho en México.
+        © {new Date().getFullYear()} Invibot. Hecho en México. Operado por Movic
+        Technologies, S.A. de C.V.
       </p>
     </footer>
   );
