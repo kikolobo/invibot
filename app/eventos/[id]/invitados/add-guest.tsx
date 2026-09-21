@@ -27,10 +27,12 @@ export function AddGuest({
     if (state.ok) formRef.current?.reset();
   }, [state.ok]);
 
+  // No card and no title of its own: it is rendered inside a dialog that draws
+  // both. It stays open after a successful add — the form clears itself, so
+  // forty names in a row is forty times typing, not forty times reopening.
   return (
-    <form ref={formRef} action={action} className="rounded-xl border border-line bg-paper-deep p-5">
-      <p className="font-display text-xl text-ink">Agregar invitado</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <form ref={formRef} action={action}>
+      <div className="grid gap-3 sm:grid-cols-2">
         <Input name="fullName" placeholder="Nombre completo" required />
         <Input name="phone" placeholder="55 1234 5678" inputMode="tel" />
         <Input name="email" type="email" placeholder="correo@ejemplo.com (opcional)" />

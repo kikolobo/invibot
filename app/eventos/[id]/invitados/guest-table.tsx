@@ -8,6 +8,7 @@ import type { TemplateName } from "@/lib/whatsapp/templates";
 import { SendInvitations } from "./send-invitations";
 import { EditGuest } from "./edit-guest";
 import { GuestTimeline } from "./guest-timeline";
+import { AddGuest } from "./add-guest";
 import { Overlay } from "@/components/ui/overlay";
 
 export type GuestRow = {
@@ -70,6 +71,7 @@ export function GuestTable({
   const [note, setNote] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [history, setHistory] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const toggle = (id: string) =>
@@ -122,11 +124,33 @@ export function GuestTable({
     });
   }
 
+  // Over the list rather than under it. With eighty names the old form sat
+  // below the fold, so adding one meant scrolling past everybody first.
+  const addButton = archived ? null : (
+    <button
+      type="button"
+      onClick={() => setAdding(true)}
+      className="rounded-full bg-action px-4 py-1.5 text-[0.85rem] text-ink-onaction"
+    >
+      Agregar invitado
+    </button>
+  );
+
+  const addDialog = adding ? (
+    <Overlay onClose={() => setAdding(false)} title="Agregar invitado">
+      <AddGuest eventId={eventId} maxPartySize={maxPartySize} groups={groups} />
+    </Overlay>
+  ) : null;
+
   if (rows.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-line bg-paper-deep p-8 text-center text-ink-muted">
-        Todavía no hay invitados. Agrégalos uno por uno o importa tu lista.
-      </p>
+      <div>
+        <div className="flex justify-end">{addButton}</div>
+        <p className="mt-3 rounded-xl border border-dashed border-line bg-paper-deep p-8 text-center text-ink-muted">
+          Todavía no hay invitados. Agrégalos uno por uno o importa tu lista.
+        </p>
+        {addDialog}
+      </div>
     );
   }
 
@@ -183,6 +207,10 @@ export function GuestTable({
               : `Seleccionar los ${silentIds.length} sin responder`}
           </button>
         )}
+        <div className="flex items-center gap-3">
+          {selected.size === 0 && addButton}
+        </div>
+
         {selected.size > 0 && !sending && (
           <div className="flex items-center gap-3">
             <button
@@ -353,6 +381,8 @@ export function GuestTable({
           </tbody>
         </table>
       </div>
+
+      {addDialog}
 
       {historyGuest && (
         <GuestTimeline

@@ -10,7 +10,6 @@ import {
   greetingName,
   templateForGuest,
 } from "@/lib/campaigns/recipients";
-import { AddGuest } from "./add-guest";
 import { ImportGuests } from "./import-guests";
 import { GuestTable } from "./guest-table";
 
@@ -152,12 +151,10 @@ export default async function Invitados({
         </p>
       )}
 
-      <div className={`mt-10 space-y-5 ${archived ? "hidden" : ""}`}>
-        <AddGuest
-          eventId={event.id}
-          maxPartySize={event.maxPartySize}
-          groups={groups}
-        />
+      {/* Adding one guest moved into a dialog over the list; importing many
+          stays here, where it is a deliberate trip rather than something you
+          scroll past forty names to reach. */}
+      <div className={`mt-10 ${archived ? "hidden" : ""}`}>
         <ImportGuests eventId={event.id} />
       </div>
 
