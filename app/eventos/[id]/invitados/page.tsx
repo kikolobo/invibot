@@ -54,6 +54,15 @@ export default async function Invitados({
       createdAt: guests.createdAt,
       updatedAt: guests.updatedAt,
       rsvpRespondedAt: guests.rsvpRespondedAt,
+      // Las últimas 24 horas las decide Postgres, con su reloj y en la misma
+      // consulta: un `Date.now()` aquí sería una hora al renderizar el HTML y
+      // otra al hidratarlo, y dos números distintos en la misma página.
+      confirmedRecently: sql<boolean>`coalesce(
+        ${guests.rsvpStatus} = 'confirmed'
+        and ${guests.rsvpRespondedAt} > now() - interval '24 hours', false)`,
+      approvedRecently: sql<boolean>`coalesce(
+        ${guests.source} = 'self'
+        and ${guests.approvedAt} > now() - interval '24 hours', false)`,
       // Off the ledger rather than a column: "cuándo se le invitó" is the
       // moment a message left, and that is what `sends` records. The latest
       // one, because a corrected phone number earns a second invitation and
@@ -100,11 +109,12 @@ export default async function Invitados({
     ),
   };
 
-  const confirmed = rows.filter((g) => g.rsvpStatus === "confirmed");
-  const seats = confirmed.reduce(
-    (total, g) => total + (g.partySizeConfirmed ?? g.partySizeAllowed),
-    0,
-  );
+  const recent = {
+    /** Quien confirmó en las últimas 24 horas, lo haya dicho él o lo hayas registrado tú. */
+    confirmed: rows.filter((g) => g.confirmedRecently).map((g) => g.id),
+    /** Quien se registró solo y aprobaste en las últimas 24 horas. */
+    approved: rows.filter((g) => g.approvedRecently).map((g) => g.id),
+  };
 
   return (
     <div>
@@ -113,26 +123,7 @@ export default async function Invitados({
         Invitados
       </h1>
 
-      <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 border-y border-line py-5">
-        <div>
-          <dt className="eyebrow">En la lista</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{rows.length}</dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Confirmados</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{confirmed.length}</dd>
-        </div>
-        <div>
-          <dt className="eyebrow">Lugares confirmados</dt>
-          <dd className="mt-1 font-display text-2xl text-ink">{seats}</dd>
-        </div>
-        {event.capacity && (
-          <div>
-            <dt className="eyebrow">Cupo</dt>
-            <dd className="mt-1 font-display text-2xl text-ink">{event.capacity}</dd>
-          </div>
-        )}
-      </dl>
+
 
       <div className="mt-6 flex justify-end">
         <a
@@ -152,6 +143,9 @@ export default async function Invitados({
           groups={groups}
           maxPartySize={event.maxPartySize}
           archived={archived}
+          capacity={event.capacity}
+          autoRegister={event.autoRegisterEnabled}
+          recent={recent}
         />
       </div>
 

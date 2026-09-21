@@ -132,6 +132,9 @@ export function GuestTable({
   groups,
   maxPartySize,
   archived = false,
+  capacity,
+  autoRegister,
+  recent,
 }: {
   eventId: string;
   eventName: string;
@@ -140,6 +143,10 @@ export function GuestTable({
   groups: string[];
   maxPartySize: number;
   archived?: boolean;
+  capacity: number | null;
+  autoRegister: boolean;
+  /** Ids, resueltos en el servidor, de lo que pasó en las últimas 24 horas. */
+  recent: { confirmed: string[]; approved: string[] };
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
@@ -147,11 +154,34 @@ export function GuestTable({
   const [editing, setEditing] = useState<string | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [filter, setFilter] = useState<null | "confirmados" | "registros">(null);
   const [sortKey, setSortKey] = useState<SortKey>("grupo");
   const [ascending, setAscending] = useState(true);
 
+  const filters = {
+    confirmados: {
+      label: "Confirmados últ. 24 h",
+      ids: recent.confirmed,
+      seeing: "Viendo a quienes confirmaron en las últimas 24 horas",
+    },
+    registros: {
+      label: "Auto-registros aprobados últ. 24 h",
+      ids: recent.approved,
+      seeing: "Viendo los auto-registros que aprobaste en las últimas 24 horas",
+    },
+  } as const;
+
+  // Lo filtrado es la lista para todo lo demás: seleccionar, ordenar, contar
+  // lo seleccionable. Lo que no ves no se selecciona.
+  const visible = useMemo(() => {
+    if (!filter) return rows;
+    const ids = new Set(filters[filter].ids);
+    return rows.filter((row) => ids.has(row.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, filter, recent]);
+
   const sorted = useMemo(() => {
-    const copy = [...rows];
+    const copy = [...visible];
     if (sortKey === "grupo") return ascending ? copy : copy.reverse();
 
     return copy.sort((a, b) => {
@@ -167,7 +197,7 @@ export function GuestTable({
       const order = typeof left === "string" ? left.localeCompare(String(right), "es") : left - Number(right);
       return ascending ? order : -order;
     });
-  }, [rows, sortKey, ascending]);
+  }, [visible, sortKey, ascending]);
   const [pending, startTransition] = useTransition();
 
   const toggle = (id: string) =>
@@ -178,19 +208,19 @@ export function GuestTable({
       return next;
     });
 
-  const allSelected = rows.length > 0 && selected.size === rows.length;
+  const allSelected = visible.length > 0 && selected.size === visible.length;
   const editingGuest = rows.find((row) => row.id === editing) ?? null;
   const historyGuest = rows.find((row) => row.id === history) ?? null;
 
   // Everyone who could be invited right now: never invited, or a send that
   // failed. `invite.eligible` is built by the same module the send action
   // uses, so this button can never offer someone the action would refuse.
-  const pendingIds = rows.map((row) => row.id).filter((id) => id in invite.eligible);
+  const pendingIds = visible.map((row) => row.id).filter((id) => id in invite.eligible);
 
   // Everyone still silent. The host reads "entregada" or "leída" on these rows
   // and knows the answer came some other way — at the office, in a group chat —
   // which is exactly the list they want to tick off in one go.
-  const silentIds = rows.filter((row) => row.rsvpStatus === "no_response").map((row) => row.id);
+  const silentIds = visible.filter((row) => row.rsvpStatus === "no_response").map((row) => row.id);
 
   const selectedRows = rows.filter((row) => selected.has(row.id));
   const canBringCompanion = selectedRows.some((row) => row.partySizeAllowed > 1);
@@ -238,10 +268,76 @@ export function GuestTable({
     </Overlay>
   ) : null;
 
+  const confirmedRows = rows.filter((row) => row.rsvpStatus === "confirmed");
+  const seats = confirmedRows.reduce(
+    (total, row) => total + (row.partySizeConfirmed ?? row.partySizeAllowed),
+    0,
+  );
+
+  const tile = (key: "confirmados" | "registros") => {
+    const { label, ids } = filters[key];
+    const on = filter === key;
+    return (
+      <button
+        type="button"
+        onClick={() => setFilter(on ? null : key)}
+        disabled={ids.length === 0}
+        aria-pressed={on}
+        className={`rounded-lg px-2 py-1 text-left transition-colors disabled:cursor-default ${
+          on ? "bg-action text-ink-onaction" : "hover:bg-paper-deep disabled:hover:bg-transparent"
+        }`}
+      >
+        <span className="eyebrow block">{label}</span>
+        <span className="mt-1 block font-display text-2xl">{ids.length}</span>
+      </button>
+    );
+  };
+
+  // Los totales son totales: no se recalculan sobre lo filtrado, o el número
+  // que acabas de tocar cambiaría debajo de tu dedo.
+  const stats = (
+    <dl className="mt-6 flex flex-wrap items-start gap-x-10 gap-y-3 border-y border-line py-5">
+      <div>
+        <dt className="eyebrow">En la lista</dt>
+        <dd className="mt-1 font-display text-2xl text-ink">{rows.length}</dd>
+      </div>
+      <div>
+        <dt className="eyebrow">Confirmados</dt>
+        <dd className="mt-1 font-display text-2xl text-ink">{confirmedRows.length}</dd>
+      </div>
+      <div>
+        <dt className="eyebrow">Lugares confirmados</dt>
+        <dd className="mt-1 font-display text-2xl text-ink">{seats}</dd>
+      </div>
+      {capacity && (
+        <div>
+          <dt className="eyebrow">Cupo</dt>
+          <dd className="mt-1 font-display text-2xl text-ink">{capacity}</dd>
+        </div>
+      )}
+      <div className="text-ink">{tile("confirmados")}</div>
+      {autoRegister && <div className="text-ink">{tile("registros")}</div>}
+    </dl>
+  );
+
+  const filterChip = filter && (
+    <p className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft">
+      {filters[filter].seeing} ({visible.length})
+      <button
+        type="button"
+        onClick={() => setFilter(null)}
+        className="text-ink-muted underline-offset-4 transition-colors hover:text-accent hover:underline"
+      >
+        Quitar filtro
+      </button>
+    </p>
+  );
+
   if (rows.length === 0) {
     return (
       <div>
-        <div className="flex justify-end">{addButton}</div>
+        {stats}
+        <div className="mt-3 flex justify-end">{addButton}</div>
         <p className="mt-3 rounded-xl border border-dashed border-line bg-paper-deep p-8 text-center text-ink-muted">
           Todavía no hay invitados. Agrégalos uno por uno o importa tu lista.
         </p>
@@ -252,6 +348,9 @@ export function GuestTable({
 
   return (
     <div>
+      {stats}
+      {filterChip}
+
       {!archived && pendingIds.length > 0 && !sending && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-paper-deep p-4">
           <div className="min-w-0 flex-1">
@@ -286,7 +385,7 @@ export function GuestTable({
             type="checkbox"
             checked={allSelected}
             onChange={(e) =>
-              setSelected(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())
+              setSelected(e.target.checked ? new Set(visible.map((r) => r.id)) : new Set())
             }
             className="size-4 accent-[var(--accent)]"
           />
