@@ -100,7 +100,7 @@ Runs the Next.js app: the marketing site, the organizer app, and the auth API.
 
 ### Neon — Postgres
 
-The database. 24 tables, 14 migrations applied.
+The database. 25 tables, 32 migrations applied.
 
 - **Console:** https://console.neon.tech
 - **Project:** `sparkling-cake-18507188`, branch `production`
@@ -111,6 +111,57 @@ The database. 24 tables, 14 migrations applied.
 - Migrations are Drizzle, in `db/migrations/`, applied with `npm run db:migrate`.
 - **Note:** development and production currently share one database. Split them
   with a Neon branch before there is real customer data.
+
+#### Respaldos y cómo volver atrás
+
+Dos capas, y la primera es la que se usa:
+
+**1. Una rama de Neon.** Exacta, instantánea, del lado del servidor y sin bytes
+en ningún disco: Neon la guarda por copia-en-escritura. Existe
+`snapshot-2026-09-20` (`br-lucky-butterfly-a5ed6b7h`), verificada contra
+producción tabla por tabla el día que se creó.
+
+```
+npx neonctl auth                              # una vez por máquina
+npx neonctl branches create --project-id sparkling-cake-18507188 \
+  --name snapshot-AAAA-MM-DD --parent production
+
+# volver producción a ese estado, guardando el estado previo por si acaso
+npx neonctl branches restore production br-lucky-butterfly-a5ed6b7h \
+  --project-id sparkling-cake-18507188 --preserve-under-name antes-de-restaurar
+```
+
+También se puede restaurar a un instante exacto sin rama previa:
+`branches restore production ^self@2026-09-21T01:00:00Z`. La restauración es de
+toda la base, nunca de una tabla: para rescatar unos renglones, léelos de la
+rama y cópialos a mano.
+
+⚠️ **Nada debe escribir en una rama snapshot.** Tiene su propio endpoint y
+acepta escrituras; en cuanto algo escriba ahí deja de ser el retrato de ese día.
+
+**2. Archivos, para el día que Neon no esté.** `scripts/backup-db.mts` escribe
+un `.ndjson` por tabla más un `MANIFEST.json` (fecha, versión del servidor,
+conteos y en qué migración se tomó), fuera del repositorio — por omisión en
+`~/Documents/Development/Backups/invibot/<fecha>`.
+
+```
+npx tsx scripts/backup-db.mts
+npx tsx scripts/restore-db.mts --from <carpeta>            # ensayo, no toca nada
+npx tsx scripts/restore-db.mts --from <carpeta> --apply    # sobre DATABASE_URL
+```
+
+`restore-db.mts` no crea el esquema: eso son las migraciones, y el manifiesto
+dice hasta cuál llegaba el respaldo. Vacía y recarga en orden de llaves
+foráneas, calculado leyendo las llaves de verdad — una lista escrita a mano no
+sobrevive a la siguiente migración.
+
+**Está probado, no supuesto.** El 2026-09-20 se levantó un Postgres 18 local,
+se replicaron las 32 migraciones, se restauró el respaldo ahí y se comparó
+contra producción con una huella md5 del contenido de cada tabla:
+**25/25 idénticas**, no sólo en número de filas.
+
+⚠️ Esos archivos llevan nombres, teléfonos y todas las conversaciones de los
+invitados, en claro. Viven fuera del repositorio a propósito.
 
 ### Anthropic — the assistant
 

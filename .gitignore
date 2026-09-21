@@ -47,3 +47,7 @@ next-env.d.ts
 # laptop. Not a substitute for the password manager; a second copy of things
 # whose loss cannot be undone.
 SECRETS.local.md
+
+# Scratch scripts written while debugging. They are throwaway by definition;
+# three of them reached a commit once.
+.*.tmp.mts
