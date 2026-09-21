@@ -8,6 +8,7 @@ import type { TemplateName } from "@/lib/whatsapp/templates";
 import { SendInvitations } from "./send-invitations";
 import { EditGuest } from "./edit-guest";
 import { GuestTimeline } from "./guest-timeline";
+import { Overlay } from "@/components/ui/overlay";
 
 export type GuestRow = {
   id: string;
@@ -268,11 +269,7 @@ export function GuestTable({
           <tbody>
             {rows.map((guest) => (
               <Fragment key={guest.id}>
-              <tr
-                className={`border-b border-line/60 last:border-0 ${
-                  editing === guest.id ? "bg-paper-deep" : ""
-                }`}
-              >
+              <tr className="border-b border-line/60 last:border-0">
                 <td className="px-2 py-2.5">
                   {!archived && (
                     <input
@@ -336,10 +333,10 @@ export function GuestTable({
                   {!archived && (
                     <button
                       type="button"
-                      onClick={() => setEditing(editing === guest.id ? null : guest.id)}
+                      onClick={() => setEditing(guest.id)}
                       className="text-[0.82rem] text-ink-muted transition-colors hover:text-accent"
                     >
-                      {editing === guest.id ? "Cerrar" : "Editar"}
+                      Editar
                     </button>
                   )}
                 </td>
@@ -358,8 +355,15 @@ export function GuestTable({
         />
       )}
 
+      {/* Over the list rather than unfolded beneath it: editing a row is one
+          thing at a time, and a form that pushes the table around leaves the
+          organizer hunting for the row they were on. */}
       {editingGuest && (
-        <div className="mt-3">
+        <Overlay
+          onClose={() => setEditing(null)}
+          title={editingGuest.fullName}
+          subtitle="Editar invitado"
+        >
           <EditGuest
             eventId={eventId}
             guest={editingGuest}
@@ -367,7 +371,7 @@ export function GuestTable({
             maxPartySize={maxPartySize}
             onDone={() => setEditing(null)}
           />
-        </div>
+        </Overlay>
       )}
     </div>
   );

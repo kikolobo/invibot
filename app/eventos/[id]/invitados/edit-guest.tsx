@@ -8,7 +8,7 @@ import type { GuestRow } from "./guest-table";
 import { MAX_PARTY_SIZE } from "@/lib/events/party";
 
 /**
- * Correcting one guest in place.
+ * Correcting one guest, in a dialog over the list.
  *
  * The RSVP selector is here because an organizer is told things the assistant
  * never hears — in person, by phone, through someone else — and until they can
@@ -53,8 +53,9 @@ export function EditGuest({
     {},
   );
 
+  // No card of its own: it is rendered inside a dialog that already draws one.
   return (
-    <form action={formAction} className="rounded-xl border border-line bg-paper-deep p-4">
+    <form action={formAction}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="fullName" defaultValue={guest.fullName} placeholder="Nombre completo" required />
         <Input
