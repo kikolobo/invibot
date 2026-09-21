@@ -328,11 +328,11 @@ Secondary channel, and the only way to offer password reset.
 
 ### Cloudflare Email Routing — inbound email
 
-Forwards `hola@invibot.com` and `privacidad@invibot.com` to a personal inbox.
-Both appear on the public site and in the privacy notice, so they need to work.
+Forwards `hello@invibot.com` to a personal inbox. It is the only address the
+public site and the privacy notice use, so it needs to work.
 
 - **Cost:** free
-- **Status:** not set up — those addresses currently go nowhere.
+- **Status:** live. Set up under Compute & AI → Email Service → Email Routing.
 
 ### Google Maps Platform — geocoding
 

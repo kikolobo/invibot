@@ -49,7 +49,7 @@ export function PasscodeForm() {
       <p className="pt-2 text-[0.85rem] leading-relaxed text-ink-muted">
         ¿No tienes código? Estamos abriendo poco a poco.{" "}
         <a
-          href="mailto:hola@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
+          href="mailto:hello@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
           className="text-accent hover:underline"
         >
           Escríbenos

@@ -35,8 +35,8 @@ export default function Privacidad() {
             responsable del tratamiento de sus datos personales conforme a la Ley
             Federal de Protección de Datos Personales en Posesión de los
             Particulares (LFPDPPP) y su reglamento. Puede contactarnos en{" "}
-            <a className="text-accent underline" href="mailto:privacidad@invibot.com">
-              privacidad@invibot.com
+            <a className="text-accent underline" href="mailto:hello@invibot.com">
+              hello@invibot.com
             </a>
             .
           </p>
@@ -85,8 +85,8 @@ export default function Privacidad() {
           </p>
           <p className="mt-3">
             Para oponerse a las finalidades secundarias, escriba a{" "}
-            <a className="text-accent underline" href="mailto:privacidad@invibot.com">
-              privacidad@invibot.com
+            <a className="text-accent underline" href="mailto:hello@invibot.com">
+              hello@invibot.com
             </a>
             . Los invitados pueden dejar de recibir mensajes en cualquier momento
             respondiendo <strong className="text-ink">BAJA</strong> por WhatsApp.
@@ -99,8 +99,8 @@ export default function Privacidad() {
             Usted puede acceder, rectificar, cancelar u oponerse al tratamiento de
             sus datos personales, así como revocar su consentimiento. Envíe su
             solicitud a{" "}
-            <a className="text-accent underline" href="mailto:privacidad@invibot.com">
-              privacidad@invibot.com
+            <a className="text-accent underline" href="mailto:hello@invibot.com">
+              hello@invibot.com
             </a>{" "}
             indicando su nombre, un medio de contacto, la descripción clara de los
             datos sobre los que busca ejercer el derecho y el documento que

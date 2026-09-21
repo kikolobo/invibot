@@ -119,8 +119,8 @@ export default function Terminos() {
           <h2 className="font-display text-2xl text-ink">9. Contacto</h2>
           <p className="mt-3">
             Dudas sobre estos términos:{" "}
-            <a className="text-accent underline" href="mailto:hola@invibot.com">
-              hola@invibot.com
+            <a className="text-accent underline" href="mailto:hello@invibot.com">
+              hello@invibot.com
             </a>
             .
           </p>

@@ -98,7 +98,7 @@ export default function Home() {
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
               <a
-                href="mailto:hola@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
+                href="mailto:hello@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
                 className="inline-flex items-center justify-center rounded-full border border-gold px-8 py-3.5 text-sm font-medium tracking-wide text-gold transition-colors hover:bg-gold hover:text-night"
               >
                 Quiero probarlo
@@ -170,10 +170,10 @@ export default function Home() {
             producto. Escríbenos y lo revisamos contigo.
           </p>
           <a
-            href="mailto:hola@invibot.com?subject=Quiero%20probar%20Invibot"
+            href="mailto:hello@invibot.com?subject=Quiero%20probar%20Invibot"
             className="mt-9 inline-flex items-center justify-center rounded-full border border-cream-ink px-8 py-3.5 text-sm font-medium tracking-wide text-cream-ink transition-colors hover:bg-cream-ink hover:text-cream"
           >
-            hola@invibot.com
+            hello@invibot.com
           </a>
         </div>
       </section>

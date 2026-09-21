@@ -70,8 +70,8 @@ export function SiteFooter({ tone = "paper" }: { tone?: Tone }) {
           <Link href="/terminos" className={`transition-colors ${t.link}`}>
             Términos y condiciones
           </Link>
-          <a href="mailto:hola@invibot.com" className={`transition-colors ${t.link}`}>
-            hola@invibot.com
+          <a href="mailto:hello@invibot.com" className={`transition-colors ${t.link}`}>
+            hello@invibot.com
           </a>
         </nav>
       </div>
