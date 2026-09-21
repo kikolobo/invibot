@@ -19,7 +19,13 @@ import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
 type EventRow = typeof events.$inferSelect;
 type LinkFields = Pick<
   EventRow,
-  "registrationCode" | "name" | "hostNames" | "kind" | "startsAt" | "timezone"
+  | "registrationCode"
+  | "name"
+  | "hostNames"
+  | "kind"
+  | "startsAt"
+  | "timezone"
+  | "maxPartySize"
 >;
 
 /**
@@ -80,6 +86,12 @@ export const displayCode = (code: string) => code.toUpperCase();
  *
  * The trailing space after the colon is deliberate: without it the first
  * character they type lands against the punctuation.
+ *
+ * On an event that seats two, the sentence says so and asks for both names.
+ * Saying "a mí y a mi acompañante" up front is what makes the second name
+ * arrive at all: left to "mi nombre es", people write only their own and the
+ * companion stays a blank the host has to chase. `name-split.ts` is what reads
+ * the two names back out.
  */
 export function prefilledBody(event: LinkFields): string | null {
   if (!event.registrationCode) return null;
@@ -93,9 +105,13 @@ export function prefilledBody(event: LinkFields): string | null {
   const whose = host ? `de ${host}` : event.name.trim();
   const code = displayCode(event.registrationCode);
 
+  const both = event.maxPartySize >= 2;
+  const who = both ? "Regístrame a mí y a mi acompañante" : "Regístrame";
+  const blank = both ? "nuestros nombres son" : "mi nombre es";
+
   return (
-    `Regístrame para ${kind} ${whose} el día ${formatEventDate(event)} ` +
-    `(${code}), mi nombre es: `
+    `${who} para ${kind} ${whose} el día ${formatEventDate(event)} ` +
+    `(${code}), ${blank}: `
   );
 }
 
@@ -158,13 +174,30 @@ export function parseRegistration(text: string | null): ParsedRegistration | nul
   return { code, name: nameFrom(text) };
 }
 
-/** What they typed after "Mi nombre es:", if anything. */
+/**
+ * What they typed after the blank, if anything.
+ *
+ * Two spellings, because the message says one thing on an event for one and
+ * another on an event for two — and both forms stay readable forever: a link
+ * pasted into a group chat outlives any wording change here.
+ */
+const BLANKS = ["nombres son", "nombre es"];
+
 function nameFrom(text: string): string | null {
   const folded = fold(text);
-  const marker = folded.lastIndexOf("nombre es");
-  if (marker < 0) return null;
 
-  const after = text.slice(marker + "nombre es".length).replace(/^[\s:.,-]+/, "");
+  let at = -1;
+  let length = 0;
+  for (const blank of BLANKS) {
+    const found = folded.lastIndexOf(blank);
+    if (found > at) {
+      at = found;
+      length = blank.length;
+    }
+  }
+  if (at < 0) return null;
+
+  const after = text.slice(at + length).replace(/^[\s:.,-]+/, "");
   return cleanName(after);
 }
 

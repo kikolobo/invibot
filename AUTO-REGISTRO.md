@@ -16,6 +16,11 @@ nuestro número, con el mensaje ya escrito y el cursor al final:
 
 > Regístrame para el cumpleaños de Francisco Lobo el día martes 13 de octubre (A7K2), mi nombre es: 
 
+Y si el evento permite acompañante, el mismo mensaje lo dice desde el principio
+y pide los dos nombres — que es lo que hace que el segundo llegue:
+
+> Regístrame a mí y a mi acompañante para el cumpleaños de Francisco Lobo el día martes 13 de octubre (A7K2), nuestros nombres son: 
+
 Escribe su nombre, manda, y queda registrado **en estado pendiente**. No puede
 confirmar asistencia ni preguntar nada hasta que el anfitrión lo apruebe.
 Aprobado, recibe la invitación normal — la misma plantilla de siempre — y de
@@ -120,6 +125,7 @@ está procesado» a quien sólo dijo «gracias» se lee como un robot descompues
 | Cuándo | Texto |
 |---|---|
 | Cuerpo del link | Regístrame para «tipo» de «anfitrión» el día «fecha» («código»), mi nombre es: _(con espacio al final)_ |
+| Cuerpo del link, con +1 | Regístrame **a mí y a mi acompañante** para … («código»), **nuestros nombres son**: |
 | Registro nuevo | Gracias por tu registro para «evento», «fecha». ¡Save the Date! Pronto te enviaremos tu invitación oficial. |
 | Falta el nombre | Disculpa, ¿cuál es tu nombre completo? |
 | Pendiente (comodín) | Tu registro aún no está procesado. En cuanto lo esté, te enviaremos tu invitación oficial. |
