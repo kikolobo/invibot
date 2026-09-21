@@ -17,7 +17,14 @@ type GuestRow = typeof guests.$inferSelect;
 /** Opaque and unguessable. Never the guest's id: that leaks and it never changes. */
 const newCode = () => nanoid(22);
 
-const companionLabel = (name: string) => `Acompañante de ${name}`;
+/**
+ * What is printed under the companion's QR.
+ *
+ * Their own name where the host has it. "Acompañante de Ana" tells whoever is
+ * holding the list at the door nothing they can check against an ID or a face.
+ */
+const companionLabel = (guestName: string, companion: string | undefined) =>
+  companion?.trim() ? companion.trim() : `Acompañante de ${guestName}`;
 
 /**
  * Brings a guest's passes in line with what they confirmed.
@@ -64,7 +71,7 @@ export async function syncPasses(guest: GuestRow): Promise<(typeof guestPasses.$
         guestId: guest.id,
         code: newCode(),
         seat: index + 1,
-        label: index === 0 ? guest.fullName : companionLabel(name),
+        label: index === 0 ? guest.fullName : companionLabel(name, guest.companions[index - 1]),
       })),
     )
     .returning();

@@ -45,6 +45,9 @@ export function AddGuest({
             No permitir acompañante
           </label>
         )}
+        {maxPartySize > 1 && (
+          <Input name="companionName" placeholder="Nombre de su pareja (opcional)" />
+        )}
       </div>
 
       <button

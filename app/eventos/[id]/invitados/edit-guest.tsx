@@ -133,6 +133,20 @@ export function EditGuest({
           </label>
         )}
 
+        {/* Only where a companion is possible: on an event for one, a field
+            for their partner's name is a promise nobody can keep. */}
+        {maxPartySize > 1 && !denied && (
+          <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
+            Acompañante
+            <Input
+              name="companionName"
+              defaultValue={guest.companionName ?? ""}
+              placeholder="Nombre de su pareja"
+              className="max-w-56"
+            />
+          </label>
+        )}
+
         {rsvp === "confirmed" && (
           <label className="flex items-center gap-2 text-[0.88rem] text-ink-soft">
             Número de confirmados

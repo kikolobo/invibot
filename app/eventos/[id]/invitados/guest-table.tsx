@@ -18,6 +18,8 @@ export type GuestRow = {
   groupName: string | null;
   partySizeAllowed: number;
   partySizeConfirmed: number | null;
+  /** Their +1 by name, when anyone has told us. */
+  companionName: string | null;
   isVip: boolean;
   tableNumber: string | null;
   notes: string | null;
@@ -285,6 +287,11 @@ export function GuestTable({
                   {guest.partySizeAllowed > 1 && (
                     <span className="ml-2 text-[0.8rem] text-ink-muted">
                       +{guest.partySizeAllowed - 1}
+                    </span>
+                  )}
+                  {guest.companionName && (
+                    <span className="block text-[0.8rem] text-ink-muted">
+                      con {guest.companionName}
                     </span>
                   )}
                 </td>

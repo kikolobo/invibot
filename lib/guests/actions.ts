@@ -12,6 +12,7 @@ import { normalizePhone, variantsOf } from "@/lib/phone";
 import { parseGuestList, hasError, type ParsedGuest } from "./import";
 import { recordGuestEvent } from "./history";
 import { cleanGroupName, normalizeGroupName, suggestedGroups } from "./groups";
+import { properCase } from "./auto-register";
 import { MAX_PARTY_SIZE } from "@/lib/events/party";
 
 export type GuestActionState = { error?: string; ok?: string };
@@ -145,6 +146,10 @@ export async function addGuest(
     // The event decides whether companions exist; this form only makes
     // exceptions. Everyone gets what the event offers unless told otherwise.
     partySizeAllowed: formData.get("noCompanion") === "on" ? 1 : event.maxPartySize,
+    companions: readCompanions(
+      formData.get("companionName"),
+      formData.get("noCompanion") === "on" ? 1 : event.maxPartySize,
+    ),
     tableNumber: table.value,
     isVip: formData.get("isVip") === "on",
     notes: String(formData.get("notes") ?? "").trim() || null,
@@ -153,6 +158,19 @@ export async function addGuest(
 
   revalidatePath(`/eventos/${eventId}/invitados`);
   return { ok: `${fullName} agregado.` };
+}
+
+/**
+ * The companion's name, as the door list should print it.
+ *
+ * Stored only where a companion is possible: unticking "no permitir
+ * acompañante" and leaving a name behind would keep a person on the list that
+ * the invitation no longer has room for.
+ */
+function readCompanions(input: FormDataEntryValue | null, allowed: number): string[] {
+  if (allowed < 2) return [];
+  const name = properCase(String(input ?? "").replace(/\s+/g, " ").trim().slice(0, 80));
+  return name ? [name] : [];
 }
 
 /**
@@ -273,6 +291,7 @@ export async function updateGuest(
       tableNumber: tableNumber.value,
       notes: String(formData.get("notes") ?? "").trim() || null,
       partySizeAllowed,
+      companions: readCompanions(formData.get("companionName"), partySizeAllowed),
       rsvpStatus: rsvpStatus as typeof guest.rsvpStatus,
       // Set when the organizer records an answer, cleared when they take it
       // back. Existing timestamps are left alone so a guest's own reply keeps

@@ -79,6 +79,16 @@ export const guests = pgTable(
 
     partySizeAllowed: integer("party_size_allowed").notNull().default(1),
     partySizeConfirmed: integer("party_size_confirmed"),
+    /**
+     * Who they are bringing, by name. Empty when nobody, or when nobody has
+     * said yet — a guest with a seat for two and no name here is still coming
+     * with someone.
+     *
+     * An array rather than a column because the seat count is a per-event rule
+     * and only happens to be two today; the first entry is the +1. The name
+     * matters at the door, where "Acompañante de Ana" tells the person holding
+     * the list nothing they can check.
+     */
     companions: jsonb("companions").$type<string[]>().notNull().default([]),
 
     dietary: text("dietary"),

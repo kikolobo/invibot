@@ -44,6 +44,7 @@ export default async function Invitados({
       email: guests.email,
       groupName: guestGroups.name,
       partySizeAllowed: guests.partySizeAllowed,
+      companions: guests.companions,
       partySizeConfirmed: guests.partySizeConfirmed,
       isVip: guests.isVip,
       tableNumber: guests.tableNumber,
@@ -59,6 +60,12 @@ export default async function Invitados({
     .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "approved")))
     .orderBy(asc(guestGroups.sortOrder), asc(guests.fullName));
 
+
+  // The +1 by name, which is what the table and the edit form actually show.
+  const guestRows = rows.map(({ companions, ...row }) => ({
+    ...row,
+    companionName: companions[0] ?? null,
+  }));
 
   const groups = await listGroups(id);
   const archived = event.archivedAt !== null;
@@ -130,7 +137,7 @@ export default async function Invitados({
         <GuestTable
           eventId={event.id}
           eventName={event.name}
-          rows={rows}
+          rows={guestRows}
           invite={invite}
           groups={groups}
           maxPartySize={event.maxPartySize}
