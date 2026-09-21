@@ -311,8 +311,10 @@ export function GuestTable({
                   {/* Not a status of its own: "recordado" is something we did,
                       and folding it into the RSVP would take this row out of
                       "sin responder" — which is what the counts and the bulk
-                      selection are built on. */}
-                  {guest.rsvpStatus === "no_response" && guest.rsvpReminderSentAt && (
+                      selection are built on. Shown whichever way the reminder
+                      went out, and whatever they answered afterwards: "confirmó
+                      después de que le recordamos" is the thing worth seeing. */}
+                  {guest.rsvpReminderSentAt && (
                     <span className="block text-[0.78rem] text-ink-muted">
                       recordado {reminderFmt.format(new Date(guest.rsvpReminderSentAt))}
                     </span>

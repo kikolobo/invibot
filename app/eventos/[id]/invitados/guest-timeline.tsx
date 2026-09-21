@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { guestTimeline, type TimelineEntry } from "@/lib/guests/timeline";
+import { guestTimeline } from "@/lib/guests/timeline";
+import type { TimelineEntry } from "@/lib/guests/timeline-assemble";
 
 /**
  * One guest's history, in a panel that slides in from the right.
