@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests, guestGroups } from "@/db/schema";
+import { events, guests, guestGroups, sends } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { listGroups } from "@/lib/guests/actions";
 import {
@@ -51,6 +51,17 @@ export default async function Invitados({
       rsvpStatus: guests.rsvpStatus,
       inviteStatus: guests.inviteStatus,
       rsvpReminderSentAt: guests.rsvpReminderSentAt,
+      createdAt: guests.createdAt,
+      updatedAt: guests.updatedAt,
+      rsvpRespondedAt: guests.rsvpRespondedAt,
+      // Off the ledger rather than a column: "cuándo se le invitó" is the
+      // moment a message left, and that is what `sends` records. The latest
+      // one, because a corrected phone number earns a second invitation and
+      // the useful date is the one that reached them.
+      invitedAt: sql<string | null>`(
+        select max(${sends.sentAt}) from ${sends}
+        where ${sends.guestId} = ${guests.id} and ${sends.kind} = 'invite'
+      )`,
     })
     .from(guests)
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))

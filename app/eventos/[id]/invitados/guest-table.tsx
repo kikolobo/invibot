@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { confirmGuests, deleteGuests } from "@/lib/guests/actions";
 import { formatPhone } from "@/lib/phone";
 import { inviteLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
@@ -21,6 +21,11 @@ export type GuestRow = {
   partySizeConfirmed: number | null;
   /** Their +1 by name, when anyone has told us. */
   companionName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  rsvpRespondedAt: Date | null;
+  /** When the last invitation actually left, off the `sends` ledger. */
+  invitedAt: string | null;
   isVip: boolean;
   tableNumber: string | null;
   notes: string | null;
@@ -29,6 +34,45 @@ export type GuestRow = {
   /** Null until the one nudge has gone out. Shown beside "Sin responder". */
   rsvpReminderSentAt: Date | null;
 };
+
+/**
+ * How the list can be ordered.
+ *
+ * `grupo` is what the server already sent — group order, then name — and stays
+ * the default: it is how a host reads a list out loud, and changing what
+ * people see without being asked is its own kind of bug.
+ */
+const sorts = [
+  { key: "grupo", label: "Grupo" },
+  { key: "nombre", label: "Nombre" },
+  { key: "alta", label: "Fecha de alta" },
+  { key: "confirmado", label: "Fecha de confirmación" },
+  { key: "invitacion", label: "Fecha de invitación" },
+  { key: "cambio", label: "Último cambio" },
+] as const;
+
+type SortKey = (typeof sorts)[number]["key"];
+
+const at = (value: Date | string | null): number | null =>
+  value ? new Date(value).getTime() : null;
+
+/** What each ordering compares. Null means "nunca pasó". */
+function valueFor(row: GuestRow, key: SortKey): number | string | null {
+  switch (key) {
+    case "nombre":
+      return row.fullName.toLocaleLowerCase("es");
+    case "alta":
+      return at(row.createdAt);
+    case "confirmado":
+      return at(row.rsvpRespondedAt);
+    case "invitacion":
+      return at(row.invitedAt);
+    case "cambio":
+      return at(row.updatedAt);
+    case "grupo":
+      return null;
+  }
+}
 
 /** "20 sep" — the date alone; the panel has the hour for anyone who needs it. */
 const reminderFmt = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short" });
@@ -72,6 +116,27 @@ export function GuestTable({
   const [editing, setEditing] = useState<string | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("grupo");
+  const [ascending, setAscending] = useState(true);
+
+  const sorted = useMemo(() => {
+    const copy = [...rows];
+    if (sortKey === "grupo") return ascending ? copy : copy.reverse();
+
+    return copy.sort((a, b) => {
+      const left = valueFor(a, sortKey);
+      const right = valueFor(b, sortKey);
+
+      // Whoever it never happened to goes last, whichever way the arrow points:
+      // a column of "—" at the top is nobody's idea of sorted.
+      if (left === null && right === null) return 0;
+      if (left === null) return 1;
+      if (right === null) return -1;
+
+      const order = typeof left === "string" ? left.localeCompare(String(right), "es") : left - Number(right);
+      return ascending ? order : -order;
+    });
+  }, [rows, sortKey, ascending]);
   const [pending, startTransition] = useTransition();
 
   const toggle = (id: string) =>
@@ -208,6 +273,29 @@ export function GuestTable({
           </button>
         )}
         <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-[0.85rem] text-ink-muted">
+            Ordenar por
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="rounded-lg border border-line bg-paper-deep px-2 py-1 text-[0.85rem] text-ink outline-none focus:border-accent"
+            >
+              {sorts.map((sort) => (
+                <option key={sort.key} value={sort.key}>
+                  {sort.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setAscending((up) => !up)}
+            title={ascending ? "Ascendente" : "Descendente"}
+            aria-label={ascending ? "Orden ascendente" : "Orden descendente"}
+            className="inline-flex size-6 items-center justify-center rounded-full border border-line text-[0.75rem] text-ink-muted transition-colors hover:border-accent hover:text-accent"
+          >
+            {ascending ? "↑" : "↓"}
+          </button>
           {selected.size === 0 && addButton}
         </div>
 
@@ -297,7 +385,7 @@ export function GuestTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((guest) => (
+            {sorted.map((guest) => (
               <Fragment key={guest.id}>
               <tr className="border-b border-line/60 last:border-0">
                 <td className="px-2 py-2.5">
