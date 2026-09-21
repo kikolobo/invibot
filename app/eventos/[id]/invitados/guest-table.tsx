@@ -49,7 +49,34 @@ const sorts = [
   { key: "confirmado", label: "Fecha de confirmación" },
   { key: "invitacion", label: "Fecha de invitación" },
   { key: "cambio", label: "Último cambio" },
+  { key: "envio", label: "Estado de invitación" },
+  { key: "asistencia", label: "Asistencia" },
 ] as const;
+
+/**
+ * Los dos estados, ordenados por lo que hay que hacer con ellos y no por
+ * alfabeto: "Enviada" antes que "Entregada" es progreso, y "Entregada" antes
+ * que "Enviada" es sólo la letra E.
+ *
+ * Ascendente pone primero lo que pide atención — un envío que falló, alguien
+ * que no ha contestado — y descendente, lo que ya está resuelto.
+ */
+const inviteRank: Record<string, number> = {
+  failed: 0,
+  pending: 1,
+  queued: 2,
+  sent: 3,
+  delivered: 4,
+  read: 5,
+};
+
+const rsvpRank: Record<string, number> = {
+  no_response: 0,
+  maybe: 1,
+  waitlist: 2,
+  declined: 3,
+  confirmed: 4,
+};
 
 type SortKey = (typeof sorts)[number]["key"];
 
@@ -69,6 +96,10 @@ function valueFor(row: GuestRow, key: SortKey): number | string | null {
       return at(row.invitedAt);
     case "cambio":
       return at(row.updatedAt);
+    case "envio":
+      return inviteRank[row.inviteStatus] ?? 99;
+    case "asistencia":
+      return rsvpRank[row.rsvpStatus] ?? 99;
     case "grupo":
       return null;
   }
