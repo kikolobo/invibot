@@ -154,23 +154,44 @@ export function GuestTable({
   const [editing, setEditing] = useState<string | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [filter, setFilter] = useState<null | "confirmados" | "registros">(null);
+  const [filter, setFilter] = useState<null | keyof typeof filters>(null);
   const [sortKey, setSortKey] = useState<SortKey>("grupo");
   const [ascending, setAscending] = useState(true);
 
+  const isConfirmed = (row: GuestRow) => row.rsvpStatus === "confirmed";
+  const withCompanion = (row: GuestRow) =>
+    isConfirmed(row) && (row.partySizeConfirmed ?? 1) > 1;
+
+  /**
+   * Cada casilla que se puede tocar, y a quién deja en pantalla.
+   *
+   * `lugares` es el único donde el número y la lista no coinciden: la casilla
+   * cuenta lugares y el filtro muestra personas — las que traen a alguien. Por
+   * eso la etiqueta de arriba dice a cuántas está viendo.
+   */
   const filters = {
-    confirmados: {
-      // Abreviado para que las seis casillas quepan en un renglón. La etiqueta
-      // de arriba de la tabla dice la frase completa cuando el filtro está
+    conf24: {
+      // Abreviado para que las casillas quepan en un renglón. La etiqueta de
+      // arriba de la tabla dice la frase completa cuando el filtro está
       // puesto, que es cuando hace falta entenderla.
       label: "Conf. últ. 24H",
       ids: recent.confirmed,
       seeing: "Viendo a quienes confirmaron en las últimas 24 horas",
     },
-    registros: {
+    reg24: {
       label: "Auto-Reg. últ. 24H",
       ids: recent.approved,
       seeing: "Viendo los auto-registros que aprobaste en las últimas 24 horas",
+    },
+    confirmados: {
+      label: "Confirmados",
+      ids: rows.filter(isConfirmed).map((row) => row.id),
+      seeing: "Viendo a los confirmados",
+    },
+    lugares: {
+      label: "Lugares",
+      ids: rows.filter(withCompanion).map((row) => row.id),
+      seeing: "Viendo a los confirmados que vienen acompañados",
     },
   } as const;
 
@@ -277,9 +298,10 @@ export function GuestTable({
     0,
   );
 
-  const tile = (key: "confirmados" | "registros") => {
+  const tile = (key: keyof typeof filters, shows?: number) => {
     const { label, ids } = filters[key];
     const on = filter === key;
+    const value = shows ?? ids.length;
     return (
       <button
         type="button"
@@ -291,7 +313,7 @@ export function GuestTable({
         }`}
       >
         <span className="eyebrow block">{label}</span>
-        <span className="mt-1 block font-display text-2xl">{ids.length}</span>
+        <span className="mt-1 block font-display text-2xl">{value}</span>
       </button>
     );
   };
@@ -304,31 +326,26 @@ export function GuestTable({
         <dt className="eyebrow">En la lista</dt>
         <dd className="mt-1 font-display text-2xl text-ink">{rows.length}</dd>
       </div>
-      <div>
-        <dt className="eyebrow">Confirmados</dt>
-        <dd className="mt-1 font-display text-2xl text-ink">{confirmedRows.length}</dd>
-      </div>
-      <div>
-        {/* "Lugares" a secas: con seis casillas, el renglón lo agradece y el
-            número ya vive junto a "Confirmados", que es lo que lo explica. El
-            reporte sí dice "Lugares confirmados", donde se lee solo. */}
-        <dt className="eyebrow">Lugares</dt>
-        <dd className="mt-1 font-display text-2xl text-ink">{seats}</dd>
-      </div>
+      {/* "Lugares" a secas: el renglón lo agradece y el número vive junto a
+          "Confirmados", que es lo que lo explica. El reporte sí dice "Lugares
+          confirmados", donde se lee solo. */}
+      <div className="text-ink">{tile("confirmados", confirmedRows.length)}</div>
+      <div className="text-ink">{tile("lugares", seats)}</div>
       {capacity && (
         <div>
           <dt className="eyebrow">Cupo</dt>
           <dd className="mt-1 font-display text-2xl text-ink">{capacity}</dd>
         </div>
       )}
-      <div className="text-ink">{tile("confirmados")}</div>
-      {autoRegister && <div className="text-ink">{tile("registros")}</div>}
+      <div className="text-ink">{tile("conf24")}</div>
+      {autoRegister && <div className="text-ink">{tile("reg24")}</div>}
     </dl>
   );
 
   const filterChip = filter && (
     <p className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-paper-deep px-4 py-2 text-[0.85rem] text-ink-soft">
-      {filters[filter].seeing} ({visible.length})
+      {filters[filter].seeing} ({visible.length}
+      {visible.length === 1 ? " invitado" : " invitados"})
       <button
         type="button"
         onClick={() => setFilter(null)}
