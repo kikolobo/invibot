@@ -159,6 +159,12 @@ export const guestEventType = pgEnum("guest_event_type", [
   "self_registered",
   "approved",
   "rejected",
+  /**
+   * The one nudge to answer an invitation. `detail.via` says whether it went
+   * free-form inside the guest's own window or as a paid template once it had
+   * closed — the difference is the whole design of `rsvp-reminder.ts`.
+   */
+  "reminded",
 ]);
 
 /** A pass is never edited back to life: cancelling revokes it and confirming mints a new one. */

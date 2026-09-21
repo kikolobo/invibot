@@ -1,0 +1,1 @@
+ALTER TYPE "public"."guest_event_type" ADD VALUE 'reminded';

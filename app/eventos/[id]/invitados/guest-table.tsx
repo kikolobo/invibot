@@ -7,6 +7,7 @@ import { inviteLabels, type SkipReason, type MissingField } from "@/lib/campaign
 import type { TemplateName } from "@/lib/whatsapp/templates";
 import { SendInvitations } from "./send-invitations";
 import { EditGuest } from "./edit-guest";
+import { GuestTimeline } from "./guest-timeline";
 
 export type GuestRow = {
   id: string;
@@ -21,7 +22,12 @@ export type GuestRow = {
   notes: string | null;
   rsvpStatus: string;
   inviteStatus: string;
+  /** Null until the one nudge has gone out. Shown beside "Sin responder". */
+  rsvpReminderSentAt: Date | null;
 };
+
+/** "20 sep" — the date alone; the panel has the hour for anyone who needs it. */
+const reminderFmt = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short" });
 
 const rsvpLabels: Record<string, string> = {
   no_response: "Sin responder",
@@ -60,6 +66,7 @@ export function GuestTable({
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [history, setHistory] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const toggle = (id: string) =>
@@ -72,6 +79,7 @@ export function GuestTable({
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
   const editingGuest = rows.find((row) => row.id === editing) ?? null;
+  const historyGuest = rows.find((row) => row.id === history) ?? null;
 
   // Everyone who could be invited right now: never invited, or a send that
   // failed. `invite.eligible` is built by the same module the send action
@@ -300,11 +308,29 @@ export function GuestTable({
                 </td>
                 <td className="px-2 py-2.5 text-ink-soft">
                   {rsvpLabels[guest.rsvpStatus] ?? guest.rsvpStatus}
+                  {/* Not a status of its own: "recordado" is something we did,
+                      and folding it into the RSVP would take this row out of
+                      "sin responder" — which is what the counts and the bulk
+                      selection are built on. */}
+                  {guest.rsvpStatus === "no_response" && guest.rsvpReminderSentAt && (
+                    <span className="block text-[0.78rem] text-ink-muted">
+                      recordado {reminderFmt.format(new Date(guest.rsvpReminderSentAt))}
+                    </span>
+                  )}
                 </td>
                 <td className="px-2 py-2.5 text-ink-soft">
                   {guest.rsvpStatus === "confirmed" ? (guest.partySizeConfirmed ?? 1) : "—"}
                 </td>
-                <td className="px-2 py-2.5 text-right">
+                <td className="whitespace-nowrap px-2 py-2.5 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setHistory(guest.id)}
+                    title={`Historial de ${guest.fullName}`}
+                    aria-label={`Historial de ${guest.fullName}`}
+                    className="mr-2 inline-flex size-5 items-center justify-center rounded-full border border-line align-middle font-serif text-[0.72rem] leading-none text-ink-muted transition-colors hover:border-accent hover:text-accent"
+                  >
+                    i
+                  </button>
                   {!archived && (
                     <button
                       type="button"
@@ -321,6 +347,14 @@ export function GuestTable({
           </tbody>
         </table>
       </div>
+
+      {historyGuest && (
+        <GuestTimeline
+          eventId={eventId}
+          guest={{ id: historyGuest.id, fullName: historyGuest.fullName }}
+          onClose={() => setHistory(null)}
+        />
+      )}
 
       {editingGuest && (
         <div className="mt-3">

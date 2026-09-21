@@ -9,6 +9,7 @@ import {
 import { rsvpReminderReply } from "@/lib/whatsapp/replies";
 import { sendButtonsToGuest, sendTemplateToGuest } from "@/lib/whatsapp/send";
 import { buildComponents, templates } from "@/lib/whatsapp/templates";
+import { recordGuestEvent } from "./history";
 
 type GuestRow = typeof guests.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -172,10 +173,15 @@ async function remindGuest(
     return false;
   }
 
-  // No row in the guest's history: `guest_event_type` has no "reminded" and
-  // widening a Postgres enum is a migration of its own for a line nobody reads.
-  // The `sends` ledger already holds it, kind `reminder`, like every other
-  // message.
+  await recordGuestEvent({
+    guestId: guest.id,
+    eventId: event.id,
+    type: "reminded",
+    at: now,
+    source: "system",
+    detail: { via: windowOpen ? "libre" : "plantilla" },
+  });
+
   return true;
 }
 

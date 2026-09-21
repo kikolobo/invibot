@@ -50,6 +50,7 @@ export default async function Invitados({
       notes: guests.notes,
       rsvpStatus: guests.rsvpStatus,
       inviteStatus: guests.inviteStatus,
+      rsvpReminderSentAt: guests.rsvpReminderSentAt,
     })
     .from(guests)
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))

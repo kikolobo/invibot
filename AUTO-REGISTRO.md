@@ -204,6 +204,10 @@ Las condiciones:
 - **Sin pisar otro mensaje:** nada en las 2 horas siguientes a algo que le
   mandamos.
 
+El envío deja renglón en el historial del invitado (`guest_events`, tipo
+`reminded`, con `detail.via` = libre o plantilla), que es lo que lee el panel de
+la (i) en la lista.
+
 Si el envío falla — plantilla todavía en revisión, ventana que se cerró entre la
 comprobación y el envío — **se libera la marca** y el siguiente barrido lo vuelve
 a intentar. Marcar como recordado a alguien a quien no le llegó nada es dejarlo
