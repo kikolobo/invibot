@@ -309,7 +309,10 @@ export function GuestTable({
         <dd className="mt-1 font-display text-2xl text-ink">{confirmedRows.length}</dd>
       </div>
       <div>
-        <dt className="eyebrow">Lugares confirmados</dt>
+        {/* "Lugares" a secas: con seis casillas, el renglón lo agradece y el
+            número ya vive junto a "Confirmados", que es lo que lo explica. El
+            reporte sí dice "Lugares confirmados", donde se lee solo. */}
+        <dt className="eyebrow">Lugares</dt>
         <dd className="mt-1 font-display text-2xl text-ink">{seats}</dd>
       </div>
       {capacity && (
