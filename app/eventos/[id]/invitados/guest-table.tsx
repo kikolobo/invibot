@@ -180,7 +180,7 @@ export function GuestTable({
       seeing: "Viendo a quienes confirmaron en las últimas 24 horas",
     },
     reg24: {
-      label: "Auto-Reg. últ. 24H",
+      label: "Reg. últ. 24H",
       ids: recent.approved,
       seeing: "Viendo los auto-registros que aprobaste en las últimas 24 horas",
     },
@@ -188,6 +188,11 @@ export function GuestTable({
       label: "Confirmados",
       ids: rows.filter(isConfirmed).map((row) => row.id),
       seeing: "Viendo a los confirmados",
+    },
+    pendientes: {
+      label: "Sin responder",
+      ids: rows.filter((row) => row.rsvpStatus === "no_response").map((row) => row.id),
+      seeing: "Viendo a quienes no han respondido",
     },
     lugares: {
       label: "Lugares",
@@ -339,6 +344,7 @@ export function GuestTable({
           "Confirmados", que es lo que lo explica. El reporte sí dice "Lugares
           confirmados", donde se lee solo. */}
       <div className="text-ink">{tile("confirmados", confirmedRows.length)}</div>
+      <div className="text-ink">{tile("pendientes")}</div>
       <div className="text-ink">{tile("lugares", seats)}</div>
       {capacity && (
         <div>
