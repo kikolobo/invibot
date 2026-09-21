@@ -119,6 +119,11 @@ export async function buildContext(
     ...(canBringCompanion && !companionName
       ? [
           "- Si confirma que viene con acompañante y todavía no sabemos quién es, pregúntale UNA vez cómo se llama, en la misma frase en que le confirmas su lugar. Es para tener su nombre en la lista y en su acceso.",
+          ...(guest.rsvpStatus === "confirmed"
+            ? [
+                "- Ya confirmó con acompañante pero no sabemos su nombre. Cuando venga al caso, pregúntaselo UNA vez al final de lo que le estés contestando, en una frase. Nunca antes de responder lo que te preguntó, y nunca dos veces.",
+              ]
+            : []),
           "- Cuando te diga el nombre, guárdalo con set_companion_name y confírmaselo en una frase corta.",
           "- Si te dice que todavía no sabe, que no ha invitado a nadie o que lo está pensando, NO uses la herramienta y NO insistas: dile que cuando lo sepa te avise por aquí y tú lo anotas. Si más adelante te lo dice, ahí sí guárdalo.",
         ]

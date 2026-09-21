@@ -205,6 +205,17 @@ reemplazarlo.
 
 ## El nombre del acompañante
 
+**Los que quedaron atrás.** 31 invitados confirmaron con +1 antes de que
+existiera el campo. `scripts/ask-companion-names.mts` los barre una sola vez y
+le pregunta a quien tenga la ventana abierta; a los demás se lo pregunta el
+asistente la próxima vez que escriban. Se corre a mano, con ensayo por omisión:
+
+```
+npx tsx scripts/ask-companion-names.mts            # ensayo
+npx tsx scripts/ask-companion-names.mts --apply    # manda, 11:00–20:00
+```
+
+
 Cuando alguien confirma con +1 y no sabemos a quién trae, el asistente lo
 pregunta **una vez**, en la misma frase en que le confirma su lugar — y la
 confirmación por botón también lo pregunta, porque ese mensaje es libre y puede.
