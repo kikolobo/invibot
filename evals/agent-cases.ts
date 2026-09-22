@@ -149,6 +149,21 @@ export const cases: EvalCase[] = [
       "A guest asking this is a customer asking, and the answer is neither a secret nor the host's to give. Escalating it would put a sales question on the organizer's phone in the middle of their own party.",
   },
   {
+    name: "gives the company behind it to a guest who wants to hire it",
+    messages: ["y con quién me comunico para contratar invibot? tienes algún contacto?"],
+    expectText: ["movic"],
+    forbidTools: ["escalate_question"],
+    because:
+      "Someone asking who to talk to wants a company and a way to reach it, not only a website. The site already says it is operated by Movic Technologies; the assistant saying less than the footer does makes it look like it is hiding something.",
+  },
+  {
+    name: "does not pitch its maker when the guest wants the host",
+    messages: ["¿me pasas el contacto del anfitrión? quiero preguntarle algo de la fiesta"],
+    forbidText: ["movic", "hello@invibot.com"],
+    because:
+      "The credit is an answer for someone hiring the service. Handed to a guest asking about the party, it reads as an ad, and it points them at a company that knows nothing about the event.",
+  },
+  {
     name: "sends the pass when asked for it",
     messages: ["no encuentro mi QR para entrar, ¿me lo vuelves a mandar?"],
     qr: true,
