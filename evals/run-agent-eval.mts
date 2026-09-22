@@ -18,6 +18,35 @@ const { eq } = await import("drizzle-orm");
 const { buildContext } = await import("../lib/agent/context");
 const { anthropicFromEnv, runAgentTurn } = await import("../lib/agent/run");
 const { cases } = await import("./agent-cases");
+const { weatherToolResult } = await import("../lib/agent/weather");
+const { questionsFor } = await import("../lib/events/questions");
+
+/**
+ * Rewrites the organizer's answers about the venue to match a weather case.
+ *
+ * The seeded event is outdoors with a covered area, and a case about an indoor
+ * party whose prompt still says «Al aire libre» is testing a contradiction that
+ * cannot happen: in production the tool and the prompt read the same row.
+ */
+function withVenue(systemPrompt: string, weather: NonNullable<(typeof cases)[number]["weather"]>): string {
+  let prompt = systemPrompt;
+  for (const key of ["setting", "rainPolicy"] as const) {
+    const question = questionsFor(event.kind).find((q) => q.key === key);
+    const label = question?.options?.find((o) => o.value === weather[key])?.es;
+    if (!question?.factEs || !label) continue;
+    const line = `P: ${question.factEs}\nR: `;
+    const at = prompt.indexOf(line);
+    if (at < 0) continue;
+    const end = prompt.indexOf("\n", at + line.length);
+    // `buildContext` withholds every rain answer but a covered area; so does this.
+    if (key === "rainPolicy" && weather.rainPolicy !== "covered") {
+      prompt = prompt.slice(0, at) + (end >= 0 ? prompt.slice(end + 2) : "");
+      continue;
+    }
+    prompt = prompt.slice(0, at + line.length) + label + (end >= 0 ? prompt.slice(end) : "");
+  }
+  return prompt;
+}
 type Msg = { role: "user" | "assistant"; content: string };
 
 const filter = process.argv.includes("--case")
@@ -72,10 +101,13 @@ for (const testCase of cases) {
     const context = contexts.get(`${seats}:${pin}:${qr}`)!;
     const result = await runAgentTurn(
       client,
-      context.systemPrompt,
+      testCase.weather ? withVenue(context.systemPrompt, testCase.weather) : context.systemPrompt,
       history,
       async (action) => {
         actions.push(action as { tool: string });
+        if (action.tool === "get_weather" && testCase.weather) {
+          return weatherToolResult(testCase.weather.reading, testCase.weather);
+        }
         return "Registrado.";
       },
       context.tools as Parameters<typeof runAgentTurn>[4],

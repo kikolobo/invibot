@@ -304,6 +304,25 @@ each guest the moment they confirm.
 - Signed with `aws4fetch` rather than the AWS SDK — one small dependency
   against forty.
 
+### Open-Meteo — weather
+
+**In use.** Answers the assistant's `get_weather` tool: the venue's weather for
+the event's hours (`lib/weather/forecast.ts`).
+
+- **Cost:** free, no key — **for non-commercial use only**. Once Invibot
+  charges, it needs a paid plan (or a switch of provider) before it breaks the
+  terms.
+- Two endpoints. `api.open-meteo.com` forecasts ~15 days out; past that it
+  answers 400, and the assistant falls back to `archive-api.open-meteo.com`:
+  the same hours over the last ten years, worded as «suele», never as a
+  forecast.
+- The ten archive requests go out in parallel and the free tier sometimes
+  answers 429 to one of them; there is one retry, and anything still refused
+  just narrows the average.
+- The guest-facing wording rules (rain only when asked, never what happens to
+  the event if it rains unless there is a covered area) live in
+  `lib/agent/weather.ts`, not here.
+
 ---
 
 ## Planned, not yet set up

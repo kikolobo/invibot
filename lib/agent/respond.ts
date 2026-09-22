@@ -14,6 +14,7 @@ import { requestPasses } from "@/lib/passes/send";
 import type { WhatsAppConfig } from "@/lib/whatsapp/client";
 import { passesToolResult } from "./passes";
 import { recordCompanionName } from "@/lib/guests/companion";
+import { weatherReportFor } from "./weather";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -169,6 +170,11 @@ async function perform(
       // By id, not the row in hand: a confirmation earlier in this same turn
       // is already written, and the row predates it.
       return passesToolResult(await requestPasses(guest.id, config));
+
+    case "get_weather": {
+      const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+      return event ? weatherReportFor(event) : "No se pudo consultar el clima. Dile que por ahora no tienes esa información.";
+    }
   }
 }
 

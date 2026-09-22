@@ -9,6 +9,7 @@ import { buildContext } from "./context";
 import { anthropicFromEnv, runAgentTurn } from "./run";
 import { describeAction, type AgentAction } from "./tools";
 import { PASSES_SENT } from "./passes";
+import { weatherReportFor } from "./weather";
 
 /**
  * The assistant, rehearsing.
@@ -85,6 +86,9 @@ export async function simulateReply(
         return "Enviado al anfitrión. Avísale al invitado que le confirmas en cuanto sepas.";
       case "send_passes":
         return PASSES_SENT;
+      case "get_weather":
+        // A lookup changes nothing, so the rehearsal gets the real forecast.
+        return weatherReportFor(event);
       case "set_companion_name":
         return `Guardado: lo acompaña ${action.name}. Confírmaselo en una frase corta y sigue con lo que estaban hablando.`;
     }

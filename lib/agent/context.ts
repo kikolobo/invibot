@@ -43,7 +43,7 @@ export async function buildContext(
   guest: GuestRow,
 ): Promise<AgentContext> {
   const facts = await db
-    .select({ question: eventFacts.question, answer: eventFacts.answer })
+    .select({ key: eventFacts.key, question: eventFacts.question, answer: eventFacts.answer })
     .from(eventFacts)
     .where(
       and(
@@ -65,9 +65,16 @@ export async function buildContext(
   const canSendPasses = event.qrEnabled;
   const companionName = guest.companions[0] ?? null;
 
+  // What happens to the party if it rains is the organizer's to announce,
+  // unless the answer is good news. «Se cancela» said by a bot next to a
+  // forecast decides for the guest whether it is worth coming, so any other
+  // answer is withheld and the question goes back to the organizer.
+  const rainIsGoodNews = event.details.rainPolicy === "covered";
+  const told = facts.filter((fact) => fact.key !== "rainPolicy" || rainIsGoodNews);
+
   const knowledge =
-    facts.length > 0
-      ? facts.map((fact) => `P: ${fact.question}\nR: ${fact.answer}`).join("\n\n")
+    told.length > 0
+      ? told.map((fact) => `P: ${fact.question}\nR: ${fact.answer}`).join("\n\n")
       : "(El anfitrión todavía no ha contestado ninguna pregunta.)";
 
   const systemPrompt = [
@@ -117,6 +124,14 @@ export async function buildContext(
       : maps
         ? "- Si te piden la ubicación, la dirección o cómo llegar, pásales el link de Google Maps tal cual, completo y sin cambiarle nada. Es la respuesta que están esperando: no lo sustituyas por una descripción del lugar."
         : "- Si te piden la ubicación o cómo llegar y arriba no hay dirección, no la inventes ni la deduzcas: escala la pregunta.",
+    canSendLocation
+      ? "- Si te preguntan por el clima, la temperatura, la lluvia o qué ropa llevar por el clima, usa get_weather y contesta como te indique. No escales esas preguntas, y nunca saques el clima tú solo si no te lo preguntan."
+      : "- Si te preguntan por el clima, dile en una frase que no tienes esa información. No lo escales ni lo adivines.",
+    ...(rainIsGoodNews
+      ? []
+      : [
+          "- Si te preguntan qué pasa con el evento si llueve —si se cancela, se pospone o se hace igual—, eso no es una pregunta del clima: escálala con escalate_question, sin adivinar ni sugerir nada.",
+        ]),
     ...(canBringCompanion && !companionName
       ? [
           "- Si confirma que viene con acompañante y todavía no sabemos quién es, pregúntale UNA vez cómo se llama, en la misma frase en que le confirmas su lugar. Es para tener su nombre en la lista y en su acceso.",

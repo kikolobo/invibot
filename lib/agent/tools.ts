@@ -17,6 +17,7 @@ export type AgentAction =
   | { tool: "escalate_question"; question: string }
   | { tool: "send_location" }
   | { tool: "send_passes" }
+  | { tool: "get_weather" }
   | { tool: "set_companion_name"; name: string };
 
 const locationTool: Anthropic.Tool = {
@@ -31,6 +32,14 @@ const passesTool: Anthropic.Tool = {
   name: "send_passes",
   description:
     "Send the guest their entry pass — the QR code shown at the door, one per person coming. Use it when they ask for their pass, access, QR, code, ticket or entrada, or say they lost or cannot find it. It sends the same codes they already have, never new ones. The result tells you whether it went out or why not; relay that and nothing else.",
+  input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+  strict: true,
+};
+
+const weatherTool: Anthropic.Tool = {
+  name: "get_weather",
+  description:
+    "Look up the weather at the venue for the hours of the event — a forecast when the date is close, or what those hours are usually like when it is not. Use it when the guest asks about the weather, the temperature, rain, heat, cold, or what to wear for the weather. It sends nothing to the guest; it tells you what to say and how.",
   input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   strict: true,
 };
@@ -122,7 +131,8 @@ export function agentToolsFor(options: {
 }): Anthropic.Tool[] {
   return [
     ...agentTools,
-    ...(options.canSendLocation ? [locationTool] : []),
+    // The weather needs the same coordinates the pin does.
+    ...(options.canSendLocation ? [locationTool, weatherTool] : []),
     ...(options.canSendPasses ? [passesTool] : []),
     ...(options.canNameCompanion ? [companionTool] : []),
   ];
@@ -142,6 +152,8 @@ export function describeAction(action: AgentAction): string {
       return "Manda la ubicación del lugar como mapa de WhatsApp";
     case "send_passes":
       return "Le manda sus accesos (QR)";
+    case "get_weather":
+      return "Consulta el clima del lugar a la hora del evento";
     case "set_companion_name":
       return `Guarda el nombre de su acompañante: “${action.name}”`;
   }

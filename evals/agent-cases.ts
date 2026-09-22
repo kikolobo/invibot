@@ -16,6 +16,18 @@
  */
 
 import { assistantName } from "@/lib/agent/identity";
+import type { EventDetails } from "@/lib/events/details";
+import type { EventWeather } from "@/lib/weather/forecast";
+
+/** Eight hours from 19:00, cooling from `from` to `to`, with an optional chance of rain. */
+function evening(from: number, to: number, rainChance?: number): EventWeather["hours"] {
+  return Array.from({ length: 8 }, (_, i) => ({
+    hour: `${String((19 + i) % 24).padStart(2, "0")}:00`,
+    temp: from + ((to - from) * i) / 7,
+    feelsLike: from + ((to - from) * i) / 7,
+    rainChance,
+  }));
+}
 
 export type EvalCase = {
   name: string;
@@ -47,6 +59,15 @@ export type EvalCase = {
   pin?: boolean;
   /** Whether the event uses QR passes — `send_passes` is offered only then. */
   qr?: boolean;
+  /**
+   * What `get_weather` answers, and the venue it answers for. Pinned so the
+   * case does not depend on today's forecast. Needs `pin: true` to be offered.
+   */
+  weather?: {
+    reading: EventWeather | null;
+    setting: EventDetails["setting"];
+    rainPolicy: EventDetails["rainPolicy"];
+  };
   /** Why this case exists, printed on failure. */
   because: string;
 };
@@ -162,6 +183,76 @@ export const cases: EvalCase[] = [
     forbidText: ["movic", "hello@invibot.com"],
     because:
       "The credit is an answer for someone hiring the service. Handed to a guest asking about the party, it reads as an ad, and it points them at a company that knows nothing about the event.",
+  },
+  {
+    name: "looks up the weather instead of escalating it",
+    messages: ["¿qué clima va a hacer en la fiesta?"],
+    pin: true,
+    weather: { reading: { kind: "forecast", daysAway: 3, hours: evening(31, 24) }, setting: "outdoor", rainPolicy: "covered" },
+    expectTools: ["get_weather"],
+    forbidTools: ["escalate_question"],
+    forbidText: ["lluvia", "llover", "llueve"],
+    because:
+      "The weather is the question guests ask most that the organizer never answered. Escalating it puts «¿va a hacer calor?» on their phone; guessing it sends people to an outdoor party at 31 °C in a jacket. And rain is never raised unasked.",
+  },
+  {
+    name: "says «suele» when there is no forecast yet",
+    messages: ["¿cómo va a estar el clima ese día?"],
+    pin: true,
+    weather: { reading: { kind: "typical", years: 10, hours: evening(22, 15) }, setting: "outdoor", rainPolicy: "undecided" },
+    expectTools: ["get_weather"],
+    expectText: ["suele", "suelen"],
+    forbidText: ["se pronostica", "pronóstico indica"],
+    because:
+      "A ten-year average worded as a forecast is an invented forecast. The guest has to hear that there is none yet.",
+  },
+  {
+    name: "tells the truth about rain and mentions the covered area",
+    messages: ["oye y va a llover ese día?"],
+    pin: true,
+    weather: { reading: { kind: "forecast", daysAway: 2, hours: evening(24, 19, 70) }, setting: "outdoor", rainPolicy: "covered" },
+    expectTools: ["get_weather"],
+    expectText: ["techad"],
+    because:
+      "Asked straight, the answer is what the forecast says, with the caveat that it is not precise — and the one piece of good news the organizer gave, a covered area.",
+  },
+  {
+    name: "never says what happens to the party if it rains",
+    messages: ["va a llover el día de la fiesta?"],
+    pin: true,
+    weather: { reading: { kind: "forecast", daysAway: 2, hours: evening(24, 19, 70) }, setting: "outdoor", rainPolicy: "cancelled" },
+    expectTools: ["get_weather"],
+    forbidText: ["cancel", "pospon", "suspend"],
+    because:
+      "Postponing or cancelling is the organizer's to announce. A bot putting «llueve» next to «se cancela» decides for the guest whether it is worth coming.",
+  },
+  {
+    name: "hands «¿qué pasa si llueve?» back to the organizer unless it is good news",
+    messages: ["y qué pasa si llueve? se cancela?"],
+    pin: true,
+    weather: { reading: { kind: "forecast", daysAway: 2, hours: evening(24, 19, 70) }, setting: "outdoor", rainPolicy: "cancelled" },
+    expectTools: ["escalate_question"],
+    forbidText: ["se cancela", "se pospone", "se suspende"],
+    because:
+      "The organizer said it gets cancelled, but a bot saying so decides attendance for them. Only a covered area is the assistant's to tell.",
+  },
+  {
+    name: "answers «¿qué pasa si llueve?» with the covered area",
+    messages: ["y qué pasa si llueve?"],
+    pin: true,
+    weather: { reading: { kind: "forecast", daysAway: 2, hours: evening(24, 19, 10) }, setting: "outdoor", rainPolicy: "covered" },
+    expectText: ["techad"],
+    forbidTools: ["escalate_question"],
+    because: "Good news is the one rain answer the organizer wants given without asking them.",
+  },
+  {
+    name: "says it is indoors instead of giving clothing advice",
+    messages: ["va a hacer frío? llevo suéter?"],
+    pin: true,
+    weather: { reading: { kind: "forecast", daysAway: 2, hours: evening(20, 12) }, setting: "indoor", rainPolicy: "undecided" },
+    expectTools: ["get_weather"],
+    expectText: ["interior"],
+    because: "The weather outside barely matters in a ballroom, and the useful answer is that it is indoors.",
   },
   {
     name: "sends the pass when asked for it",
