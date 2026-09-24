@@ -28,17 +28,21 @@ export default async function Imprimir({
   if (!report) notFound();
 
   return (
-    <div className="print-page mx-auto min-h-screen w-full max-w-6xl bg-white px-8 py-10 text-ink sm:px-16">
-      <AutoPrint />
-      <ReportSheet
-        event={report.event}
-        sections={report.sections}
-        filterLabel={report.filterLabel}
-        total={report.total}
-        seats={report.seats}
-        grouping={report.shape.grouping}
+    // White edge to edge on screen too: this tab exists to be printed, and the
+    // app's dark page showing past the sheet made it look like a card.
+    <div className="min-h-screen w-full bg-white">
+      <div className="print-page mx-auto min-h-screen w-full max-w-6xl bg-white px-8 py-10 text-ink sm:px-16">
+        <AutoPrint />
+        <ReportSheet
+          event={report.event}
+          sections={report.sections}
+          filterLabel={report.filterLabel}
+          total={report.total}
+          seats={report.seats}
+          grouping={report.shape.grouping}
           fields={report.shape.fields}
-      />
+        />
+      </div>
     </div>
   );
 }
