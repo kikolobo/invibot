@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { normalizePhone } from "@/lib/phone";
 import { ensureOwner } from "./owner";
+import { PHONE_TAKEN, changeAccountPhone, phoneTaken } from "./account-phone";
 import { acceptInvite, inviteLink, inviteMessage, newInviteToken } from "./invites";
 import { sendOrganizerInvite } from "./notify";
 
@@ -38,28 +39,39 @@ export async function updateOrganizer(
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
   if (!phone) return { error: "Ese teléfono no se ve bien. Revisa el número." };
 
-  let updated: { isOwner: boolean } | undefined;
+  const row = await db.query.organizers.findFirst({
+    where: and(eq(organizers.eventId, eventId), eq(organizers.id, organizerId)),
+    columns: { isOwner: true, userId: true, phoneE164: true },
+  });
+  if (!row) return { error: "No encontramos a esa persona." };
+
+  // A row that is an account carries that account's number. Your own row
+  // changes your account — and with it every event you are on; somebody
+  // else's is theirs to change, so only the name is editable here.
+  const mine = row.isOwner ? guard.access.role === "owner" : row.userId === userId;
+  const account = row.isOwner || row.userId !== null;
+  const phoneChanged = !phone.variants.includes(row.phoneE164);
+
+  if (account && !mine && phoneChanged) {
+    return { error: "Su WhatsApp lo cambia cada quien desde «Mi cuenta»." };
+  }
+
+  if (mine && phoneChanged) {
+    const changed = await changeAccountPhone(userId, phone.e164);
+    if (changed.error) return { error: changed.error };
+  }
+
   try {
-    [updated] = await db
+    await db
       .update(organizers)
       .set({
         fullName,
-        phoneE164: phone.e164,
-        phoneVariants: phone.variants,
+        ...(account ? {} : { phoneE164: phone.e164, phoneVariants: phone.variants }),
         updatedAt: new Date(),
       })
-      .where(and(eq(organizers.eventId, eventId), eq(organizers.id, organizerId)))
-      .returning({ isOwner: organizers.isOwner });
+      .where(eq(organizers.id, organizerId));
   } catch {
     return { error: "Ese teléfono ya está en la lista." };
-  }
-
-  // The owner's number is the account's number. Correcting it here and
-  // nowhere else would put the old, wrong one on the next event they create.
-  // Only the owner's own edit carries over: an admin fixing it for this event
-  // does not get to rewrite somebody else's account.
-  if (updated?.isOwner && guard.access.role === "owner") {
-    await db.update(users).set({ phone: phone.e164 }).where(eq(users.id, userId));
   }
 
   revalidatePath(`/eventos/${eventId}/organizadores`);
@@ -172,6 +184,7 @@ export async function addMyself(
 
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
   if (!phone) return { error: "Ese teléfono no se ve bien. Revisa el número." };
+  if (await phoneTaken(phone.e164, userId)) return { error: PHONE_TAKEN };
 
   await db.update(users).set({ phone: phone.e164 }).where(eq(users.id, userId));
   await ensureOwner(eventId);

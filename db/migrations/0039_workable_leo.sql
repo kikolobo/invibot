@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "users_phone_key" ON "users" USING btree ("phone_e164");

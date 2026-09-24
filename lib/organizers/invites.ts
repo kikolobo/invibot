@@ -5,6 +5,7 @@ import { organizations, organizerInvites, organizers, users, events } from "@/db
 import { publicBase } from "@/lib/public-url";
 import { variantsOf } from "@/lib/phone";
 import { ensureStaffCode } from "./owner";
+import { phoneTaken } from "./account-phone";
 
 type InviteRow = typeof organizerInvites.$inferSelect;
 export type InvitedRole = "admin" | "guest_manager";
@@ -45,8 +46,10 @@ export async function inviteByToken(token: string) {
 /**
  * Turning a pending invitation into access, for this account.
  *
- * The account's own number wins when it has one; an account from before
- * signup asked for a number takes the invitation's. Somebody already on the
+ * The account's own number wins when it has one, even if the invitation was
+ * sent to another — the organizer row follows the account, since that is the
+ * number they chose. An account from before signup asked for a number takes
+ * the invitation's. Somebody already on the
  * list by phone keeps that row — and whether they answer guests — and gains
  * the account and the role.
  */
@@ -55,7 +58,11 @@ export async function acceptInvite(
   user: { id: string; name: string; email: string; phone: string | null },
 ): Promise<void> {
   const phone = user.phone ?? invite.phoneE164;
-  if (!user.phone) await db.update(users).set({ phone }).where(eq(users.id, user.id));
+  // An account with no number takes the invitation's — unless another account
+  // already holds it, in which case this one simply stays without.
+  if (!user.phone && !(await phoneTaken(phone, user.id))) {
+    await db.update(users).set({ phone }).where(eq(users.id, user.id));
+  }
 
   const [owner] = await db
     .select({ ownerUserId: organizations.ownerUserId })

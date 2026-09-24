@@ -6,7 +6,6 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getSession } from "@/lib/auth/session";
-import { variantsOf } from "@/lib/phone";
 import { INVITE_COOKIE, acceptInvite, inviteByToken } from "@/lib/organizers/invites";
 
 /**
@@ -33,9 +32,11 @@ export async function holdInvite(token: string): Promise<{ error?: string }> {
 /**
  * Accepting with an account that already exists.
  *
- * Tied to the number, like the signup: the link was sent to one WhatsApp, and
- * somebody it was forwarded to should not walk into the guest list with it.
- * An account with no number yet is the exception — it takes this one.
+ * Not tied to the number, unlike signing up. The owner may only know an old
+ * number, or a different one from the one on the account; arriving here from
+ * the WhatsApp that number received is the proof it was meant for them. The
+ * price is that a forwarded link works for any signed-in account — visible in
+ * the organizer list, where the owner can take the access away.
  */
 export async function joinWithAccount(token: string): Promise<{ error?: string }> {
   const session = await getSession();
@@ -49,13 +50,6 @@ export async function joinWithAccount(token: string): Promise<{ error?: string }
     columns: { id: true, name: true, email: true, phone: true },
   });
   if (!user) return { error: "Entra a tu cuenta primero." };
-
-  if (user.phone && !variantsOf(user.phone).includes(found.invite.phoneE164)) {
-    return {
-      error:
-        "Esta invitación es para otro número de WhatsApp. Pide que te inviten con el número de tu cuenta.",
-    };
-  }
 
   await acceptInvite(found.invite, user);
   redirect(`/eventos/${found.event.id}`);

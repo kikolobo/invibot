@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { APIError } from "better-auth/api";
 import { normalizePhone } from "@/lib/phone";
 import { INVITE_COOKIE, acceptInvitesForPhone, inviteOpensSignup } from "@/lib/organizers/invites";
+import { PHONE_TAKEN, phoneTaken } from "@/lib/organizers/account-phone";
 import { GATE_COOKIE, gateOpen } from "./signup-gate";
 
 /**
@@ -103,6 +104,10 @@ const createAuth = () =>
               throw new APIError("BAD_REQUEST", {
                 message: "Ese número de WhatsApp no parece válido.",
               });
+            }
+            // One account per number: invitations find people by it.
+            if (await phoneTaken(phone.e164)) {
+              throw new APIError("BAD_REQUEST", { message: PHONE_TAKEN });
             }
             return { data: { ...user, phone: phone.e164 } };
           },
