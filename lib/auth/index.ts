@@ -5,6 +5,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { cookies } from "next/headers";
 import { APIError } from "better-auth/api";
+import { normalizePhone } from "@/lib/phone";
 import { GATE_COOKIE, gateOpen } from "./signup-gate";
 
 /**
@@ -44,6 +45,14 @@ const createAuth = () =>
       ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
     ],
     database: drizzleAdapter(db, { provider: "pg", usePlural: true, schema }),
+    user: {
+      additionalFields: {
+        // Accepted as typed at signup and rewritten to E.164 by the create hook
+        // below. Not `required` here: existing accounts have none, and the hook
+        // is what insists on it for new ones.
+        phone: { type: "string", required: false, input: true },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 10,
@@ -69,13 +78,24 @@ const createAuth = () =>
     databaseHooks: {
       user: {
         create: {
-          before: async () => {
+          before: async (user) => {
             const jar = await cookies();
             if (!gateOpen(jar.get(GATE_COOKIE)?.value)) {
               throw new APIError("FORBIDDEN", {
                 message: "Necesitas un código de acceso para crear una cuenta.",
               });
             }
+
+            // Same reasoning as the gate: the form's `type="tel"` is a hint,
+            // this is the check. Stored canonical so it compares cleanly with
+            // the numbers Meta sends us.
+            const phone = normalizePhone(String(user.phone ?? ""));
+            if (!phone) {
+              throw new APIError("BAD_REQUEST", {
+                message: "Ese número de WhatsApp no parece válido.",
+              });
+            }
+            return { data: { ...user, phone: phone.e164 } };
           },
         },
       },

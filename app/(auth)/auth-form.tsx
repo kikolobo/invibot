@@ -29,7 +29,12 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
     const result =
       mode === "signup"
-        ? await signUp.email({ email, password, name: String(data.get("name")) })
+        ? await signUp.email({
+            email,
+            password,
+            name: String(data.get("name")),
+            phone: String(data.get("phone")),
+          })
         : await signIn.email({ email, password });
 
     setPending(false);
@@ -61,6 +66,23 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           placeholder="ana@ejemplo.com"
         />
       </Field>
+
+      {mode === "signup" && (
+        <Field
+          label="Tu WhatsApp"
+          help="Con lada. Si es de México basta con los 10 dígitos."
+          required
+        >
+          <Input
+            type="tel"
+            name="phone"
+            autoComplete="tel"
+            inputMode="tel"
+            required
+            placeholder="55 1234 5678"
+          />
+        </Field>
+      )}
 
       <Field
         label="Contraseña"

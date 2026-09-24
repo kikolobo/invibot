@@ -40,12 +40,17 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
       {/* One door for everybody. Signed in it opens the events list; signed
           out it lands on the sign-in form — which is what "Login" promises
           either way, where "App" left people guessing. */}
-      <Link
-        href="/eventos"
-        className={`rounded-full border px-5 py-2 text-sm transition-colors ${appButton}`}
-      >
-        Login
-      </Link>
+      <nav className="flex items-center gap-5">
+        <Link href="/registro" className={`text-sm transition-colors ${t.muted} ${t.link}`}>
+          Crear cuenta
+        </Link>
+        <Link
+          href="/eventos"
+          className={`rounded-full border px-5 py-2 text-sm transition-colors ${appButton}`}
+        >
+          Login
+        </Link>
+      </nav>
     </header>
   );
 }
