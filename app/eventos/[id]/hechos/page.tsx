@@ -1,14 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, eventFacts } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
-import {
-  listOpenEscalations,
-  waitingGuestNames,
-  askersOfFact,
-} from "@/lib/agent/escalations";
+import { eventFacts } from "@/db/schema";
+import { can, requireEventAccess } from "@/lib/events/access";
+import { listOpenEscalations, waitingGuestNames, askersOfFact } from "@/lib/agent/escalations";
 import { AnswerEscalation } from "./answer-escalation";
 import { EditAnswer } from "./edit-answer";
 
@@ -27,12 +22,9 @@ export default async function Preguntas({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const access = await requireEventAccess(id, "answer");
+  const { event } = access;
+  const editsEvent = can(access, "event");
 
   // Learned facts have no `key`; the catalogue's do, and they live in Detalles.
   const answered = await db
@@ -71,7 +63,7 @@ export default async function Preguntas({
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl">Preguntas</h1>
-        {!archived && (
+        {!archived && editsEvent && (
           <Link
             href={`/eventos/${event.id}/detalles`}
             className="text-[0.85rem] text-accent hover:underline"
@@ -122,6 +114,7 @@ export default async function Preguntas({
                 question={fact.question}
                 answer={fact.answer}
                 askedBy={answeredAskers.get(fact.id) ?? []}
+                editable={editsEvent}
               />
             ))}
           </ul>

@@ -3,7 +3,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { guests } from "@/db/schema/guests";
-import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "./guard";
 import { formatEventWhen, formatEventWhereForMessage } from "./format";
 import { greetingName } from "@/lib/campaigns/recipients";
@@ -41,9 +40,8 @@ export async function notifyGuestsOfChange(
   eventId: string,
   summary: string,
 ): Promise<NotifyResult> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 
@@ -109,8 +107,7 @@ export async function previewNotifyAudience(eventId: string): Promise<{
   updated: number;
   informed: number;
 }> {
-  const { orgId } = await requireOrg();
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { updated: 0, informed: 0 };
 
   const recipients = await db

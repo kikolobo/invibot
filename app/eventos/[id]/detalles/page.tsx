@@ -1,8 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { events } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
+import { requireEventAccess } from "@/lib/events/access";
 import { detailsToAnswers } from "@/lib/events/facts";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { DetallesForm } from "./detalles-form";
@@ -15,12 +12,7 @@ export default async function Detalles({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const { event } = await requireEventAccess(id, "event");
   // Nothing on this page is readable-only: it is the questionnaire form itself,
   // so an archived event goes back to the overview, where its answers are shown.
   if (event.archivedAt) redirect(`/eventos/${event.id}`);

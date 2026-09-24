@@ -3,17 +3,27 @@ import { count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import { sharedEvents, type EventRole } from "@/lib/events/access";
 import { EventRow } from "./event-row";
 
 export const metadata = { title: "Mis eventos" };
 
 export default async function Eventos() {
   const { orgId } = await requireOrg();
-  const all = await db
+  const own = await db
     .select()
     .from(events)
     .where(eq(events.orgId, orgId))
     .orderBy(desc(events.startsAt));
+
+  // Events other people invited this account into sit in the same list, by
+  // date, marked with the role rather than kept in a section of their own —
+  // for a planner they are simply their events.
+  const shared = await sharedEvents();
+  const roles = new Map<string, EventRole>(shared.map((row) => [row.event.id, row.role]));
+  const all = [...own, ...shared.map((row) => row.event)].sort(
+    (a, b) => b.startsAt.getTime() - a.startsAt.getTime(),
+  );
 
   const rows = all.filter((event) => event.archivedAt === null);
   const archived = all.filter((event) => event.archivedAt !== null);
@@ -50,7 +60,11 @@ export default async function Eventos() {
           <ul className="mt-10 space-y-3">
             {rows.map((event) => (
               <li key={event.id}>
-                <EventRow event={event} guestCount={guestCounts.get(event.id) ?? 0} />
+                <EventRow
+                  event={event}
+                  guestCount={guestCounts.get(event.id) ?? 0}
+                  role={roles.get(event.id) ?? "owner"}
+                />
               </li>
             ))}
           </ul>

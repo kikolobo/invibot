@@ -24,6 +24,7 @@ export function EditAnswer({
   answer,
   factId,
   askedBy,
+  editable = true,
 }: {
   eventId: string;
   question: string;
@@ -31,6 +32,11 @@ export function EditAnswer({
   factId: string;
   /** Everyone who asked this, for the "i" beside the question. */
   askedBy: string[];
+  /**
+   * False for a guest manager answering questions: they may answer what is
+   * open, but what the assistant already knows is the event's, like Detalles.
+   */
+  editable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [closing, startClosing] = useTransition();
@@ -74,13 +80,15 @@ export function EditAnswer({
         </p>
         <div className="mt-1 flex items-baseline gap-3">
           <p className="min-w-0 whitespace-pre-line text-ink">{answer}</p>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="ml-auto shrink-0 text-[0.8rem] text-ink-muted transition-colors hover:text-accent"
-          >
-            Cambiar
-          </button>
+          {editable && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="ml-auto shrink-0 text-[0.8rem] text-ink-muted transition-colors hover:text-accent"
+            >
+              Cambiar
+            </button>
+          )}
         </div>
         {state.ok && <p className="mt-1 text-[0.8rem] text-ink-muted">{state.ok}</p>}
       </li>

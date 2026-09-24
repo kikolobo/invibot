@@ -1,5 +1,5 @@
+import { requireEventAccess } from "@/lib/events/access";
 import { notFound } from "next/navigation";
-import { requireOrg } from "@/lib/auth/session";
 import { loadReport, type ReportQuery } from "@/lib/reports/load";
 import { ReportSheet } from "@/components/report-sheet";
 import { AutoPrint } from "./auto-print";
@@ -22,9 +22,9 @@ export default async function Imprimir({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const { orgId } = await requireOrg();
+  await requireEventAccess(id, "guests");
 
-  const report = await loadReport(id, orgId, query);
+  const report = await loadReport(id, query);
   if (!report) notFound();
 
   return (

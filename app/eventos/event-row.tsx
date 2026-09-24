@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { events } from "@/db/schema";
 import { eventKindLabels } from "@/lib/events/kinds";
+import { roleLabels, type EventRole } from "@/lib/events/access";
 import { CloneEvent } from "./clone-event";
 import { UnarchiveButton } from "./unarchive-button";
 
@@ -18,12 +19,17 @@ const dateFmtFor = (timeZone: string) =>
 export function EventRow({
   event,
   guestCount,
+  role,
   archived = false,
 }: {
   event: typeof events.$inferSelect;
   guestCount: number;
+  role: EventRole;
   archived?: boolean;
 }) {
+  // Restoring and copying change what the event is; a guest manager does not.
+  const manages = role !== "guest_manager";
+
   return (
     <div
       className={`rounded-xl border p-5 transition-colors ${
@@ -45,11 +51,18 @@ export function EventRow({
           {dateFmtFor(event.timezone).format(event.startsAt)}
           {event.venueName && ` · ${event.venueName}`}
         </p>
+        {role !== "owner" && (
+          <p className="mt-2 text-[0.78rem] text-ink-muted">
+            Compartido contigo · {roleLabels[role]}
+          </p>
+        )}
       </Link>
-      <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-line pt-3">
-        {archived && <UnarchiveButton eventId={event.id} />}
-        <CloneEvent eventId={event.id} name={event.name} guestCount={guestCount} />
-      </div>
+      {manages && (
+        <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-line pt-3">
+          {archived && <UnarchiveButton eventId={event.id} />}
+          <CloneEvent eventId={event.id} name={event.name} guestCount={guestCount} />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "organizers" ADD COLUMN "is_owner" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "organizers_owner_key" ON "organizers" USING btree ("event_id") WHERE "organizers"."is_owner";

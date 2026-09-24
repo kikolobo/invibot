@@ -1,21 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests, guestGroups } from "@/db/schema";
-import {
-  applyFilter,
-  buildSections,
-  filters,
-  isFilter,
-  isOrder,
-  isGrouping,
-  readFields,
-  seatsOf,
-  summarize,
-  type Direction,
-  type FilterKey,
-  type OrderKey,
-  type GroupKey,
-} from "./guest-report";
+import { applyFilter, buildSections, filters, isFilter, isOrder, isGrouping, readFields, seatsOf, summarize, type Direction, type FilterKey, type OrderKey, type GroupKey } from "./guest-report";
 
 /**
  * Turns a query string into a sheet.
@@ -46,9 +32,10 @@ export function readShape(query: ReportQuery) {
   };
 }
 
-export async function loadReport(eventId: string, orgId: string, query: ReportQuery) {
+/** Access is the caller's to check; both pages that call this hold one. */
+export async function loadReport(eventId: string, query: ReportQuery) {
   const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
+    where: eq(events.id, eventId),
   });
   if (!event) return null;
 

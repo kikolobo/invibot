@@ -3,6 +3,7 @@ import { and, count, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
+import { sharedEvents, type EventRole } from "@/lib/events/access";
 import { EventRow } from "../event-row";
 
 export const metadata = { title: "Archivados" };
@@ -10,11 +11,17 @@ export const metadata = { title: "Archivados" };
 export default async function Archivados() {
   const { orgId } = await requireOrg();
 
-  const rows = await db
+  const own = await db
     .select()
     .from(events)
     .where(and(eq(events.orgId, orgId), isNotNull(events.archivedAt)))
     .orderBy(desc(events.archivedAt));
+
+  const shared = (await sharedEvents()).filter((row) => row.event.archivedAt !== null);
+  const roles = new Map<string, EventRole>(shared.map((row) => [row.event.id, row.role]));
+  const rows = [...own, ...shared.map((row) => row.event)].sort(
+    (a, b) => (b.archivedAt?.getTime() ?? 0) - (a.archivedAt?.getTime() ?? 0),
+  );
 
   const guestCounts = new Map(
     (
@@ -48,6 +55,7 @@ export default async function Archivados() {
               <EventRow
                 event={event}
                 guestCount={guestCounts.get(event.id) ?? 0}
+                role={roles.get(event.id) ?? "owner"}
                 archived
               />
             </li>

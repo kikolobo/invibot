@@ -134,3 +134,35 @@ export async function replyToOrganizer(
   await record(eventId, "organizer_relay", null, result);
   return result.ok;
 }
+
+/**
+ * The invitation to join an event, on the invitee's WhatsApp.
+ *
+ * Always the template: somebody without an account has never written to us,
+ * so there is no window to write in freely. Returns whether it went out — it
+ * will not until Meta approves `invitacion_organizador`, and the caller then
+ * offers the link to share by hand.
+ */
+export async function sendOrganizerInvite(
+  eventId: string,
+  to: string,
+  values: { invitee: string; inviter: string; eventName: string; link: string },
+  config: WhatsAppConfig | null = whatsappConfig(),
+): Promise<boolean> {
+  if (!config) return false;
+
+  const result = await sendTemplate(
+    config,
+    to,
+    "invitacion_organizador",
+    "es_MX",
+    buildComponents("invitacion_organizador", [
+      values.invitee.split(/\s+/)[0],
+      values.inviter,
+      values.eventName,
+      values.link,
+    ]),
+  );
+  await record(eventId, "organizer_relay", "invitacion_organizador", result);
+  return result.ok;
+}

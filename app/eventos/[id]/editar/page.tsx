@@ -1,9 +1,6 @@
-import { notFound, redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
 import { TZDate } from "@date-fns/tz";
-import { db } from "@/db";
-import { events } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { requireEventAccess } from "@/lib/events/access";
 import { previewNotifyAudience } from "@/lib/events/notify";
 import { EditForm } from "./edit-form";
 
@@ -15,12 +12,7 @@ export default async function Editar({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const { event } = await requireEventAccess(id, "event");
   if (event.archivedAt) redirect(`/eventos/${event.id}`);
 
   // Rendered in the event's own timezone so the form shows the hour the

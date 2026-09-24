@@ -528,6 +528,35 @@ export const templates = {
     ],
     footer,
   },
+
+  /**
+   * Inviting somebody without an account to help run an event.
+   *
+   * The link rides in the body rather than a URL button because buttons here
+   * are quick replies only. The sentence after it is not padding: Meta
+   * rejects a body that ends on a variable.
+   */
+  invitacion_organizador: {
+    name: "invitacion_organizador",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "organizer_relay",
+    body: [
+      "Hola {{1}}, {{2}} te invitó a ayudar a organizar {{3}} en Invibot.",
+      "",
+      "Crea tu cuenta o entra con esta liga para unirte:",
+      "{{4}}",
+      "",
+      "La liga es personal y funciona con este número de WhatsApp.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre de quien recibe la invitación", example: "Laura" },
+      { description: "Nombre de quien invita", example: "Ana Gómez" },
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Liga personal para unirse", example: "https://invibot.com/unirse/k3j9x2m4q8" },
+    ],
+    footer,
+  },
 } as const satisfies Record<string, TemplateDefinition>;
 
 export type TemplateName = keyof typeof templates;

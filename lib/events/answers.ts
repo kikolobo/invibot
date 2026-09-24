@@ -4,7 +4,6 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { eventFacts, escalations, guests } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "./guard";
 import { sendTextToGuest } from "@/lib/whatsapp/send";
 import { updatedAnswer, unavailableAnswer } from "@/lib/whatsapp/replies";
@@ -33,9 +32,8 @@ export async function updateGuestAnswer(
   _prev: AnswerState,
   formData: FormData,
 ): Promise<AnswerState> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   const fact = await db.query.eventFacts.findFirst({
@@ -130,9 +128,8 @@ export async function markAnswerUnavailable(
   eventId: string,
   factId: string,
 ): Promise<AnswerState> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   const fact = await db.query.eventFacts.findFirst({
@@ -164,9 +161,8 @@ export async function markAnswerUnavailable(
  * which is the right outcome for something we should not have been saying.
  */
 export async function discardAnswer(eventId: string, factId: string): Promise<AnswerState> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   const [updated] = await db

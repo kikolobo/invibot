@@ -52,12 +52,12 @@ export async function saveReportPreset(
   params: Record<string, string>,
 ): Promise<void> {
   try {
-    const { orgId, userId } = await requireOrg();
+    const { userId } = await requireOrg();
 
     // Archived events are still readable, so this is an ownership check rather
     // than an edit guard — but a preference is not worth writing for an event
     // the caller cannot see.
-    const guard = await editableEvent(eventId, orgId);
+    const guard = await editableEvent(eventId, "guests");
     if (!guard.ok && guard.error !== undefined) {
       const owns = await db.query.reportPresets.findFirst({
         where: and(eq(reportPresets.userId, userId), eq(reportPresets.eventId, eventId)),

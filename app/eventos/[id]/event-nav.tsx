@@ -19,6 +19,8 @@ export function EventNav({
   pendingCount,
   openQuestions,
   archived,
+  can,
+  roleLabel,
 }: {
   eventId: string;
   eventName: string;
@@ -28,14 +30,21 @@ export function EventNav({
   /** Guests are waiting on these, so the count follows the organizer around. */
   openQuestions: number;
   archived: boolean;
+  /**
+   * What this person may open. Every role has the guest list and the report;
+   * the rest follows `lib/events/access.ts`, and each page checks again.
+   */
+  can: { event: boolean; answer: boolean; team: boolean };
+  /** How an invited person is on this event; null for the owner. */
+  roleLabel: string | null;
 }) {
   const pathname = usePathname();
   const base = `/eventos/${eventId}`;
 
   const links = [
-    { href: base, label: "Generales" },
+    ...(can.event ? [{ href: base, label: "Generales" }] : []),
     // The questionnaire is an editor; an archived event has nothing to do there.
-    ...(archived ? [] : [{ href: `${base}/detalles`, label: "Detalles" }]),
+    ...(archived || !can.event ? [] : [{ href: `${base}/detalles`, label: "Detalles" }]),
     { href: `${base}/invitados`, label: "Invitados", badge: guestCount },
     // Only when there is something to decide: a permanently visible zero is a
     // tab nobody ever needs to open.
@@ -44,18 +53,22 @@ export function EventNav({
       : []),
     // Grouped with the other people: guests, the ones asking to be guests, and
     // the ones running it. Hidden when archived, like every other editor here.
-    ...(archived ? [] : [{ href: `${base}/organizadores`, label: "Organizadores" }]),
+    ...(archived || !can.team ? [] : [{ href: `${base}/organizadores`, label: "Organizadores" }]),
     { href: `${base}/reporte`, label: "Reporte" },
-    {
-      href: `${base}/hechos`,
-      label: "Preguntas",
-      badge: openQuestions,
-      // A plain count reads as "how many facts"; this one means "somebody is
-      // waiting on you", so it is coloured rather than quiet.
-      urgent: openQuestions > 0,
-    },
+    ...(can.answer
+      ? [
+          {
+            href: `${base}/hechos`,
+            label: "Preguntas",
+            badge: openQuestions,
+            // A plain count reads as "how many facts"; this one means "somebody is
+            // waiting on you", so it is coloured rather than quiet.
+            urgent: openQuestions > 0,
+          },
+        ]
+      : []),
     // Available on an archived event too: it reads, it does not change anything.
-    { href: `${base}/simulador`, label: "Simulador WhatsApp" },
+    ...(can.event ? [{ href: `${base}/simulador`, label: "Simulador WhatsApp" }] : []),
   ];
 
   return (
@@ -69,6 +82,11 @@ export function EventNav({
       >
         ← Mis eventos
       </Link>
+      {roleLabel && (
+        <p className="mt-2 text-[0.75rem] text-ink-muted">
+          Te invitaron como <span className="text-ink-soft">{roleLabel}</span>
+        </p>
+      )}
 
       <ul className="mt-5 flex gap-1 overflow-x-auto sm:block sm:space-y-0.5 sm:overflow-visible">
         {links.map((link) => {
@@ -102,9 +120,11 @@ export function EventNav({
         })}
       </ul>
 
-      <div className="mt-4 border-t border-line pt-4">
-        <ArchiveCommand eventId={eventId} archived={archived} />
-      </div>
+      {can.event && (
+        <div className="mt-4 border-t border-line pt-4">
+          <ArchiveCommand eventId={eventId} archived={archived} />
+        </div>
+      )}
     </nav>
   );
 }

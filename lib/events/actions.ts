@@ -20,6 +20,8 @@ import { emptyEventDetails, eventDetailsSchema } from "./details";
 import { questionsFor, type Answers } from "./questions";
 import { answersToFacts, setPath } from "./facts";
 import { seedGroups } from "@/lib/guests/actions";
+import { ensureOwner } from "@/lib/organizers/owner";
+import { can, eventAccess } from "./access";
 
 const slugId = customAlphabet("abcdefghijkmnpqrstuvwxyz23456789", 6);
 
@@ -156,6 +158,7 @@ export async function createEvent(
     .returning();
 
   await seedGroups(created.id, v.kind);
+  await ensureOwner(created.id);
 
   redirect(`/eventos/${created.id}/detalles`);
 }
@@ -172,9 +175,8 @@ export async function saveDetails(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 
@@ -248,9 +250,8 @@ export async function updatePartySettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   const allowPlusOnes = formData.get("allowPlusOnes") === "on";
@@ -310,9 +311,8 @@ export async function setAutoRegister(
   eventId: string,
   enabled: boolean,
 ): Promise<{ error?: string; ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   await db
@@ -346,9 +346,7 @@ export async function renameEvent(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
-
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   const name = String(formData.get("name") ?? "").trim();
@@ -358,7 +356,7 @@ export async function renameEvent(
   await db
     .update(events)
     .set({ name, updatedAt: new Date() })
-    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)));
+    .where(eq(events.id, eventId));
 
   revalidatePath(`/eventos/${eventId}`);
   revalidatePath("/eventos");
@@ -385,10 +383,11 @@ export async function cloneEvent(
 ): Promise<ActionState> {
   const { orgId, userId } = await requireOrg();
 
-  const source = await db.query.events.findFirst({
-    where: and(eq(events.id, sourceId), eq(events.orgId, orgId)),
-  });
-  if (!source) return { error: "No encontramos ese evento." };
+  // The copy lands in the caller's own organization. Only roles that may
+  // change the event may copy it — a copy carries its guest list along.
+  const access = await eventAccess(sourceId);
+  if (!access || !can(access, "event")) return { error: "No encontramos ese evento." };
+  const source = access.event;
 
   const name = String(formData.get("name") ?? "").trim();
   const date = String(formData.get("date") ?? "");
@@ -512,6 +511,10 @@ export async function cloneEvent(
     }
   }
 
+  // Only the owner comes along. The rest of the team was chosen for the
+  // original party, and a copy should not start messaging them unasked.
+  await ensureOwner(created.id);
+
   revalidatePath("/eventos");
   redirect(`/eventos/${created.id}`);
 }
@@ -526,15 +529,13 @@ export async function cloneEvent(
  * Archiving takes the event out of the way and locks it instead.
  */
 export async function archiveEvent(eventId: string): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
+  const access = await eventAccess(eventId);
+  if (!access || !can(access, "event")) return { error: "No encontramos ese evento." };
 
-  const [updated] = await db
+  await db
     .update(events)
     .set({ archivedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)))
-    .returning({ id: events.id });
-
-  if (!updated) return { error: "No encontramos ese evento." };
+    .where(eq(events.id, eventId));
 
   revalidatePath("/eventos");
   revalidatePath(`/eventos/${eventId}`);
@@ -542,17 +543,16 @@ export async function archiveEvent(eventId: string): Promise<ActionState & { ok?
 }
 
 export async function unarchiveEvent(eventId: string): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
+  // Not `editableEvent`: that refuses archived events, which is all this touches.
+  const access = await eventAccess(eventId);
+  if (!access || !can(access, "event")) return { error: "No encontramos ese evento." };
 
   // `status` is untouched in both directions, so an event comes back exactly
   // where it left off rather than reset to a draft.
-  const [updated] = await db
+  await db
     .update(events)
     .set({ archivedAt: null, updatedAt: new Date() })
-    .where(and(eq(events.id, eventId), eq(events.orgId, orgId)))
-    .returning({ id: events.id });
-
-  if (!updated) return { error: "No encontramos ese evento." };
+    .where(eq(events.id, eventId));
 
   revalidatePath("/eventos");
   revalidatePath(`/eventos/${eventId}`);
@@ -570,9 +570,8 @@ export async function setQrEnabled(
   eventId: string,
   enabled: boolean,
 ): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
 
   await db
@@ -637,9 +636,8 @@ export async function updateEventBasics(
   _prev: ActionState,
   formData: FormData,
 ): Promise<BasicsResult> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 

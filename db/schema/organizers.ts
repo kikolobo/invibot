@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp, boolean, uuid, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { events } from "./events";
+import { users } from "./auth";
 import { organizerRole } from "./enums";
 
 /**
@@ -31,6 +32,13 @@ export const organizers = pgTable(
     role: organizerRole("role").notNull().default("organizer"),
 
     /**
+     * The account behind this row, when somebody was invited into the app
+     * rather than only listed by phone. Null for WhatsApp-only organizadores
+     * and for the owner, whose access comes from owning the event.
+     */
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+
+    /**
      * Who receives a guest's escalated question on WhatsApp.
      *
      * Exactly one per event, enforced below. Every organizador can ask us
@@ -41,6 +49,16 @@ export const organizers = pgTable(
      * else moves it rather than clearing it.
      */
     isResponder: boolean("is_responder").notNull().default(false),
+
+    /**
+     * The account owner, on every event they run.
+     *
+     * Added for them rather than by them — they are the one person certain to
+     * be organizing — and never removable, so the fallback when a responder is
+     * deleted always has somewhere to land. Copied from `users.phone` when
+     * created; edits to this row write back to the account.
+     */
+    isOwner: boolean("is_owner").notNull().default(false),
 
     /**
      * The last time they wrote to us, which is what opens the 24-hour window.
@@ -77,10 +95,59 @@ export const organizers = pgTable(
     uniqueIndex("organizers_responder_key")
       .on(t.eventId)
       .where(sql`${t.isResponder}`),
+    uniqueIndex("organizers_owner_key")
+      .on(t.eventId)
+      .where(sql`${t.isOwner}`),
+    // One account, one seat per event.
+    uniqueIndex("organizers_event_user_key")
+      .on(t.eventId, t.userId)
+      .where(sql`${t.userId} is not null`),
+    index("organizers_user_idx").on(t.userId),
     index("organizers_phone_idx").on(t.phoneE164),
   ],
 );
 
 export const organizersRelations = relations(organizers, ({ one }) => ({
   event: one(events, { fields: [organizers.eventId], references: [events.id] }),
+}));
+
+/**
+ * Somebody invited to help run an event who does not have an account yet.
+ *
+ * Addressed by WhatsApp number, because that is where the invitation goes and
+ * what their account will carry once they sign up. The row lives only until it
+ * is used or revoked: accepting turns it into an `organizers` row and deletes
+ * it, so a pending invitation is exactly a row here.
+ *
+ * The token is the link. It lets the person past the signup passcode, and
+ * only for an account with this same number.
+ */
+export const organizerInvites = pgTable(
+  "organizer_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    fullName: text("full_name").notNull(),
+    phoneE164: text("phone_e164").notNull(),
+    role: organizerRole("role").notNull(),
+    token: text("token").notNull(),
+    invitedByUserId: text("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** When the WhatsApp went out, or null if it could not be sent. */
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("organizer_invites_token_key").on(t.token),
+    // Inviting the same number twice updates the invitation instead.
+    uniqueIndex("organizer_invites_event_phone_key").on(t.eventId, t.phoneE164),
+    index("organizer_invites_phone_idx").on(t.phoneE164),
+  ],
+);
+
+export const organizerInvitesRelations = relations(organizerInvites, ({ one }) => ({
+  event: one(events, { fields: [organizerInvites.eventId], references: [events.id] }),
 }));

@@ -46,16 +46,18 @@ export function PasscodeForm() {
         {pending ? "Comprobando…" : "Continuar"}
       </button>
 
-      <p className="pt-2 text-[0.85rem] leading-relaxed text-ink-muted">
-        ¿No tienes código? Estamos abriendo poco a poco.{" "}
+      <div className="mt-8 border-t border-line pt-6">
+        <p className="text-[0.9rem] leading-relaxed text-ink-soft">
+          El sistema está en pruebas beta. Si te interesa participar en las pruebas con una
+          fiesta, mándanos un mensaje.
+        </p>
         <a
           href="mailto:hello@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
-          className="text-accent hover:underline"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-accent px-6 py-3 text-[0.9rem] text-accent transition-colors hover:bg-accent hover:text-paper"
         >
-          Escríbenos
-        </a>{" "}
-        y lo vemos contigo.
-      </p>
+          Quiero probarlo
+        </a>
+      </div>
     </form>
   );
 }

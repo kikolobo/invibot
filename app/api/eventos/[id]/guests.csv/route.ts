@@ -1,7 +1,7 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests, guestGroups } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { guests, guestGroups } from "@/db/schema";
+import { can, eventAccess } from "@/lib/events/access";
 import { inviteLabels } from "@/lib/campaigns/labels";
 
 /**
@@ -29,11 +29,9 @@ function cell(value: string | number | null | undefined): string {
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
 
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
+  const access = await eventAccess(id);
+  const event = access && can(access, "guests") ? access.event : null;
   if (!event) return new Response("Not found", { status: 404 });
 
   const rows = await db

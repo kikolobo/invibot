@@ -1,5 +1,5 @@
+import { requireEventAccess } from "@/lib/events/access";
 import { notFound } from "next/navigation";
-import { requireOrg } from "@/lib/auth/session";
 import { loadReport, type ReportQuery } from "@/lib/reports/load";
 import { loadReportPreset } from "@/lib/reports/presets";
 import { ReportSheet } from "@/components/report-sheet";
@@ -17,11 +17,11 @@ export default async function Reporte({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const { orgId } = await requireOrg();
+  await requireEventAccess(id, "guests");
 
   // Arriving with no parameters means "however I left it", not "the defaults".
   const saved = Object.keys(query).length === 0 ? await loadReportPreset(id) : null;
-  const report = await loadReport(id, orgId, saved ?? query);
+  const report = await loadReport(id, saved ?? query);
   if (!report) notFound();
 
   return (

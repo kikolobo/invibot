@@ -5,7 +5,6 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { guests, guestGroups, suppressions } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import type { EventKind } from "@/lib/events/kinds";
 import { normalizePhone, variantsOf } from "@/lib/phone";
@@ -24,8 +23,7 @@ export type GuestActionState = { error?: string; ok?: string };
  * list without each action having to remember to check.
  */
 async function ownedEvent(eventId: string) {
-  const { orgId } = await requireOrg();
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "guests");
   return guard.ok ? guard.event : null;
 }
 

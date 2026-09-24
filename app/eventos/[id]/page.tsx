@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { countryLabel } from "@/lib/events/places";
 import { eventMapsEmbedUrl, eventMapsUrl } from "@/lib/events/maps";
 import { and, count, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { guests } from "@/db/schema";
+import { requireEventAccess } from "@/lib/events/access";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { r2FromEnv } from "@/lib/storage/r2";
 import { registrationLink } from "@/lib/guests/auto-register";
@@ -51,12 +50,7 @@ export default async function EventoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const { event } = await requireEventAccess(id, "event");
 
   const [{ guestCount }] = await db
     .select({ guestCount: count() })

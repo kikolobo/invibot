@@ -1,15 +1,9 @@
-import { notFound } from "next/navigation";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests, guestGroups, sends } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { guests, guestGroups, sends } from "@/db/schema";
+import { requireEventAccess } from "@/lib/events/access";
 import { listGroups } from "@/lib/guests/actions";
-import {
-  invitationPlan,
-  eventVariables,
-  greetingName,
-  templateForGuest,
-} from "@/lib/campaigns/recipients";
+import { invitationPlan, eventVariables, greetingName, templateForGuest } from "@/lib/campaigns/recipients";
 import { ImportGuests } from "./import-guests";
 import { GuestTable } from "./guest-table";
 
@@ -28,12 +22,7 @@ export default async function Invitados({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const { event } = await requireEventAccess(id, "guests");
 
   const rows = await db
     .select({
@@ -91,7 +80,7 @@ export default async function Invitados({
 
   // Who could be invited right now, decided by the same module the send action
   // uses — so the panel cannot offer a recipient the action would refuse.
-  const plan = await invitationPlan(id, orgId);
+  const plan = await invitationPlan(id);
   const invite = {
     eventVars: plan && plan.missing.length === 0 ? eventVariables(plan.event) : [],
     missing: plan?.missing ?? [],

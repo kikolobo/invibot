@@ -1,10 +1,9 @@
 "use server";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { escalations, eventFacts, guests } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
 import { normalizeQuestion } from "@/lib/events/facts";
 import { NOT_PUBLIC } from "@/lib/events/knowledge";
@@ -74,9 +73,8 @@ export async function answerEscalation(
   _prev: AnswerState,
   formData: FormData,
 ): Promise<AnswerState> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "answer");
   if (!guard.ok) return { error: guard.error };
 
   const escalation = await db.query.escalations.findFirst({
@@ -117,10 +115,16 @@ export async function applyEscalationAnswer(
   });
   if (!escalation) return { error: "No encontramos esa pregunta." };
 
-  // The race that matters: the same question answered in the app and on
-  // WhatsApp. Whoever arrives second stops here rather than relaying a second
-  // answer to people who already got one.
-  if (escalation.status === "answered") return { error: "Esa pregunta ya fue contestada." };
+  // First answer wins. Claimed with a conditional update rather than read
+  // and checked: the same question can be answered in the app by the owner,
+  // an admin or the responder and on WhatsApp by the responder, and two of
+  // them arriving together must not both relay an answer to the guests.
+  const [claimed] = await db
+    .update(escalations)
+    .set({ status: "answered", answerText: answer, answeredAt: new Date() })
+    .where(and(eq(escalations.id, escalation.id), ne(escalations.status, "answered")))
+    .returning({ id: escalations.id });
+  if (!claimed) return { error: "Esa pregunta ya fue contestada." };
 
   // The fact first: if the relay fails, the assistant has still learned the
   // answer and nobody has to be asked this again.
@@ -148,12 +152,7 @@ export async function applyEscalationAnswer(
 
   await db
     .update(escalations)
-    .set({
-      status: "answered",
-      answerText: answer,
-      answeredAt: new Date(),
-      resultingFactId: fact.id,
-    })
+    .set({ resultingFactId: fact.id })
     .where(eq(escalations.id, escalation.id));
 
   // Deliberately no `revalidatePath` here. It is request-scoped and throws
@@ -170,8 +169,7 @@ export async function dismissEscalation(
   eventId: string,
   escalationId: string,
 ): Promise<AnswerState> {
-  const { orgId } = await requireOrg();
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "answer");
   if (!guard.ok) return { error: guard.error };
 
   await db
@@ -205,9 +203,8 @@ export async function declineToAnswer(
   eventId: string,
   escalationId: string,
 ): Promise<AnswerState> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "answer");
   if (!guard.ok) return { error: guard.error };
 
   const escalation = await db.query.escalations.findFirst({

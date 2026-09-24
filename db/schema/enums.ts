@@ -50,11 +50,13 @@ export const approvalStatus = pgEnum("approval_status", [
 /**
  * What an organizador may do.
  *
- * One value today, and an enum anyway: the alternative is a boolean that has to
- * be widened into an enum the first time somebody may do less, and every read
- * site rewritten at once.
+ * `organizer` works only from WhatsApp and has no account. The other two are
+ * accounts invited into the app: `admin` can do everything the owner can but
+ * remove them, `guest_manager` works the guest list, approvals and reports
+ * and nothing that changes the event itself. `lib/events/access.ts` is the one
+ * place that turns these into permissions.
  */
-export const organizerRole = pgEnum("organizer_role", ["organizer"]);
+export const organizerRole = pgEnum("organizer_role", ["organizer", "admin", "guest_manager"]);
 
 /** How the guest got onto the list. `self` is auto-registro. */
 /** `contact` es un contacto que un organizador compartió por WhatsApp. */

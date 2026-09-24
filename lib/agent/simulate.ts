@@ -1,10 +1,10 @@
 "use server";
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { guests } from "@/db/schema";
+import { can, eventAccess } from "@/lib/events/access";
 import { buildContext } from "./context";
 import { anthropicFromEnv, runAgentTurn } from "./run";
 import { describeAction, type AgentAction } from "./tools";
@@ -38,11 +38,8 @@ export async function simulateReply(
   eventId: string,
   history: ChatTurn[],
 ): Promise<SimulationResult> {
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
+  const access = await eventAccess(eventId);
+  const event = access && can(access, "event") ? access.event : null;
   if (!event) return { error: "No encontramos ese evento." };
 
   const guest = await db.query.guests.findFirst({ where: eq(guests.eventId, eventId) });

@@ -13,7 +13,14 @@ const messages: Record<string, string> = {
   PASSWORD_TOO_SHORT: "La contraseña debe tener al menos 10 caracteres.",
 };
 
-export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
+export function AuthForm({
+  mode,
+  next = "/eventos",
+}: {
+  mode: "signin" | "signup";
+  /** Where to land afterwards; an invitation link sends people back to itself. */
+  next?: string;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -45,7 +52,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       return;
     }
 
-    router.push("/eventos");
+    router.push(next);
     router.refresh();
   }
 

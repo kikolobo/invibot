@@ -60,17 +60,17 @@ export async function sendInvitations(
   eventId: string,
   guestIds: string[],
 ): Promise<InviteReport> {
-  const { orgId, userId } = await requireOrg();
+  const { userId } = await requireOrg();
 
   if (guestIds.length === 0) return { error: "No seleccionaste a nadie." };
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "guests");
   if (!guard.ok) return { error: guard.error };
 
   // Rebuilt from the database, never taken from the form: the ids say which
   // guests, and every other fact — phone, opt-out, invite status — is read
   // fresh here so a stale page cannot re-invite someone who just opted out.
-  const plan = await invitationPlan(eventId, orgId, guestIds);
+  const plan = await invitationPlan(eventId, guestIds);
   if (!plan) return { error: "No encontramos ese evento." };
 
   if (plan.missing.length > 0) {

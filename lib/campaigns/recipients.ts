@@ -150,11 +150,11 @@ function skipReasonFor(guest: Invitee, suppressedPhones: Set<string>): SkipReaso
  */
 export async function invitationPlan(
   eventId: string,
-  orgId: string,
   guestIds?: string[],
 ): Promise<InvitationPlan | null> {
+  // Access is the caller's to check — both callers already hold a guard.
   const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
+    where: eq(events.id, eventId),
   });
   if (!event) return null;
 

@@ -1,14 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
-import {
-  eventVariables,
-  missingForInvitation,
-  greetingName,
-} from "@/lib/campaigns/recipients";
+import { guests } from "@/db/schema";
+import { requireEventAccess } from "@/lib/events/access";
+import { eventVariables, missingForInvitation, greetingName } from "@/lib/campaigns/recipients";
 import { missingLabels } from "@/lib/campaigns/labels";
 import { formatEventWhere } from "@/lib/events/format";
 import { guestMapsLink } from "@/lib/events/maps";
@@ -24,12 +19,7 @@ export default async function Simulador({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const { event } = await requireEventAccess(id, "event");
 
   const missing = missingForInvitation(event);
 

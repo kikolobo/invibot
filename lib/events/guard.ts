@@ -1,6 +1,5 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
 import { events } from "@/db/schema";
+import { can, eventAccess, type Capability, type EventAccess } from "./access";
 
 type EventRow = typeof events.$inferSelect;
 
@@ -8,24 +7,29 @@ export const ARCHIVED_MESSAGE =
   "Este evento está archivado. Desarchívalo para poder hacer cambios.";
 
 /**
- * The event, if the caller owns it and is allowed to change it.
+ * The event, if the caller may do this kind of thing to it and it can still
+ * be changed.
  *
- * Archiving has to be enforced here rather than by hiding buttons: a Server
- * Action is a POST endpoint that anyone who has seen the page can call again,
- * and a stale tab left open before archiving would otherwise keep working.
+ * Archiving and permissions both have to be enforced here rather than by
+ * hiding buttons: a Server Action is a POST endpoint that anyone who has seen
+ * the page can call again, and a stale tab left open before archiving — or
+ * before somebody's role changed — would otherwise keep working.
  *
  * Reads are deliberately not routed through this. An archived event stays fully
  * visible — that is the whole difference between archiving and deleting.
  */
-export type EventGuard = { ok: true; event: EventRow } | { ok: false; error: string };
+export type EventGuard =
+  | { ok: true; event: EventRow; access: EventAccess }
+  | { ok: false; error: string };
 
-export async function editableEvent(eventId: string, orgId: string): Promise<EventGuard> {
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
+export async function editableEvent(eventId: string, need: Capability): Promise<EventGuard> {
+  const access = await eventAccess(eventId);
 
-  if (!event) return { ok: false, error: "No encontramos ese evento." };
-  if (event.archivedAt) return { ok: false, error: ARCHIVED_MESSAGE };
+  if (!access) return { ok: false, error: "No encontramos ese evento." };
+  if (!can(access, need)) {
+    return { ok: false, error: "Tu acceso a este evento no incluye esto." };
+  }
+  if (access.event.archivedAt) return { ok: false, error: ARCHIVED_MESSAGE };
 
-  return { ok: true, event };
+  return { ok: true, event: access.event, access };
 }

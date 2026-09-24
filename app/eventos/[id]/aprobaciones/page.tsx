@@ -1,8 +1,7 @@
 import { and, asc, eq, ne } from "drizzle-orm";
-import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { events, guests } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { guests } from "@/db/schema";
+import { requireEventAccess } from "@/lib/events/access";
 import { registrationLink } from "@/lib/guests/auto-register";
 import { listGroups } from "@/lib/guests/actions";
 import { ApprovalQueue, type PendingGuest } from "./approval-queue";
@@ -22,12 +21,7 @@ export default async function Aprobaciones({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const { event } = await requireEventAccess(id, "guests");
 
   const awaiting = await db
     .select({

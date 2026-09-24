@@ -4,7 +4,6 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { events } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
 import sharp from "sharp";
 import { r2FromEnv, putObject, deleteObject } from "@/lib/storage/r2";
 import type { ActionState } from "./actions";
@@ -26,9 +25,8 @@ export async function uploadCard(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 
@@ -90,9 +88,8 @@ export async function uploadCard(
 }
 
 export async function removeCard(eventId: string): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 
@@ -142,9 +139,8 @@ export async function uploadTeaser(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 
@@ -210,9 +206,8 @@ export async function uploadTeaser(
 }
 
 export async function removeTeaser(eventId: string): Promise<ActionState & { ok?: string }> {
-  const { orgId } = await requireOrg();
 
-  const guard = await editableEvent(eventId, orgId);
+  const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return { error: guard.error };
   const event = guard.event;
 

@@ -2,8 +2,8 @@
 
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { conversations, events, guestEvents, guests, messages, sends } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { conversations, guestEvents, guests, messages, sends } from "@/db/schema";
+import { can, eventAccess } from "@/lib/events/access";
 import { buildTimeline, type TimelineEntry } from "./timeline-assemble";
 
 /**
@@ -21,13 +21,10 @@ export async function guestTimeline(
   eventId: string,
   guestId: string,
 ): Promise<{ entries: TimelineEntry[]; error?: string }> {
-  const { orgId } = await requireOrg();
-
   // Ownership is checked against the event, not the guest: a guest id is
   // guessable and this is somebody's phone number and everything they said.
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, eventId), eq(events.orgId, orgId)),
-  });
+  const access = await eventAccess(eventId);
+  const event = access && can(access, "guests") ? access.event : null;
   if (!event) return { entries: [], error: "No encontramos ese evento." };
 
   const guest = await db.query.guests.findFirst({

@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { events, guests, escalations } from "@/db/schema";
-import { requireOrg } from "@/lib/auth/session";
+import { guests, escalations } from "@/db/schema";
+import { can, eventAccess, roleLabels } from "@/lib/events/access";
 import { EventNav } from "./event-nav";
 
 /**
@@ -17,12 +17,9 @@ export default async function EventLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { orgId } = await requireOrg();
-
-  const event = await db.query.events.findFirst({
-    where: and(eq(events.id, id), eq(events.orgId, orgId)),
-  });
-  if (!event) notFound();
+  const access = await eventAccess(id);
+  if (!access) notFound();
+  const { event } = access;
 
   // The badge counts guests, so it counts approved ones: someone who registered
   // themselves is not on the list until the host says so.
@@ -53,6 +50,12 @@ export default async function EventLayout({
         pendingCount={pendingCount}
         openQuestions={openQuestions}
         archived={event.archivedAt !== null}
+        can={{
+          event: can(access, "event"),
+          answer: can(access, "answer"),
+          team: can(access, "team"),
+        }}
+        roleLabel={access.role === "owner" ? null : roleLabels[access.role]}
       />
       <div className="min-w-0 flex-1">{children}</div>
     </div>

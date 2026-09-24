@@ -6,6 +6,7 @@ import * as schema from "@/db/schema";
 import { cookies } from "next/headers";
 import { APIError } from "better-auth/api";
 import { normalizePhone } from "@/lib/phone";
+import { INVITE_COOKIE, acceptInvitesForPhone, inviteOpensSignup } from "@/lib/organizers/invites";
 import { GATE_COOKIE, gateOpen } from "./signup-gate";
 
 /**
@@ -79,23 +80,46 @@ const createAuth = () =>
       user: {
         create: {
           before: async (user) => {
-            const jar = await cookies();
-            if (!gateOpen(jar.get(GATE_COOKIE)?.value)) {
-              throw new APIError("FORBIDDEN", {
-                message: "Necesitas un código de acceso para crear una cuenta.",
-              });
-            }
-
             // Same reasoning as the gate: the form's `type="tel"` is a hint,
             // this is the check. Stored canonical so it compares cleanly with
             // the numbers Meta sends us.
             const phone = normalizePhone(String(user.phone ?? ""));
+
+            // Two ways through: the shared passcode, or an invitation to help
+            // run an event — which is only good for the number it was sent to,
+            // so a forwarded link does not make an account for a stranger.
+            const jar = await cookies();
+            const invite = jar.get(INVITE_COOKIE)?.value;
+            const invited = Boolean(invite && phone && (await inviteOpensSignup(invite, phone.e164)));
+            if (!invited && !gateOpen(jar.get(GATE_COOKIE)?.value)) {
+              throw new APIError("FORBIDDEN", {
+                message: invite
+                  ? "Esta invitación es para otro número de WhatsApp."
+                  : "Necesitas un código de acceso para crear una cuenta.",
+              });
+            }
+
             if (!phone) {
               throw new APIError("BAD_REQUEST", {
                 message: "Ese número de WhatsApp no parece válido.",
               });
             }
             return { data: { ...user, phone: phone.e164 } };
+          },
+          after: async (user, context) => {
+            // One code, one account. Left open, the cookie would let a second
+            // signup through from the same browser for the rest of the hour.
+            context?.setCookie(GATE_COOKIE, "", { path: "/", maxAge: 0 });
+            context?.setCookie(INVITE_COOKIE, "", { path: "/", maxAge: 0 });
+
+            // Whatever was waiting for this number becomes access now, however
+            // they came to sign up.
+            await acceptInvitesForPhone({
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              phone: typeof user.phone === "string" ? user.phone : null,
+            });
           },
         },
       },
