@@ -142,7 +142,39 @@ body {
  * The screen version sits in a card; on paper the card *is* the page, so the
  * frame comes off and the margins come from @page.
  */
+/*
+ * Paper is white, whatever the screen is.
+ *
+ * The app's tokens describe a dark page — "ink" is near-white — so a report
+ * printed with them came out white on white. On paper, and on the print view
+ * that opens the dialog, the same tokens are redefined for a white sheet:
+ * black titles, dark grey text, light rules. Redefining the tokens rather than
+ * the classes keeps the sheet's markup shared with the on-screen report.
+ */
+.print-page {
+  color-scheme: light;
+  --paper: #ffffff;
+  --paper-deep: #ffffff;
+  --ink: #000000;
+  --ink-soft: #2b2b2b;
+  --ink-muted: #555555;
+  --accent: #000000;
+  --line: #c8c8c8;
+  color: var(--ink);
+}
+
 @media print {
+  :root {
+    color-scheme: light;
+    --paper: #ffffff;
+    --paper-deep: #ffffff;
+    --ink: #000000;
+    --ink-soft: #2b2b2b;
+    --ink-muted: #555555;
+    --accent: #000000;
+    --line: #c8c8c8;
+  }
+
   @page {
     margin: 16mm 14mm;
   }
