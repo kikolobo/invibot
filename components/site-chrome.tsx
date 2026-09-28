@@ -65,7 +65,8 @@ export function SiteFooter({ tone = "paper" }: { tone?: Tone }) {
         <div className="max-w-xs">
           <p className={`font-display text-xl ${t.strong}`}>Invibot</p>
           <p className="mt-2 leading-relaxed">
-            Invitaciones digitales y confirmación de asistencia por WhatsApp.
+            Invitaciones digitales y confirmación de asistencia por WhatsApp,
+            con Aura, nuestro asistente de inteligencia artificial.
           </p>
         </div>
         <nav className="flex flex-col gap-2">
@@ -83,10 +84,11 @@ export function SiteFooter({ tone = "paper" }: { tone?: Tone }) {
       {/* Quién opera esto, dicho en el sitio. Lo pide la política de nombre
           para mostrar de WhatsApp: el nombre del negocio verificado —Movic
           Technologies— tiene que poder reconocerse desde la marca, y esta
-          línea es lo que revisa quien evalúa la solicitud. */}
+          línea es lo que revisa quien evalúa la solicitud. Lo mismo para
+          "Aura de Invibot": por eso Aura se nombra arriba. */}
       <p className={`mx-auto mt-8 max-w-5xl text-xs ${t.muted}`}>
-        © {new Date().getFullYear()} Invibot. Hecho en México. Operado por Movic
-        Technologies, S.A. de C.V.
+        © {new Date().getFullYear()} Invibot. Aura es el asistente de Invibot.
+        Hecho en México. Operado por Movic Technologies, S.A. de C.V.
       </p>
     </footer>
   );

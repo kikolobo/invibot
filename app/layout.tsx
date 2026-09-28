@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · Invibot",
   },
   description:
-    "Crea invitaciones para tu evento, envíalas por WhatsApp y deja que un asistente confirme la asistencia y responda las dudas de tus invitados.",
+    "Crea invitaciones para tu evento, envíalas por WhatsApp y deja que Aura, el asistente de Invibot, confirme la asistencia y responda las dudas de tus invitados.",
   openGraph: {
     title: "Invibot — Invitaciones que responden solas",
     description:

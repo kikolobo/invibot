@@ -17,7 +17,7 @@ const heroThread: Line[] = [
   {
     side: "in",
     time: "10:31",
-    text: "¡Qué gusto, María! Quedan registrados los dos. Te mando la ubicación unos días antes.",
+    text: "¡Qué gusto, María! Soy Aura y ya quedaron registrados los dos. Te mando la ubicación unos días antes.",
   },
   { side: "out", time: "10:33", text: "¿Hay estacionamiento en la hacienda?" },
   {
@@ -58,7 +58,7 @@ const features = [
   },
   {
     title: "Nunca inventa",
-    body: "Si la respuesta no está en la información de tu evento, te pregunta a ti antes de contestar. Y aprende la respuesta para la próxima.",
+    body: "Si la respuesta no está en la información de tu evento, Aura te pregunta a ti antes de contestar. Y aprende la respuesta para la próxima.",
   },
   {
     title: "Tu lista, siempre al día",
@@ -86,9 +86,10 @@ export default function Home() {
               </span>
             </h1>
             <p className="mt-7 text-lg leading-relaxed text-night-soft">
-              Envía las invitaciones por WhatsApp y deja que un asistente con
-              inteligencia artificial administre las confirmaciones y responda
-              las dudas de cada invitado. Tú sólo revisas las listas.
+              Envía las invitaciones por WhatsApp y deja que Aura, el asistente
+              con inteligencia artificial de Invibot, administre las
+              confirmaciones y responda las dudas de cada invitado. Tú sólo
+              revisas las listas.
             </p>
             <p className="mt-4 leading-relaxed text-night-soft">
               Agrega a tus invitados tú mismo o comparte una liga de
@@ -109,8 +110,11 @@ export default function Home() {
             </div>
           </div>
 
+          {/* The thread is titled with the WhatsApp display name, as guests see
+              it — "Aura de Invibot" has to be recognisable from this site for
+              Meta to approve it. */}
           <Phone
-            title="Boda Ana & Carlos"
+            title="Aura de Invibot"
             subtitle="en línea"
             lines={heroThread}
             className="mx-auto lg:mx-0"
@@ -122,8 +126,8 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <p className="eyebrow !text-cream-soft">Lo que no sabe, lo pregunta</p>
           <h2 className="mt-6 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight text-cream-ink sm:text-6xl">
-            Un agente de IA contesta las dudas de tus invitados. Y lo que no
-            sabe, lo aprende de ti <em className="italic">una sola vez</em>.
+            Aura contesta las dudas de tus invitados. Y lo que no sabe, lo
+            aprende de ti <em className="italic">una sola vez</em>.
           </h2>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-cream-soft">
             Te lo pregunta a ti por WhatsApp, le contesta a tu invitado con tus
@@ -134,11 +138,11 @@ export default function Home() {
           <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:gap-16">
             <div>
               <p className="eyebrow !text-cream-soft mb-4">En el teléfono de tu invitada</p>
-              <Phone title="Boda Ana & Carlos" subtitle="en línea" lines={guestAsk} />
+              <Phone title="Aura de Invibot" subtitle="en línea" lines={guestAsk} />
             </div>
             <div>
               <p className="eyebrow !text-cream-soft mb-4">En el tuyo</p>
-              <Phone title="Invibot" subtitle="tu asistente" lines={organizerAsk} />
+              <Phone title="Aura de Invibot" subtitle="tu asistente" lines={organizerAsk} />
             </div>
           </div>
         </div>
