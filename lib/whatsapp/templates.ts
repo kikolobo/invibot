@@ -538,11 +538,15 @@ export const templates = {
    * The link rides in the body rather than a URL button because buttons here
    * are quick replies only. The sentence after it is not padding: Meta
    * rejects a body that ends on a variable.
+   *
+   * Marketing, as Meta approved it. A template's category is locked once it
+   * exists, and Meta treats inviting somebody who never wrote to us as
+   * marketing however it is worded — so do not try utility again.
    */
   invitacion_organizador: {
     name: "invitacion_organizador",
     language: "es_MX",
-    category: "UTILITY",
+    category: "MARKETING",
     kind: "organizer_relay",
     body: [
       "Hola {{1}}, {{2}} te invitó a ayudar a organizar {{3}} en Invibot.",
