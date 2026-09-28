@@ -1,0 +1,1 @@
+ALTER TABLE "broadcasts" ADD COLUMN "template" text DEFAULT 'mensaje_organizador' NOT NULL;

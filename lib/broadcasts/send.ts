@@ -5,7 +5,8 @@ import { whatsappConfig, type WhatsAppConfig } from "@/lib/whatsapp/client";
 import { sendTemplateToGuest, sendTextToGuest } from "@/lib/whatsapp/send";
 import { resolveAudience, type Recipient } from "./audience";
 import { fullMessage } from "./labels";
-import { TEMPLATE, templateComponents, templateUsable } from "./template";
+import { templates } from "@/lib/whatsapp/templates";
+import { templateComponents, templateUsable } from "./template";
 
 type BroadcastRow = typeof broadcasts.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -53,7 +54,7 @@ export async function sendBroadcast(broadcastId: string, now = new Date()): Prom
   await db.update(broadcasts).set({ excluded }).where(eq(broadcasts.id, claimed.id));
 
   const config = whatsappConfig();
-  const canTemplate = config ? await templateUsable(config) : false;
+  const canTemplate = config ? await templateUsable(config, claimed.template) : false;
 
   const queue = [...recipients];
   let sent = 0;
@@ -131,9 +132,9 @@ async function sendTemplateCopy(
   const outcome = await sendTemplateToGuest(
     guest.id,
     {
-      name: TEMPLATE.name,
-      language: TEMPLATE.language,
-      components: templateComponents(broadcast.id, {
+      name: broadcast.template,
+      language: templates[broadcast.template].language,
+      components: templateComponents(broadcast.template, broadcast.id, {
         name: greeting(guest),
         eventName: event.name,
         title: broadcast.title,
@@ -194,7 +195,9 @@ export async function sendDueBroadcasts(now = new Date()): Promise<number> {
 }
 
 /**
- * The people a message could not reach while Meta reviewed the template.
+ * The people a message could not reach while Meta reviewed its template.
+ * Each waits on the template its message was written for; one approved does
+ * not release the other's.
  *
  * Only for messages still worth reading: not retired, and for an event that
  * has not happened yet. A held message about Saturday's party arriving on
@@ -202,7 +205,7 @@ export async function sendDueBroadcasts(now = new Date()): Promise<number> {
  */
 export async function releaseHeld(now = new Date()): Promise<number> {
   const config = whatsappConfig();
-  if (!config || !(await templateUsable(config))) return 0;
+  if (!config) return 0;
 
   const held = await db
     .select({
@@ -225,6 +228,7 @@ export async function releaseHeld(now = new Date()): Promise<number> {
 
   let sent = 0;
   for (const row of held) {
+    if (!(await templateUsable(config, row.broadcast.template))) continue;
     try {
       if (await sendTemplateCopy(row.broadcast, row.event, row.guest)) sent++;
     } catch (error) {

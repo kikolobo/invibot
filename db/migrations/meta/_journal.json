@@ -288,6 +288,13 @@
       "when": 1790583755832,
       "tag": "0040_broadcasts",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790625049060,
+      "tag": "0041_smooth_agent_brand",
+      "breakpoints": true
     }
   ]
 }

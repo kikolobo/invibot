@@ -175,6 +175,7 @@ export function MensajesTabs({
                     id: editing.id,
                     title: editing.title,
                     body: editing.body,
+                    template: editing.template,
                     audience: editing.audienceValue,
                     scheduled: editing.status === "scheduled",
                   }

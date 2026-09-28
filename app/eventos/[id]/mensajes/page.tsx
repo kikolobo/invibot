@@ -138,6 +138,7 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
     audienceValue: row.broadcast.audience,
     title: row.broadcast.title,
     body: row.broadcast.body,
+    template: row.broadcast.template,
     status: row.broadcast.status,
     audience: describeAudience(row.broadcast.audience),
     author: row.author,

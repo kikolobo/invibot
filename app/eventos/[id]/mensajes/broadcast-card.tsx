@@ -7,6 +7,7 @@ import {
   statusLabels,
   type Audience,
   type BroadcastStatus,
+  type BroadcastTemplate,
   type ExclusionReason,
   type RecipientRoute,
   type RecipientStatus,
@@ -26,6 +27,7 @@ export type BroadcastView = {
   id: string;
   title: string;
   body: string;
+  template: BroadcastTemplate;
   status: BroadcastStatus;
   /** As the organizer reads it: "Grupos: Amigos, Core". */
   audience: string;

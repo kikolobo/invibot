@@ -5,6 +5,7 @@ import { sends } from "./messaging";
 import type {
   Audience,
   BroadcastStatus,
+  BroadcastTemplate,
   ExclusionReason,
   RecipientRoute,
   RecipientStatus,
@@ -31,6 +32,8 @@ export const broadcasts = pgTable(
     title: text("title").notNull(),
     body: text("body").notNull(),
     audience: jsonb("audience").$type<Audience>().notNull(),
+    /** Chosen with the message, so a held or scheduled copy goes out as picked. */
+    template: text("template").$type<BroadcastTemplate>().notNull().default("mensaje_organizador"),
 
     status: text("status").$type<BroadcastStatus>().notNull(),
     /** Null means "now". Otherwise the daily cron's run it waits for. */

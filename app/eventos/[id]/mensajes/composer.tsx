@@ -13,9 +13,12 @@ import {
   audienceOrder,
   BODY_MAX,
   exclusionLabels,
+  templateLabels,
+  templateOrder,
   TITLE_MAX,
   type Audience,
   type AudienceKind,
+  type BroadcastTemplate,
   type ExclusionReason,
 } from "@/lib/broadcasts/labels";
 import { renderTemplate } from "@/lib/whatsapp/templates";
@@ -42,7 +45,14 @@ type Props = {
   groups: { id: string; name: string; reach: number }[];
   people: { id: string; name: string; group: string | null }[];
   /** A draft or a scheduled message being changed, instead of a blank one. */
-  initial?: { id: string; title: string; body: string; audience: Audience; scheduled: boolean };
+  initial?: {
+    id: string;
+    title: string;
+    body: string;
+    template: BroadcastTemplate;
+    audience: Audience;
+    scheduled: boolean;
+  };
   /** Called once it is sent, scheduled or saved, with what to tell the organizer. */
   onSent: (notice: string) => void;
 };
@@ -50,6 +60,9 @@ type Props = {
 export function Composer({ eventId, eventName, cronLabel, groups, people, initial, onSent }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [body, setBody] = useState(initial?.body ?? "");
+  const [template, setTemplate] = useState<BroadcastTemplate>(
+    initial?.template ?? "mensaje_organizador",
+  );
   const [kind, setKind] = useState<AudienceKind>(initial?.audience.kind ?? "not_declined");
   const [groupIds, setGroupIds] = useState<string[]>(
     initial?.audience.kind === "groups" ? initial.audience.ids : [],
@@ -76,15 +89,17 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
   // The size of it, kept current while the audience is being chosen: a group
   // of twelve and "todos" are different decisions, and the organizer should
   // see which one they are making before writing the message, not after.
-  // Asked of the server, so it counts exactly what the send will.
-  const audienceKey = JSON.stringify(audience);
+  // Asked of the server, so it counts exactly what the send will — including
+  // whether Meta approved the template picked, which decides who waits.
+  const audienceKey = JSON.stringify({ audience, template });
   const nothingPicked =
     (audience.kind === "groups" || audience.kind === "guests") && audience.ids.length === 0;
   useEffect(() => {
     if (nothingPicked) return;
     let stale = false;
     const timer = setTimeout(async () => {
-      const result = await previewBroadcast(eventId, JSON.parse(audienceKey) as Audience);
+      const key = JSON.parse(audienceKey) as { audience: Audience; template: BroadcastTemplate };
+      const result = await previewBroadcast(eventId, key.audience, key.template);
       if (!stale && !result.error) setEstimated({ key: audienceKey, result });
     }, 250);
     return () => {
@@ -95,7 +110,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
   // Only ever the count for what is selected now, never the last selection's.
   const estimate = !nothingPicked && estimated?.key === audienceKey ? estimated.result : null;
 
-  const draft = { title, body };
+  const draft = { title, body, template };
   const ready = title.trim().length > 0 && body.trim().length > 0;
 
   const visiblePeople = useMemo(() => {
@@ -122,7 +137,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
     setError(null);
     setNotice(null);
     start(async () => {
-      const result = await previewBroadcast(eventId, audience);
+      const result = await previewBroadcast(eventId, audience, template);
       if (result.error) setError(result.error);
       else setPreview(result);
     });
@@ -194,6 +209,36 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
           <p className="text-right text-[0.75rem] text-ink-muted">
             {title.length}/{TITLE_MAX}
           </p>
+        </Field>
+
+        <Field
+          label="Plantilla"
+          help="Lo que recibe quien tiene la conversación cerrada."
+          required
+        >
+          <div className="flex flex-wrap gap-2">
+            {templateOrder.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => edit(setTemplate)(option)}
+                aria-pressed={template === option}
+                className={`rounded-full border px-3.5 py-1.5 text-[0.85rem] transition-colors ${
+                  template === option
+                    ? "border-accent bg-accent/10 text-ink"
+                    : "border-line text-ink-soft hover:border-accent/50"
+                }`}
+              >
+                {templateLabels[option]}
+              </button>
+            ))}
+          </div>
+          <TemplateSample
+            template={template}
+            eventName={eventName}
+            name={estimate?.sampleName ?? "María"}
+            title={title}
+          />
         </Field>
 
         <Field label="Mensaje" required>
@@ -410,6 +455,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
                   <p className="eyebrow">Con la conversación cerrada</p>
                   <div className="mt-2">
                     <TemplatePreview
+                      template={template}
                       eventName={eventName}
                       name={preview.sampleName ?? "María"}
                       title={title}
@@ -497,9 +543,44 @@ function Estimate({ estimate }: { estimate: BroadcastPreview | null }) {
   );
 }
 
+/**
+ * The picked template in a line of text, filled with the title as it is typed:
+ * the two differ only in their opening, and seeing it is quicker than reading
+ * what each is for.
+ */
+function TemplateSample({
+  template,
+  eventName,
+  name,
+  title,
+}: {
+  template: BroadcastTemplate;
+  eventName: string;
+  name: string;
+  title: string;
+}) {
+  const rendered = renderTemplate(template, [name, eventName, title.trim() || "Tu título"]);
+  return (
+    <div className="mt-3 rounded-lg border border-line bg-paper px-3.5 py-3 text-[0.88rem] leading-relaxed text-ink-soft">
+      <WhatsAppText text={rendered.body} />
+      <p className="mt-2 text-[0.82rem] text-accent">{rendered.buttons.join(" · ")}</p>
+    </div>
+  );
+}
+
 /** The template as a guest with a closed window reads it, from the same definition sent to Meta. */
-function TemplatePreview({ eventName, name, title }: { eventName: string; name: string; title: string }) {
-  const rendered = renderTemplate("mensaje_organizador", [name, eventName, title.trim()]);
+function TemplatePreview({
+  template,
+  eventName,
+  name,
+  title,
+}: {
+  template: BroadcastTemplate;
+  eventName: string;
+  name: string;
+  title: string;
+}) {
+  const rendered = renderTemplate(template, [name, eventName, title.trim()]);
   return (
     <Phone title={eventName}>
       <Bubble from="them">

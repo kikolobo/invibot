@@ -14,13 +14,16 @@ import {
   audienceOrder,
   BODY_MAX,
   fullMessage,
+  templateOrder,
   TITLE_MAX,
   type Audience,
+  type BroadcastTemplate,
   type ExclusionReason,
 } from "./labels";
 import { nextCronRun } from "./schedule";
 import { sendBroadcast } from "./send";
-import { TEMPLATE, templateComponents, templateUsable } from "./template";
+import { templateComponents, templateUsable } from "./template";
+import { templates } from "@/lib/whatsapp/templates";
 
 /**
  * "Mensajes", from the organizer's side.
@@ -30,7 +33,7 @@ import { TEMPLATE, templateComponents, templateUsable } from "./template";
  * be reached, and how, is read fresh every time.
  */
 
-export type Draft = { title: string; body: string };
+export type Draft = { title: string; body: string; template: BroadcastTemplate };
 
 type Result = { error?: string };
 
@@ -40,21 +43,23 @@ function cleanDraft(
   draft: Draft,
   /** A draft may be half written; only what is sent needs both parts. */
   partial = false,
-): { title: string; body: string } | { error: string } {
+): { title: string; body: string; template: BroadcastTemplate } | { error: string } {
   // One line: it is a template parameter, and Meta rejects line breaks in those.
   const title = draft.title.replace(/\s+/g, " ").trim();
   const body = draft.body.trim();
+  if (!templateOrder.includes(draft.template)) return { error: "Elige cómo se presenta el mensaje." };
+  const template = draft.template;
   if (partial) {
     if (!title && !body) return { error: "Escribe al menos el título o el mensaje." };
     if (title.length > TITLE_MAX) return { error: `El título puede tener hasta ${TITLE_MAX} caracteres.` };
     if (body.length > BODY_MAX) return { error: `El mensaje puede tener hasta ${BODY_MAX} caracteres.` };
-    return { title, body };
+    return { title, body, template };
   }
   if (!title) return { error: "Falta el título." };
   if (title.length > TITLE_MAX) return { error: `El título puede tener hasta ${TITLE_MAX} caracteres.` };
   if (!body) return { error: "Falta el mensaje." };
   if (body.length > BODY_MAX) return { error: `El mensaje puede tener hasta ${BODY_MAX} caracteres.` };
-  return { title, body };
+  return { title, body, template };
 }
 
 function cleanAudience(audience: Audience, partial = false): Audience | { error: string } {
@@ -86,10 +91,11 @@ export type BroadcastPreview = {
   sampleName?: string;
 };
 
-/** Who it would reach if it went out now, and how. */
+/** Who it would reach if it went out now, and how — as this template. */
 export async function previewBroadcast(
   eventId: string,
   audience: Audience,
+  template: BroadcastTemplate,
 ): Promise<BroadcastPreview> {
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
@@ -97,9 +103,11 @@ export async function previewBroadcast(
   const chosen = cleanAudience(audience);
   if ("error" in chosen) return { error: chosen.error };
 
+  if (!templateOrder.includes(template)) return { error: "Elige cómo se presenta el mensaje." };
+
   const { recipients, excluded } = await resolveAudience(eventId, chosen);
   const config = whatsappConfig();
-  const canTemplate = config ? await templateUsable(config) : false;
+  const canTemplate = config ? await templateUsable(config, template) : false;
 
   const closed = recipients.filter((guest) => !guest.windowOpen).length;
   const first = recipients[0];
@@ -146,6 +154,7 @@ export async function createBroadcast(
   const values = {
     title: clean.title,
     body: clean.body,
+    template: clean.template,
     audience: chosen,
     status: "scheduled" as const,
     scheduledFor: when === "cron" ? nextCronRun() : null,
@@ -217,6 +226,7 @@ export async function sendTestBroadcast(eventId: string, draft: Draft): Promise<
       eventId,
       title: clean.title,
       body: clean.body,
+      template: clean.template,
       audience: { kind: "guests", ids: [] },
       status: "sent",
       isTest: true,
@@ -226,13 +236,13 @@ export async function sendTestBroadcast(eventId: string, draft: Draft): Promise<
     })
     .returning({ id: broadcasts.id });
 
-  if (await templateUsable(config)) {
+  if (await templateUsable(config, clean.template)) {
     const result = await sendTemplate(
       config,
       phone,
-      TEMPLATE.name,
-      TEMPLATE.language,
-      templateComponents(test.id, {
+      clean.template,
+      templates[clean.template].language,
+      templateComponents(clean.template, test.id, {
         name: (account.name || name || "").split(/\s+/)[0] || "Hola",
         eventName: guard.event.name,
         title: clean.title,
@@ -290,6 +300,7 @@ export async function saveDraft(
   const values = {
     title: clean.title,
     body: clean.body,
+    template: clean.template,
     audience: chosen,
     status: "draft" as const,
     scheduledFor: null,

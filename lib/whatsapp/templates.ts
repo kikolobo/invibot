@@ -601,13 +601,9 @@ export const templates = {
   /**
    * `mensaje_organizador`, worded as an update rather than as a message.
    *
-   * Meta approved that one but moved it to marketing. This is the same shape
-   * — same variables, same button and payload, so either can be sent by the
-   * same code — submitted to see whether "una actualización" reads to the
-   * reviewer as news about an event the guest is part of.
-   *
-   * Not sent by anything yet. If Meta keeps it as utility, the choice is
-   * between switching to it and letting the organizer pick.
+   * Same shape — same variables, same button and payload — so the organizer
+   * picks between the two in the composer by what the message is: news about
+   * the event reads as an update, anything else as a message.
    */
   actualizacion_organizador: {
     name: "actualizacion_organizador",

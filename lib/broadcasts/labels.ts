@@ -67,6 +67,21 @@ export const TITLE_MAX = 60;
 /** WhatsApp cuts a message at 4,096 characters; this leaves room for the title. */
 export const BODY_MAX = 3000;
 
+/**
+ * Which template carries the title to a guest whose window is closed. Same
+ * variables and the same [Leer mensaje] button, so only the opening line
+ * differs — and with it how the guest reads the title: something to hear
+ * about, or news about the event itself.
+ */
+export type BroadcastTemplate = "mensaje_organizador" | "actualizacion_organizador";
+
+export const templateOrder: BroadcastTemplate[] = ["mensaje_organizador", "actualizacion_organizador"];
+
+export const templateLabels: Record<BroadcastTemplate, string> = {
+  mensaje_organizador: "Mensaje",
+  actualizacion_organizador: "Actualización",
+};
+
 /** A draft is saved and never sent until someone sends it from the composer. */
 export type BroadcastStatus = "draft" | "scheduled" | "sending" | "sent" | "retired";
 
