@@ -328,8 +328,13 @@ Las condiciones:
   menos, o sea unas 16 horas después de su último mensaje. Pasada la ventana ya
   no hay nada que esperar: se cerró 24 horas después de que escribió, que es
   justo el silencio que esto contesta.
-- **A una hora decente, siempre:** entre las 11:00 y las 20:00 en la zona del
-  evento, tome el camino que tome.
+- **Un día después de la invitación** (camino de plantilla): nada sale en las
+  24 horas siguientes a la invitación. Importa sobre todo para los invitados que
+  agregó el anfitrión, que no tienen ventana que los detenga: invitados a las
+  9:00, el cron de las 11:00 ya los recordaría.
+- **Cerca de la hora del cron, siempre:** entre las 8:00 y las 14:00 en la zona
+  del evento (las 11:00 del cron, tres horas antes o después), tome el camino
+  que tome.
 - **Sin pisar otro mensaje:** nada en las 2 horas siguientes a algo que le
   mandamos.
 
@@ -342,8 +347,10 @@ comprobación y el envío — **se libera la marca** y el siguiente barrido lo v
 a intentar. Marcar como recordado a alguien a quien no le llegó nada es dejarlo
 sin recordatorio para siempre.
 
-Sólo para `source = 'self'`, aprobados, con invitación entregada y `rsvp_status`
-todavía en `no_response`. Quien contesta de cualquier forma deja de ser
+Para cualquier invitado — se haya registrado solo, lo haya agregado el
+anfitrión o venga de sus contactos — aprobado, con invitación entregada y
+`rsvp_status` todavía en `no_response`. Quien no se registró solo nunca nos
+escribió, así que el suyo siempre es la plantilla. Quien contesta de cualquier forma deja de ser
 candidato, que es justo lo que se pedía. `guests.rsvp_reminder_sent_at` lo marca
 y **nunca se limpia**: un segundo empujón ya es insistir.
 

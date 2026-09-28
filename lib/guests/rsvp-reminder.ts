@@ -1,6 +1,6 @@
-import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lt, notExists, or } from "drizzle-orm";
 import { db } from "@/db";
-import { conversations, events, guests } from "@/db/schema";
+import { conversations, events, guests, sends } from "@/db/schema";
 import {
   formatEventWhen,
   formatEventWhereForMessage,
@@ -15,12 +15,14 @@ type GuestRow = typeof guests.$inferSelect;
 type EventRow = typeof events.$inferSelect;
 
 /**
- * One nudge to a self-registered guest who never answered their invitation.
+ * One nudge to a guest who never answered their invitation — whether they
+ * registered themselves or the host added them.
  *
- * Free when it can be: registering themselves opened a 24-hour window, and
- * inside it the invitation's own buttons cost nothing and need no approval. So
- * the nudge waits for the tail of that window — as late inside it as a decent
- * hour allows.
+ * Free when it can be: a guest who registered themselves opened a 24-hour
+ * window, and inside it the invitation's own buttons cost nothing and need no
+ * approval. So the nudge waits for the tail of that window — as late inside it
+ * as a decent hour allows. A guest the host added has never written to us, so
+ * theirs is always the template, a day after the invitation at the earliest.
  *
  * Once the window has closed it goes out anyway, as the approved
  * `recordatorio_confirmacion` template. That costs money and is the whole
@@ -35,9 +37,13 @@ type EventRow = typeof events.$inferSelect;
  * opportunistically by inbound webhook traffic.
  */
 
-/** Nobody gets a nudge outside these hours, where the party is. */
-const DECENT_FROM = 11;
-const DECENT_UNTIL = 20;
+/**
+ * Nobody gets a nudge outside these hours, where the party is: the daily cron's
+ * 11:00, give or take three hours. The webhook sweeps too, and without this
+ * bound a nudge would land whenever somebody else happened to write.
+ */
+const DECENT_FROM = 8;
+const DECENT_UNTIL = 14;
 
 /**
  * How close to the end of the window counts as "they have had their day".
@@ -51,6 +57,13 @@ const WINDOW_TAIL_MS = 8 * 60 * 60 * 1000;
 
 /** Never right behind something we just sent them. */
 const QUIET_AFTER_OUTBOUND_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * How long an invitation gets to be answered before it is asked again. Mostly
+ * for the guest the host added, whose reminder is not held back by any window:
+ * invited at nine, they would otherwise be nudged by the eleven o'clock cron.
+ */
+const INVITE_SILENCE_MS = 24 * 60 * 60 * 1000;
 
 /** A margin, so the window cannot close between the check and the send. */
 const WINDOW_MARGIN_MS = 15 * 60 * 1000;
@@ -75,10 +88,6 @@ export async function remindUnansweredRsvps(now = new Date(), limit = 50): Promi
     )
     .where(
       and(
-        // Only the people this is about: they wrote to us to get here, so the
-        // window exists at all. A guest the host typed in has never messaged
-        // us and could only be reminded by a paid template.
-        eq(guests.source, "self"),
         eq(guests.rsvpStatus, "no_response"),
         eq(guests.approvalStatus, "approved"),
         eq(guests.optedOut, false),
@@ -89,6 +98,23 @@ export async function remindUnansweredRsvps(now = new Date(), limit = 50): Promi
         or(
           isNull(conversations.lastOutboundAt),
           lt(conversations.lastOutboundAt, new Date(now.getTime() - QUIET_AFTER_OUTBOUND_MS)),
+        ),
+        // An open window has its own wait, below, and the free send inside it
+        // is worth keeping; only the template route waits out the invitation.
+        or(
+          gt(conversations.windowExpiresAt, new Date(now.getTime() + WINDOW_MARGIN_MS)),
+          notExists(
+            db
+              .select({ id: sends.id })
+              .from(sends)
+              .where(
+                and(
+                  eq(sends.guestId, guests.id),
+                  eq(sends.kind, "invite"),
+                  gte(sends.queuedAt, new Date(now.getTime() - INVITE_SILENCE_MS)),
+                ),
+              ),
+          ),
         ),
       ),
     )

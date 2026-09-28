@@ -124,8 +124,9 @@ export async function POST(request: Request) {
       console.error("[pass] opportunistic sweep failed", error);
     }
     // The RSVP nudge rides along for the same reason: it has to land late in a
-    // guest's own 24-hour window and at a decent hour, which a once-a-day cron
-    // cannot promise on its own. It checks both before sending anything.
+    // guest's own 24-hour window, which a once-a-day cron cannot promise on its
+    // own. It keeps to the hours around the cron's, so traffic at midnight
+    // sends nothing.
     try {
       await remindUnansweredRsvps();
     } catch (error) {

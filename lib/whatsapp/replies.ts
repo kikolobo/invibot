@@ -109,8 +109,9 @@ export function dayBeforeReply(
 
 /**
  * The one nudge a self-registered guest gets when their invitation goes
- * unanswered — free-form, because their own registration opened the window, and
- * with the invitation's own buttons, which cost nothing inside it.
+ * unanswered, while their window is open — free-form, because their own
+ * registration opened it, and with the invitation's own buttons, which cost
+ * nothing inside it. Everyone else gets `recordatorio_confirmacion`.
  */
 export function rsvpReminderReply(
   facts: Pick<ReplyFacts, "name" | "eventName" | "when">,
