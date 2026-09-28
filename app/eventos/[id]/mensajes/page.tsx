@@ -4,7 +4,7 @@ import { broadcastRecipients, broadcasts, guestGroups, guests, sends, users } fr
 import { requireEventAccess } from "@/lib/events/access";
 import { describeRun, nextCronRun } from "@/lib/broadcasts/schedule";
 import { audienceLabels, type Audience } from "@/lib/broadcasts/labels";
-import { Composer } from "./composer";
+import { MensajesTabs } from "./mensajes-tabs";
 import { BroadcastCard, type BroadcastView, type RecipientView } from "./broadcast-card";
 
 export const metadata = { title: "Mensajes" };
@@ -157,34 +157,36 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
         completo; a los demás les llega el título con un botón para leer el resto.
       </p>
 
-      {!archived && (
-        <Composer
-          eventId={event.id}
-          eventName={event.name}
-          cronLabel={describeRun(nextCronRun(now), event.timezone, now)}
-          groups={groups}
-          people={people.map((person) => ({
-            id: person.id,
-            name: person.fullName,
-            group: person.groupName,
-          }))}
-        />
-      )}
-
-      <section className="mt-12">
-        <h2 className="font-display text-xl text-ink">Enviados</h2>
+      <MensajesTabs
+        sentCount={views.length}
+        composer={
+          archived
+            ? null
+            : {
+                eventId: event.id,
+                eventName: event.name,
+                cronLabel: describeRun(nextCronRun(now), event.timezone, now),
+                groups,
+                people: people.map((person) => ({
+                  id: person.id,
+                  name: person.fullName,
+                  group: person.groupName,
+                })),
+              }
+        }
+      >
         {views.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-line bg-paper-deep p-6 text-center text-ink-muted">
+          <p className="rounded-xl border border-dashed border-line bg-paper-deep p-6 text-center text-ink-muted">
             Todavía no has mandado ningún mensaje.
           </p>
         ) : (
-          <ul className="mt-4 space-y-4">
+          <ul className="space-y-4">
             {views.map((view) => (
               <BroadcastCard key={view.id} eventId={event.id} view={view} editable={!archived} />
             ))}
           </ul>
         )}
-      </section>
+      </MensajesTabs>
     </div>
   );
 }

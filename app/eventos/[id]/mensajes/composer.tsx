@@ -39,9 +39,11 @@ type Props = {
   cronLabel: string;
   groups: { id: string; name: string }[];
   people: { id: string; name: string; group: string | null }[];
+  /** Called once it is sent or scheduled, with what to tell the organizer. */
+  onSent: (notice: string) => void;
 };
 
-export function Composer({ eventId, eventName, cronLabel, groups, people }: Props) {
+export function Composer({ eventId, eventName, cronLabel, groups, people, onSent }: Props) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [kind, setKind] = useState<AudienceKind>("not_declined");
@@ -113,9 +115,9 @@ export function Composer({ eventId, eventName, cronLabel, groups, people }: Prop
         setError(result.error);
         return;
       }
-      setNotice(
+      onSent(
         when === "now"
-          ? "Listo, el mensaje va saliendo. Abajo ves cómo avanza; recarga la página para actualizar los números."
+          ? "Listo, el mensaje va saliendo. Recarga la página para ver cómo avanzan los números."
           : `Listo, el mensaje sale ${cronLabel}. Hasta entonces puedes editarlo o quitarlo.`,
       );
       setTitle("");
@@ -133,10 +135,8 @@ export function Composer({ eventId, eventName, cronLabel, groups, people }: Prop
   ][];
 
   return (
-    <section className="mt-8 rounded-xl border border-line bg-paper-deep p-5 sm:p-6">
-      <h2 className="font-display text-xl text-ink">Nuevo mensaje</h2>
-
-      <div className="mt-5 space-y-5">
+    <div className="rounded-xl border border-line bg-paper-deep p-5 sm:p-6">
+      <div className="space-y-5">
         <Field
           label="Título"
           help="Es lo único que ve quien recibe la plantilla, antes de tocar «Leer mensaje»."
@@ -402,7 +402,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people }: Prop
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
