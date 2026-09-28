@@ -14,6 +14,7 @@ import { revokePasses } from "@/lib/passes/issue";
 import { confirmationReply, declineReply } from "./replies";
 import type { InboundMessage } from "./webhook";
 import { assistantName } from "@/lib/agent/identity";
+import { READ_PAYLOAD } from "@/lib/broadcasts/template";
 
 /**
  * What a guest meant, and what we do about it.
@@ -31,6 +32,8 @@ export type GuestIntent =
   | "rsvp_yes_plus_one"
   | "rsvp_no"
   | "passes_request"
+  /** [Leer mensaje] on a message from the organizers, or the label typed out. */
+  | "message_request"
   | "question"
   | "opt_out"
   | "unknown";
@@ -90,6 +93,7 @@ const LABELS: Record<string, GuestIntent> = Object.fromEntries(
     .filter((button) => PAYLOADS[button.payload])
     .map((button) => [normalize(button.label), PAYLOADS[button.payload]]),
 );
+LABELS[normalize(templates.mensaje_organizador.buttons[0].label)] = "message_request";
 
 /**
  * The opt-out keyword promised in every marketing footer. Matched against the
@@ -104,6 +108,8 @@ export function parseIntent(message: InboundMessage): GuestIntent {
   if (message.buttonPayload && PAYLOADS[message.buttonPayload]) {
     return PAYLOADS[message.buttonPayload];
   }
+  // Carries the message's id after the prefix, so it never matches exactly.
+  if (message.buttonPayload?.startsWith(READ_PAYLOAD)) return "message_request";
   if (!message.text) return "unknown";
 
   const text = normalize(message.text);

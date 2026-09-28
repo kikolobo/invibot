@@ -54,6 +54,7 @@ export default async function EventLayout({
           event: can(access, "event"),
           answer: can(access, "answer"),
           team: can(access, "team"),
+          message: can(access, "message"),
         }}
         roleLabel={access.role === "owner" ? null : roleLabels[access.role]}
       />

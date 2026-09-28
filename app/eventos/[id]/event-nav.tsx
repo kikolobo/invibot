@@ -34,7 +34,7 @@ export function EventNav({
    * What this person may open. Every role has the guest list and the report;
    * the rest follows `lib/events/access.ts`, and each page checks again.
    */
-  can: { event: boolean; answer: boolean; team: boolean };
+  can: { event: boolean; answer: boolean; team: boolean; message: boolean };
   /** How an invited person is on this event; null for the owner. */
   roleLabel: string | null;
 }) {
@@ -67,6 +67,9 @@ export function EventNav({
           },
         ]
       : []),
+    // Visible on an archived event too, as a record of what was said; sending
+    // is what archiving stops.
+    ...(can.message ? [{ href: `${base}/mensajes`, label: "Mensajes" }] : []),
     // Available on an archived event too: it reads, it does not change anything.
     ...(can.event ? [{ href: `${base}/simulador`, label: "Simulador WhatsApp" }] : []),
   ];

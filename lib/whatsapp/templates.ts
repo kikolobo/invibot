@@ -560,6 +560,39 @@ export const templates = {
     ],
     footer,
   },
+
+  /**
+   * A message from the organizers, for a guest whose window is closed.
+   *
+   * Only the title travels in the template: the message itself is free text
+   * nobody at Meta approved, so it waits behind the button and goes out
+   * free-form once the tap opens the window. Utility rather than marketing —
+   * it carries news about an event the guest is already part of — and so no
+   * opt-out line, which is also what the organizer asked for.
+   *
+   * The payload is replaced per send with `READ_MESSAGE:<id>`, which is how a
+   * tap names the exact message it belongs to.
+   */
+  mensaje_organizador: {
+    name: "mensaje_organizador",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "custom",
+    body: [
+      "Hola {{1}}, los organizadores de *{{2}}* te mandaron un mensaje sobre:",
+      "",
+      "*{{3}}*",
+      "",
+      "Toca el botón para leerlo completo.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "María" },
+      { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
+      { description: "Título del mensaje", example: "Cambio de horario de la ceremonia" },
+    ],
+    footer,
+    buttons: [{ label: "Leer mensaje", payload: "READ_MESSAGE" }],
+  },
 } as const satisfies Record<string, TemplateDefinition>;
 
 export type TemplateName = keyof typeof templates;

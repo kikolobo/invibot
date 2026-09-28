@@ -15,6 +15,7 @@ import type { WhatsAppConfig } from "@/lib/whatsapp/client";
 import { passesToolResult } from "./passes";
 import { recordCompanionName } from "@/lib/guests/companion";
 import { weatherReportFor } from "./weather";
+import { deliverPendingMessages, messagesForGuest } from "@/lib/broadcasts/send";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -170,6 +171,16 @@ async function perform(
       // By id, not the row in hand: a confirmation earlier in this same turn
       // is already written, and the row predates it.
       return passesToolResult(await requestPasses(guest.id, config));
+
+    case "send_organizer_messages": {
+      // Nothing unread means they want it again: the latest one still standing.
+      const [latest] = await messagesForGuest(guest.id);
+      const outcome = await deliverPendingMessages(guest.id, config, latest?.id);
+      if (outcome.kind === "sent") {
+        return "Listo, ya le llegó el mensaje completo. Contesta exactamente «Aquí lo tienes», sin repetir el contenido.";
+      }
+      return "No se pudo mandar. Contéstale con lo que dice el mensaje, en tus palabras y en pocas frases.";
+    }
 
     case "get_weather": {
       const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });

@@ -26,8 +26,11 @@ export type EventRole = "owner" | "admin" | "guest_manager";
  * - `guests` — the guest list, approvals, invitations, reports.
  * - `answer` — the guests' open questions.
  * - `team`   — the organizer list, and inviting people into the event.
+ * - `message` — "Mensajes": writing to the guests. Owner and admins only;
+ *              answering their questions does not include speaking for the
+ *              event unprompted.
  */
-export type Capability = "event" | "guests" | "answer" | "team";
+export type Capability = "event" | "guests" | "answer" | "team" | "message";
 
 export type EventAccess = {
   event: EventRow;

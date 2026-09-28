@@ -96,6 +96,11 @@ export function formatEventTime(event: Pick<EventRow, "startsAt" | "timezone">):
   return timeFmtFor(event.timezone).format(event.startsAt);
 }
 
+/** Any moment's clock time where the party is — "11:00 a.m." */
+export function formatLocalTime(at: Date, timezone: string): string {
+  return timeFmtFor(timezone).format(at);
+}
+
 /** The hour of the day, 0–23, where the party is. */
 export function localHour(at: Date, timezone: string): number {
   return Number(

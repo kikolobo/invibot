@@ -86,6 +86,8 @@ export async function simulateReply(
       case "get_weather":
         // A lookup changes nothing, so the rehearsal gets the real forecast.
         return weatherReportFor(event);
+      case "send_organizer_messages":
+        return "Listo, ya le llegó el mensaje completo. Contesta exactamente «Aquí lo tienes», sin repetir el contenido.";
       case "set_companion_name":
         return `Guardado: lo acompaña ${action.name}. Confírmaselo en una frase corta y sigue con lo que estaban hablando.`;
     }

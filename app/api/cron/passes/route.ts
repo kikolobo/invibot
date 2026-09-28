@@ -3,6 +3,7 @@ import { remindTomorrowsGuests } from "@/lib/passes/remind";
 import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
 import { remindUpcomingEvents } from "@/lib/events/remind";
 import { sendDailyReports } from "@/lib/organizers/report";
+import { sendDueBroadcasts } from "@/lib/broadcasts/send";
 
 /**
  * The daily run: "faltan tres días" for the events that are three days out,
@@ -45,10 +46,13 @@ export async function GET(request: Request) {
   const upcoming = await remindUpcomingEvents();
   const reminded = await remindTomorrowsGuests();
   const sent = await sendDuePasses();
+  // "Enviar a las 11:00" in Mensajes means this run, and so does releasing
+  // anyone a message held back while its template was in review.
+  const messaged = await sendDueBroadcasts();
   const nudged = await remindUnansweredRsvps();
   // El corte del día para los organizadores. Va aquí porque el plan sólo
   // permite un cron diario; con uno propio se mueve a las 22:00, que es la
   // hora a la que un anfitrión quiere el resumen.
   const reports = await sendDailyReports();
-  return Response.json({ upcoming, reminded, sent, nudged, reports }, { status: 200 });
+  return Response.json({ upcoming, reminded, sent, messaged, nudged, reports }, { status: 200 });
 }

@@ -8,6 +8,7 @@ import {
   conversations,
   messages as messageRows,
   unmatchedInbound,
+  broadcasts,
 } from "@/db/schema";
 import { parseWebhook, verifySignature, type InboundMessage } from "@/lib/whatsapp/webhook";
 import { variantsOf } from "@/lib/phone";
@@ -39,6 +40,9 @@ import {
 import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify";
 import { organizerEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
+import { broadcastIdFromPayload } from "@/lib/broadcasts/template";
+import { deliverPendingMessages } from "@/lib/broadcasts/send";
+import { fullMessage } from "@/lib/broadcasts/labels";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -136,9 +140,9 @@ export async function POST(request: Request) {
 
   if (answerable.length > 0) {
     after(async () => {
-      for (const { guest, intent, at, wamid, config } of answerable) {
+      for (const { guest, intent, at, wamid, config, buttonPayload } of answerable) {
         try {
-          await respond(guest, intent, at, wamid, config);
+          await respond(guest, intent, at, wamid, config, buttonPayload);
         } catch (error) {
           console.error("[whatsapp] reply failed", guest.id, intent, error);
         }
@@ -453,12 +457,22 @@ type Answerable = {
   wamid: string;
   /** The number this arrived on — the same one the reply must go out through. */
   config: WhatsAppConfig;
+  /** Which button, when it was one — [Leer mensaje] names its message here. */
+  buttonPayload: string | null;
 };
 
 async function recordInbound(message: InboundMessage): Promise<Answerable | null> {
   if (!message.wamid || !message.from) return null;
 
   const fromPhoneE164 = `+${message.from.replace(/^\+/, "")}`;
+
+  // [Leer mensaje] is a guest asking for a message, whoever else they are. It
+  // skips the organizador paths below: a host who is also a guest and was
+  // asked a question an hour ago would otherwise be told to quote it instead
+  // of getting the message they tapped for. A test the organizer sent
+  // themselves is answered here, since they are not on the guest list.
+  const tapped = broadcastIdFromPayload(message.buttonPayload);
+  if (tapped && (await answerTestTap(message, tapped, fromPhoneE164))) return null;
 
   // Auto-registro runs first, and the order is the feature rather than a
   // preference. A registration code has to beat `resolveGuest`, or someone who
@@ -471,33 +485,35 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
   // answered only when the message *is* a command — which is what lets the same
   // phone be an organizador and a guest at once. A command is staff talking;
   // anything else is the guest talking, and falls through untouched.
-  const command = await organizerCommand(message, fromPhoneE164);
-  if (command) return null;
+  if (!tapped) {
+    const command = await organizerCommand(message, fromPhoneE164);
+    if (command) return null;
 
-  // Contactos compartidos, y lo que preguntamos sobre ellos. Debajo de los
-  // comandos —"/confirmados" nunca es el nombre de nadie— y arriba de todo lo
-  // demás, para que un organizador que además es invitado no termine hablando
-  // con el asistente sobre la tarjeta que acaba de mandar.
-  const shared = await organizerContacts(message, fromPhoneE164);
-  if (shared) return null;
+    // Contactos compartidos, y lo que preguntamos sobre ellos. Debajo de los
+    // comandos —"/confirmados" nunca es el nombre de nadie— y arriba de todo lo
+    // demás, para que un organizador que además es invitado no termine hablando
+    // con el asistente sobre la tarjeta que acaba de mandar.
+    const shared = await organizerContacts(message, fromPhoneE164);
+    if (shared) return null;
 
-  // An organizador answering a guest's question. Below commands so that
-  // "/confirmados" is never mistaken for an answer, and above everything else
-  // so their reply is not filed as a guest message.
-  const answered = await organizerAnswered(message, fromPhoneE164);
-  if (answered) return null;
+    // An organizador answering a guest's question. Below commands so that
+    // "/confirmados" is never mistaken for an answer, and above everything else
+    // so their reply is not filed as a guest message.
+    const answered = await organizerAnswered(message, fromPhoneE164);
+    if (answered) return null;
 
-  const registration = await handleAutoRegistro({
-    fromPhoneE164,
-    text: message.text,
-    profileName: message.profileName,
-  });
+    const registration = await handleAutoRegistro({
+      fromPhoneE164,
+      text: message.text,
+      profileName: message.profileName,
+    });
 
-  if (registration.kind !== "none") {
-    await completeRegistration(message, registration, fromPhoneE164);
-    // Never answerable: nothing on this path goes near the assistant, which is
-    // what keeps the venue away from someone the host has not let in.
-    return null;
+    if (registration.kind !== "none") {
+      await completeRegistration(message, registration, fromPhoneE164);
+      // Never answerable: nothing on this path goes near the assistant, which is
+      // what keeps the venue away from someone the host has not let in.
+      return null;
+    }
   }
 
   const guest = await resolveGuest(message);
@@ -579,7 +595,52 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
     return null;
   }
 
-  return { guest, intent, at: message.timestamp, wamid: message.wamid, config };
+  return {
+    guest,
+    intent,
+    at: message.timestamp,
+    wamid: message.wamid,
+    config,
+    buttonPayload: message.buttonPayload,
+  };
+}
+
+/**
+ * The organizer tapping [Leer mensaje] on their own test. Sent straight
+ * through the client, like the test itself: nothing about it belongs in the
+ * ledger or the numbers. False when the tap is not a test from this phone,
+ * which leaves it to the guest path.
+ */
+async function answerTestTap(
+  message: InboundMessage,
+  broadcastId: string,
+  fromPhoneE164: string,
+): Promise<boolean> {
+  const test = await db.query.broadcasts.findFirst({ where: eq(broadcasts.id, broadcastId) });
+  if (!test?.isTest || !test.testPhoneE164) return false;
+  if (!variantsOf(fromPhoneE164).includes(test.testPhoneE164)) return false;
+
+  const [row] = await db
+    .insert(unmatchedInbound)
+    .values({
+      phoneNumberId: message.phoneNumberId,
+      fromPhone: fromPhoneE164,
+      profileName: message.profileName,
+      body: message.text,
+      providerMessageId: message.wamid,
+      raw: message.raw as never,
+      receivedAt: message.timestamp,
+    })
+    .onConflictDoNothing({ target: unmatchedInbound.providerMessageId })
+    .returning();
+  // Seen before: handled, and not sent a second time.
+  if (!row) return true;
+
+  const config = configForPhoneNumberId(message.phoneNumberId);
+  if (!config) return true;
+  const result = await sendText(config, fromPhoneE164, fullMessage(test.title, test.body));
+  if (!result.ok) console.error("[mensajes] test full message failed", broadcastId, result.title);
+  return true;
 }
 
 /**
@@ -682,7 +743,28 @@ async function respond(
   at: Date,
   wamid: string,
   config: WhatsAppConfig,
+  buttonPayload: string | null = null,
 ): Promise<void> {
+  // [Leer mensaje]: the tap opened their window, so everything they have not
+  // read goes out free, oldest first.
+  if (intent === "message_request") {
+    await markRead(config, wamid);
+    const outcome = await deliverPendingMessages(
+      guest.id,
+      config,
+      broadcastIdFromPayload(buttonPayload),
+    );
+    if (outcome.kind === "sent") return;
+
+    const text =
+      outcome.kind === "retired"
+        ? "Ese mensaje ya no está disponible."
+        : "No tienes mensajes pendientes de los organizadores. Si tienes alguna duda, escríbeme.";
+    const reply = await sendTextToGuest(guest.id, text, "custom", config);
+    if (!reply.ok) console.error("[mensajes] reply failed", guest.id, reply);
+    return;
+  }
+
   // "Recibir mi acceso" on the day-before message. The tap itself is what
   // opened the window the passes need, so they go straight out — the same
   // codes they may already hold, never new ones.

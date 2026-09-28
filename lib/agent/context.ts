@@ -6,6 +6,7 @@ import { formatEventWhen, formatEventWhere } from "@/lib/events/format";
 import { eventMapsUrl } from "@/lib/events/maps";
 import { agentToolsFor } from "./tools";
 import { assistantName } from "./identity";
+import { messagesForGuest } from "@/lib/broadcasts/send";
 
 type EventRow = typeof events.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -72,6 +73,15 @@ export async function buildContext(
   const rainIsGoodNews = event.details.rainPolicy === "covered";
   const told = facts.filter((fact) => fact.key !== "rainPolicy" || rainIsGoodNews);
 
+  // What the organizers told this guest in "Mensajes". The assistant knows
+  // them so it can answer about them, and send them again when asked.
+  const sentMessages = await messagesForGuest(guest.id);
+  const dated = new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "long",
+    timeZone: event.timezone,
+  });
+
   const knowledge =
     told.length > 0
       ? told.map((fact) => `P: ${fact.question}\nR: ${fact.answer}`).join("\n\n")
@@ -90,6 +100,23 @@ export async function buildContext(
     "",
     "## Lo que el anfitrión ya contestó",
     knowledge,
+    ...(sentMessages.length > 0
+      ? [
+          "",
+          "## Mensajes de los organizadores",
+          "Esto le mandaron a este invitado. Es tan cierto como lo de arriba y puedes contestar con ello; si algo aquí contradice lo de arriba, vale lo más reciente.",
+          ...sentMessages.map((m) =>
+            [
+              "",
+              `### ${m.title}${m.sentAt ? ` (${dated.format(m.sentAt)})` : ""}`,
+              m.opened ? "" : "(Todavía no abre el mensaje completo; sólo vio el título.)",
+              m.body,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          ),
+        ]
+      : []),
     "",
     "## Con quién hablas",
     `${guest.fullName}, a quien llamas ${name}. Ahora mismo ${rsvpWords[guest.rsvpStatus] ?? "no sabemos si asiste"}.`,
@@ -150,6 +177,11 @@ export async function buildContext(
           "- Si te piden su acceso, su QR, su código o su entrada, o dicen que lo perdieron, usa send_passes. No prometas mandarlo sin usarla, y no digas que ya le llegó si la herramienta dice otra cosa.",
         ]
       : []),
+    ...(sentMessages.length > 0
+      ? [
+          "- Si te piden el mensaje de los organizadores, que se los mandes, o dicen que no lo pueden ver, usa send_organizer_messages. No lo copies tú en tu respuesta.",
+        ]
+      : []),
     "- Nunca inventes precios, direcciones, horarios ni reglas que no estén arriba.",
   ].join("\n");
 
@@ -160,6 +192,7 @@ export async function buildContext(
       canSendLocation,
       canSendPasses,
       canNameCompanion: canBringCompanion,
+      canSendMessages: sentMessages.length > 0,
     }),
   };
 }

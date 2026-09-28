@@ -18,7 +18,8 @@ export type AgentAction =
   | { tool: "send_location" }
   | { tool: "send_passes" }
   | { tool: "get_weather" }
-  | { tool: "set_companion_name"; name: string };
+  | { tool: "set_companion_name"; name: string }
+  | { tool: "send_organizer_messages" };
 
 const locationTool: Anthropic.Tool = {
   name: "send_location",
@@ -59,6 +60,14 @@ const companionTool: Anthropic.Tool = {
     required: ["name"],
     additionalProperties: false,
   },
+  strict: true,
+};
+
+const messagesTool: Anthropic.Tool = {
+  name: "send_organizer_messages",
+  description:
+    "Send the guest the full text of the messages the organizers sent them — the ones listed under «Mensajes de los organizadores». Use it when they ask for the message, to see it, to have it sent, or say they could not open it: «mándame el mensaje», «¿cuál mensaje?», «no me abre». It sends whatever they have not read yet, or the latest one again if they have read them all.",
+  input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   strict: true,
 };
 
@@ -128,6 +137,8 @@ export function agentToolsFor(options: {
   canSendPasses: boolean;
   /** Only a guest whose invitation has room for someone else. */
   canNameCompanion: boolean;
+  /** Only a guest the organizers have written to. */
+  canSendMessages: boolean;
 }): Anthropic.Tool[] {
   return [
     ...agentTools,
@@ -135,6 +146,7 @@ export function agentToolsFor(options: {
     ...(options.canSendLocation ? [locationTool, weatherTool] : []),
     ...(options.canSendPasses ? [passesTool] : []),
     ...(options.canNameCompanion ? [companionTool] : []),
+    ...(options.canSendMessages ? [messagesTool] : []),
   ];
 }
 
@@ -156,5 +168,7 @@ export function describeAction(action: AgentAction): string {
       return "Consulta el clima del lugar a la hora del evento";
     case "set_companion_name":
       return `Guarda el nombre de su acompañante: “${action.name}”`;
+    case "send_organizer_messages":
+      return "Le manda los mensajes de los organizadores";
   }
 }
