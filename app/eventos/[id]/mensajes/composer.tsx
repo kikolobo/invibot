@@ -310,31 +310,37 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
       {error && <p className="mt-5 text-[0.9rem] text-danger">{error}</p>}
       {notice && <p className="mt-5 text-[0.9rem] text-ink-soft">{notice}</p>}
 
+      {/* The quiet actions on the left, the one that leads to sending on the
+          right. "Revisar" rather than "Revisar y enviar": it only opens the
+          confirmation, and a label that says "enviar" made people hesitate to
+          press a button that sends nothing. */}
       {!preview && (
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={saveAsDraft}
+              disabled={(!title.trim() && !body.trim()) || pending}
+              className={buttonStyles.cancel}
+            >
+              Guardar borrador
+            </button>
+            <button
+              type="button"
+              onClick={test}
+              disabled={!ready || pending}
+              className={buttonStyles.cancel}
+            >
+              Enviarme una prueba
+            </button>
+          </div>
           <button
             type="button"
             onClick={review}
             disabled={!ready || pending}
             className="rounded-full bg-action px-5 py-2 text-[0.9rem] text-ink-onaction transition-opacity disabled:opacity-50"
           >
-            {pending ? "Un momento…" : "Revisar y enviar"}
-          </button>
-          <button
-            type="button"
-            onClick={saveAsDraft}
-            disabled={(!title.trim() && !body.trim()) || pending}
-            className={buttonStyles.cancel}
-          >
-            Guardar borrador
-          </button>
-          <button
-            type="button"
-            onClick={test}
-            disabled={!ready || pending}
-            className={buttonStyles.cancel}
-          >
-            Enviarme una prueba
+            {pending ? "Un momento…" : "Revisar"}
           </button>
         </div>
       )}
@@ -462,7 +468,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
 
 /**
  * "Se enviará a 9 personas · 8 por plantilla, 1 directo" under the audience.
- * Only how it goes out: who is left out and why waits for "Revisar y enviar",
+ * Only how it goes out: who is left out and why waits for "Revisar",
  * where it has room to say why — in one line it read as part of the total.
  */
 function Estimate({ estimate }: { estimate: BroadcastPreview | null }) {
