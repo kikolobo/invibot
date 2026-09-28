@@ -593,6 +593,38 @@ export const templates = {
     footer,
     buttons: [{ label: "Leer mensaje", payload: "READ_MESSAGE" }],
   },
+
+  /**
+   * `mensaje_organizador`, worded as an update rather than as a message.
+   *
+   * Meta approved that one but moved it to marketing. This is the same shape
+   * — same variables, same button and payload, so either can be sent by the
+   * same code — submitted to see whether "una actualización" reads to the
+   * reviewer as news about an event the guest is part of.
+   *
+   * Not sent by anything yet. If Meta keeps it as utility, the choice is
+   * between switching to it and letting the organizer pick.
+   */
+  actualizacion_organizador: {
+    name: "actualizacion_organizador",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "custom",
+    body: [
+      "Hola {{1}}, los organizadores de *{{2}}* te mandan una actualización:",
+      "",
+      "*{{3}}*",
+      "",
+      "Toca el botón para leerlo completo.",
+    ].join("\n"),
+    variables: [
+      { description: "Nombre del invitado", example: "Francisco" },
+      { description: "Nombre del evento", example: "Creatures of the Night" },
+      { description: "Título de la actualización", example: "Cambio de horario de la ceremonia" },
+    ],
+    footer,
+    buttons: [{ label: "Leer mensaje", payload: "READ_MESSAGE" }],
+  },
 } as const satisfies Record<string, TemplateDefinition>;
 
 export type TemplateName = keyof typeof templates;
