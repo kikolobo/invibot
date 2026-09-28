@@ -7,15 +7,17 @@
  * edit goes back into review. A template in PENDING cannot be touched at all,
  * so a just-submitted one has to wait.
  *
- * Only the footer is sent. Body and buttons are what the approval was granted
- * for, and an edit that changes the variable count silently breaks every call
- * site that fills them.
+ * By default only the footer is sent. Body and buttons are what the approval
+ * was granted for, and an edit that changes the variable count silently breaks
+ * every call site that fills them — so a body edit takes `--body` and `--only`,
+ * one template at a time, deployed together with the code that fills it.
  *
  *   npx tsx scripts/update-whatsapp-templates.mts [--profile production]   # shows the plan
  *   npx tsx scripts/update-whatsapp-templates.mts --apply    # sends it
  *   npx tsx scripts/update-whatsapp-templates.mts --apply --only recordatorio_evento
+ *   npx tsx scripts/update-whatsapp-templates.mts --body --only reporte_diario [--apply]
  */
-import { templates, type TemplateDefinition } from "@/lib/whatsapp/templates";
+import { templates, toMetaPayload, type TemplateDefinition } from "@/lib/whatsapp/templates";
 import { wabaFromArgv } from "./whatsapp-profile.mjs";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -26,6 +28,8 @@ const apply = process.argv.includes("--apply");
 const only = process.argv.includes("--only")
   ? process.argv[process.argv.indexOf("--only") + 1]
   : null;
+const body = process.argv.includes("--body");
+if (body && !only) throw new Error("--body edits one template at a time; name it with --only");
 
 type MetaTemplate = {
   id: string;
@@ -52,6 +56,42 @@ for (const definition of Object.values(templates) as TemplateDefinition[]) {
 
   if (!remote) {
     console.log(`  absent  ${label} not on Meta — run sync-whatsapp-templates first`);
+    continue;
+  }
+
+  if (body) {
+    const currentBody = remote.components.find((c) => c.type === "BODY")?.text ?? null;
+    if (currentBody === definition.body) {
+      console.log(`  same    ${label} body already matches`);
+      continue;
+    }
+    if (remote.status === "PENDING") {
+      console.log(`  waiting ${label} in review; Meta refuses edits until it lands`);
+      continue;
+    }
+    if (definition.header?.format === "IMAGE") {
+      console.log(`  skip    ${label} has an image header; its sample handle is not handled here`);
+      continue;
+    }
+
+    console.log(`  edit    ${label} body (${remote.status})`);
+    console.log(`          «${currentBody}»`);
+    console.log(`        → «${definition.body}»`);
+    if (!apply) continue;
+
+    const { components } = toMetaPayload(definition) as { components: unknown[] };
+    const result = await fetch(`${GRAPH}/${remote.id}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ components }),
+    }).then((r) => r.json());
+
+    if (result.error) {
+      const detail = result.error.error_user_msg ?? result.error.error_data?.details ?? "";
+      console.log(`          FAILED ${result.error.message} ${detail}`);
+      continue;
+    }
+    console.log(`          sent for review`);
     continue;
   }
 

@@ -104,43 +104,45 @@ export async function reportFor(event: EventRow): Promise<DailyReport> {
   };
 }
 
-/** Las cinco líneas del reporte, que son también los cinco parámetros de la plantilla. */
+/**
+ * Los seis renglones del reporte, sin su emoji, que son también los parámetros
+ * de la plantilla. El total va al frente y en negritas — es el número que el
+ * anfitrión busca — y lo de las últimas 24 horas entre paréntesis.
+ */
 export function reportLines(report: DailyReport): string[] {
-  const pair = (nuevos: number, total: number, totalWord: string) =>
-    `${nuevos} ${nuevos === 1 ? "nuevo" : "nuevos"} · ${total} ${totalWord}`;
+  const r = report;
+  const word = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
   return [
-    pair(report.confirmedNew, report.confirmedTotal, "en total"),
-    pair(report.seatsNew, report.seatsTotal, "en total"),
-    `${report.selfNew} ${report.selfNew === 1 ? "nuevo" : "nuevos"} · ${report.pendingApproval} por aprobar`,
-    pair(report.declinedNew, report.declinedTotal, "en total"),
-    `${report.questionsNew} ${report.questionsNew === 1 ? "nueva" : "nuevas"} · ${report.questionsOpen} sin responder`,
+    `*${r.confirmedTotal}* ${word(r.confirmedTotal, "confirmado", "confirmados")} (+${r.confirmedNew} hoy)`,
+    `*${r.seatsTotal}* ${word(r.seatsTotal, "lugar", "lugares")} (+${r.seatsNew} hoy)`,
+    `*${r.selfNew}* ${word(r.selfNew, "auto-registro nuevo", "auto-registros nuevos")} · ${r.pendingApproval} por aprobar`,
+    `*${r.declinedTotal}* ${word(r.declinedTotal, "cancelado", "cancelados")} (+${r.declinedNew} hoy)`,
+    `*${r.questionsOpen}* ${word(r.questionsOpen, "pregunta", "preguntas")} sin responder (${r.questionsNew} ${word(r.questionsNew, "nueva", "nuevas")})`,
+    `*${r.remindedNew}* ${word(r.remindedNew, "recordatorio enviado", "recordatorios enviados")} · ${r.unanswered} sin responder`,
   ];
 }
 
 /**
  * El reporte como se lee en el teléfono.
  *
- * Los mismos datos que la plantilla, con el total al frente y en negritas —
- * es el número que el anfitrión busca — y lo nuevo entre paréntesis. La
- * plantilla se queda con su formato y sin el renglón de recordatorios:
- * cambiarla la mandaría de vuelta a revisión con Meta, y mientras tanto el
- * corte no saldría.
+ * El mismo texto que la plantilla, para que pedirlo con /reporte y recibirlo
+ * solo a las 11 no se vean como dos cosas distintas.
  */
 export function formatReport(report: DailyReport): string {
-  const r = report;
-  const word = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  const [confirmados, lugares, registros, cancelados, preguntas, recordatorios] =
+    reportLines(report);
 
   return [
-    `Corte de *${r.eventName}*`,
+    `Corte de *${report.eventName}*`,
     "Últimas 24 horas",
     "",
-    `✅ *${r.confirmedTotal}* ${word(r.confirmedTotal, "confirmado", "confirmados")} (+${r.confirmedNew} hoy)`,
-    `🎟️ *${r.seatsTotal}* ${word(r.seatsTotal, "lugar", "lugares")} (+${r.seatsNew} hoy)`,
-    `🙋 *${r.selfNew}* ${word(r.selfNew, "auto-registro nuevo", "auto-registros nuevos")} · ${r.pendingApproval} por aprobar`,
-    `❌ *${r.declinedTotal}* ${word(r.declinedTotal, "cancelado", "cancelados")} (+${r.declinedNew} hoy)`,
-    `❓ *${r.questionsOpen}* ${word(r.questionsOpen, "pregunta", "preguntas")} sin responder (${r.questionsNew} ${word(r.questionsNew, "nueva", "nuevas")})`,
-    `🔔 *${r.remindedNew}* ${word(r.remindedNew, "recordatorio enviado", "recordatorios enviados")} · ${r.unanswered} sin responder`,
+    `✅ ${confirmados}`,
+    `🎟️ ${lugares}`,
+    `🙋 ${registros}`,
+    `❌ ${cancelados}`,
+    `❓ ${preguntas}`,
+    `🔔 ${recordatorios}`,
   ].join("\n");
 }
 

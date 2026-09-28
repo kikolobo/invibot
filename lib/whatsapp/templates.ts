@@ -470,10 +470,10 @@ export const templates = {
   /**
    * El corte diario, para el organizador cuya ventana ya cerró.
    *
-   * Cinco variables en vez de once: cada línea llega armada ("3 nuevos · 42 en
-   * total") en lugar de un parámetro por número. Meta rechaza las plantillas
-   * con más variables que texto, y un renglón entero es más fácil de leer en la
-   * revisión que una hilera de huecos.
+   * Seis renglones armados en vez de trece números sueltos: cada uno llega
+   * completo ("*42* confirmados (+3 hoy)") en lugar de un parámetro por número.
+   * Meta rechaza las plantillas con más variables que texto, y así el singular
+   * y el plural también los decide el código.
    */
   reporte_diario: {
     name: "reporte_diario",
@@ -484,23 +484,26 @@ export const templates = {
     // "Corte de" al principio no es adorno: Meta rechaza un cuerpo que empieza
     // con variable, y ese fue el primer intento.
     body: [
-      "Corte de {{1}} · últimas 24 horas",
+      "Corte de *{{1}}*",
+      "Últimas 24 horas",
       "",
-      "✅ Confirmados: {{2}}",
-      "🎟️ Lugares: {{3}}",
-      "🙋 Auto-registros: {{4}}",
-      "❌ Cancelados: {{5}}",
-      "❓ Preguntas: {{6}}",
+      "✅ {{2}}",
+      "🎟️ {{3}}",
+      "🙋 {{4}}",
+      "❌ {{5}}",
+      "❓ {{6}}",
+      "🔔 {{7}}",
       "",
       "Escríbeme /reporte cuando quieras el corte del momento.",
     ].join("\n"),
     variables: [
       { description: "Nombre del evento", example: "la boda de Ana y Carlos" },
-      { description: "Confirmados: nuevos y total", example: "3 nuevos · 42 en total" },
-      { description: "Lugares: nuevos y total", example: "5 nuevos · 77 en total" },
-      { description: "Auto-registros: nuevos y por aprobar", example: "2 nuevos · 1 por aprobar" },
-      { description: "Cancelados: nuevos y total", example: "0 nuevos · 3 en total" },
-      { description: "Preguntas: nuevas y sin responder", example: "1 nueva · 2 sin responder" },
+      { description: "Confirmados: total y nuevos", example: "*42* confirmados (+3 hoy)" },
+      { description: "Lugares: total y nuevos", example: "*77* lugares (+5 hoy)" },
+      { description: "Auto-registros: nuevos y por aprobar", example: "*2* auto-registros nuevos · 1 por aprobar" },
+      { description: "Cancelados: total y nuevos", example: "*3* cancelados (+0 hoy)" },
+      { description: "Preguntas: sin responder y nuevas", example: "*2* preguntas sin responder (1 nueva)" },
+      { description: "Recordatorios: enviados y sin responder", example: "*4* recordatorios enviados · 9 sin responder" },
     ],
     footer,
   },
