@@ -121,23 +121,26 @@ export function reportLines(report: DailyReport): string[] {
 /**
  * El reporte como se lee en el teléfono.
  *
- * El mismo texto que la plantilla, para que pedirlo con /reporte y recibirlo
- * solo a las 11 no se vean como dos cosas distintas. La única diferencia es el
- * renglón de recordatorios, que la plantilla no tiene: agregárselo la mandaría
- * de vuelta a revisión con Meta, y mientras tanto el corte no saldría.
+ * Los mismos datos que la plantilla, con el total al frente y en negritas —
+ * es el número que el anfitrión busca — y lo nuevo entre paréntesis. La
+ * plantilla se queda con su formato y sin el renglón de recordatorios:
+ * cambiarla la mandaría de vuelta a revisión con Meta, y mientras tanto el
+ * corte no saldría.
  */
 export function formatReport(report: DailyReport): string {
-  const [confirmados, lugares, registros, cancelados, preguntas] = reportLines(report);
+  const r = report;
+  const word = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
   return [
-    `Corte de ${report.eventName} · últimas 24 horas`,
+    `Corte de *${r.eventName}*`,
+    "Últimas 24 horas",
     "",
-    `✅ Confirmados: ${confirmados}`,
-    `🎟️ Lugares: ${lugares}`,
-    `🙋 Auto-registros: ${registros}`,
-    `❌ Cancelados: ${cancelados}`,
-    `❓ Preguntas: ${preguntas}`,
-    `🔔 Recordatorios: ${report.remindedNew} ${report.remindedNew === 1 ? "enviado" : "enviados"} · ${report.unanswered} sin responder`,
+    `✅ *${r.confirmedTotal}* ${word(r.confirmedTotal, "confirmado", "confirmados")} (+${r.confirmedNew} hoy)`,
+    `🎟️ *${r.seatsTotal}* ${word(r.seatsTotal, "lugar", "lugares")} (+${r.seatsNew} hoy)`,
+    `🙋 *${r.selfNew}* ${word(r.selfNew, "auto-registro nuevo", "auto-registros nuevos")} · ${r.pendingApproval} por aprobar`,
+    `❌ *${r.declinedTotal}* ${word(r.declinedTotal, "cancelado", "cancelados")} (+${r.declinedNew} hoy)`,
+    `❓ *${r.questionsOpen}* ${word(r.questionsOpen, "pregunta", "preguntas")} sin responder (${r.questionsNew} ${word(r.questionsNew, "nueva", "nuevas")})`,
+    `🔔 *${r.remindedNew}* ${word(r.remindedNew, "recordatorio enviado", "recordatorios enviados")} · ${r.unanswered} sin responder`,
   ].join("\n");
 }
 

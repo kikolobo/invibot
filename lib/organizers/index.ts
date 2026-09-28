@@ -147,7 +147,9 @@ export async function organizerReply(
     for (const { event } of mine.slice(0, 5)) {
       lines.push(formatReport(await reportFor(event)));
     }
-    return lines.join("\n\n");
+    // Cada corte ya trae un renglón en blanco por dentro, así que entre uno y
+    // otro hace falta algo más que eso para ver dónde empieza el siguiente.
+    return lines.join("\n\n━━━━━━━━━━\n\n");
   }
 
   if (command === "liga") {
