@@ -36,6 +36,8 @@ export type DailyReport = {
   declinedTotal: number;
   questionsNew: number;
   questionsOpen: number;
+  remindedNew: number;
+  unanswered: number;
 };
 
 export async function reportFor(event: EventRow): Promise<DailyReport> {
@@ -66,6 +68,13 @@ export async function reportFor(event: EventRow): Promise<DailyReport> {
       selfNew: raw<number>`count(*) filter (
         where ${guests.source} = 'self' and ${guests.createdAt} > ${day})::int`,
       pendingApproval: raw<number>`count(*) filter (where ${guests.approvalStatus} = 'pending')::int`,
+      // La marca se devuelve cuando el envío falla, así que sólo cuenta los
+      // recordatorios que sí salieron.
+      remindedNew: raw<number>`count(*) filter (where ${guests.rsvpReminderSentAt} > ${day})::int`,
+      // Los que un recordatorio todavía podría mover: invitados, sin contestar.
+      unanswered: raw<number>`count(*) filter (
+        where ${guests.approvalStatus} = 'approved' and ${guests.rsvpStatus} = 'no_response'
+        and ${guests.inviteStatus} in ('sent', 'delivered', 'read'))::int`,
     })
     .from(guests)
     .where(eq(guests.eventId, event.id));
@@ -90,6 +99,8 @@ export async function reportFor(event: EventRow): Promise<DailyReport> {
     declinedTotal: counts?.declinedTotal ?? 0,
     questionsNew: questions?.questionsNew ?? 0,
     questionsOpen: questions?.questionsOpen ?? 0,
+    remindedNew: counts?.remindedNew ?? 0,
+    unanswered: counts?.unanswered ?? 0,
   };
 }
 
@@ -111,7 +122,9 @@ export function reportLines(report: DailyReport): string[] {
  * El reporte como se lee en el teléfono.
  *
  * El mismo texto que la plantilla, para que pedirlo con /reporte y recibirlo
- * solo a las 11 no se vean como dos cosas distintas.
+ * solo a las 11 no se vean como dos cosas distintas. La única diferencia es el
+ * renglón de recordatorios, que la plantilla no tiene: agregárselo la mandaría
+ * de vuelta a revisión con Meta, y mientras tanto el corte no saldría.
  */
 export function formatReport(report: DailyReport): string {
   const [confirmados, lugares, registros, cancelados, preguntas] = reportLines(report);
@@ -124,6 +137,7 @@ export function formatReport(report: DailyReport): string {
     `🙋 Auto-registros: ${registros}`,
     `❌ Cancelados: ${cancelados}`,
     `❓ Preguntas: ${preguntas}`,
+    `🔔 Recordatorios: ${report.remindedNew} ${report.remindedNew === 1 ? "enviado" : "enviados"} · ${report.unanswered} sin responder`,
   ].join("\n");
 }
 
