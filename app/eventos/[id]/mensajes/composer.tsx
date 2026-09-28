@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createBroadcast,
   previewBroadcast,
@@ -37,7 +37,8 @@ type Props = {
   eventName: string;
   /** "hoy a las 11:00 a.m.", worked out on the server in the event's zone. */
   cronLabel: string;
-  groups: { id: string; name: string }[];
+  /** `reach`: how many in the group a message can reach right now. */
+  groups: { id: string; name: string; reach: number }[];
   people: { id: string; name: string; group: string | null }[];
   /** Called once it is sent or scheduled, with what to tell the organizer. */
   onSent: (notice: string) => void;
@@ -53,6 +54,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
   const [when, setWhen] = useState<"now" | "cron">("now");
 
   const [preview, setPreview] = useState<BroadcastPreview | null>(null);
+  const [estimated, setEstimated] = useState<{ key: string; result: BroadcastPreview } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -63,6 +65,28 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
       : kind === "guests"
         ? { kind, ids: guestIds }
         : { kind };
+
+  // The size of it, kept current while the audience is being chosen: a group
+  // of twelve and "todos" are different decisions, and the organizer should
+  // see which one they are making before writing the message, not after.
+  // Asked of the server, so it counts exactly what the send will.
+  const audienceKey = JSON.stringify(audience);
+  const nothingPicked =
+    (audience.kind === "groups" || audience.kind === "guests") && audience.ids.length === 0;
+  useEffect(() => {
+    if (nothingPicked) return;
+    let stale = false;
+    const timer = setTimeout(async () => {
+      const result = await previewBroadcast(eventId, JSON.parse(audienceKey) as Audience);
+      if (!stale && !result.error) setEstimated({ key: audienceKey, result });
+    }, 250);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [eventId, audienceKey, nothingPicked]);
+  // Only ever the count for what is selected now, never the last selection's.
+  const estimate = !nothingPicked && estimated?.key === audienceKey ? estimated.result : null;
 
   const draft = { title, body };
   const ready = title.trim().length > 0 && body.trim().length > 0;
@@ -198,6 +222,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
                       onChange={() => edit(setGroupIds)(toggle(groupIds, group.id))}
                     />
                     {group.name}
+                    <span className="text-[0.78rem] text-ink-muted">{group.reach}</span>
                   </label>
                 ))}
               </div>
@@ -235,6 +260,8 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
               </ul>
             </div>
           )}
+
+          <Estimate estimate={estimate} />
         </Field>
 
         <Field label="Cuándo" required>
@@ -403,6 +430,39 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * "Se enviará a 42 personas" under the audience, with how many of those are
+ * paid. A line, not a panel: the full breakdown waits for "Revisar y enviar".
+ */
+function Estimate({ estimate }: { estimate: BroadcastPreview | null }) {
+  if (!estimate) return null;
+  const reach = estimate.names?.length ?? 0;
+  const left = Object.values(estimate.excluded ?? {}).reduce((sum, n) => sum + (n ?? 0), 0);
+
+  return (
+    <p className="mt-3 text-[0.88rem] text-ink-soft">
+      {reach === 0 ? (
+        <span className="text-ink">Nadie de esta selección puede recibirlo ahora.</span>
+      ) : (
+        <>
+          Se enviará a{" "}
+          <span className="font-medium text-ink">
+            {reach === 1 ? "1 persona" : `${reach} personas`}
+          </span>
+          {(estimate.template ?? 0) > 0 && ` · ${estimate.template} por plantilla, con costo`}
+          {(estimate.held ?? 0) > 0 && ` · ${estimate.held} en espera de la plantilla`}
+        </>
+      )}
+      {left > 0 && (
+        <span className="text-ink-muted">
+          {" "}
+          · {left === 1 ? "1 queda fuera" : `${left} quedan fuera`}
+        </span>
+      )}
+    </p>
   );
 }
 

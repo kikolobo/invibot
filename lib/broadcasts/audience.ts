@@ -19,6 +19,7 @@ export type Recipient = {
   id: string;
   fullName: string;
   firstName: string | null;
+  groupId: string | null;
   /** Their own window is open, so the whole message goes out free. */
   windowOpen: boolean;
 };
@@ -68,6 +69,7 @@ export async function resolveAudience(
       id: guests.id,
       fullName: guests.fullName,
       firstName: guests.firstName,
+      groupId: guests.groupId,
       phoneE164: guests.phoneE164,
       approvalStatus: guests.approvalStatus,
       inviteStatus: guests.inviteStatus,
@@ -108,6 +110,7 @@ export async function resolveAudience(
         id: row.id,
         fullName: row.fullName,
         firstName: row.firstName,
+        groupId: row.groupId,
         windowOpen: (row.windowExpiresAt?.getTime() ?? 0) > now.getTime() + WINDOW_MARGIN_MS,
       });
     }

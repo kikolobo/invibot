@@ -4,6 +4,7 @@ import { broadcastRecipients, broadcasts, guestGroups, guests, sends, users } fr
 import { requireEventAccess } from "@/lib/events/access";
 import { describeRun, nextCronRun } from "@/lib/broadcasts/schedule";
 import { audienceLabels, type Audience } from "@/lib/broadcasts/labels";
+import { resolveAudience } from "@/lib/broadcasts/audience";
 import { MensajesTabs } from "./mensajes-tabs";
 import { BroadcastCard, type BroadcastView, type RecipientView } from "./broadcast-card";
 
@@ -29,6 +30,13 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
     .from(guestGroups)
     .where(eq(guestGroups.eventId, id))
     .orderBy(asc(guestGroups.sortOrder), asc(guestGroups.name));
+
+  // How many each group can reach, counted by the same rules as the send.
+  const reachable = await resolveAudience(id, { kind: "all" });
+  const reachByGroup = new Map<string, number>();
+  for (const guest of reachable.recipients) {
+    if (guest.groupId) reachByGroup.set(guest.groupId, (reachByGroup.get(guest.groupId) ?? 0) + 1);
+  }
 
   const people = await db
     .select({ id: guests.id, fullName: guests.fullName, groupName: guestGroups.name })
@@ -166,7 +174,7 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
                 eventId: event.id,
                 eventName: event.name,
                 cronLabel: describeRun(nextCronRun(now), event.timezone, now),
-                groups,
+                groups: groups.map((group) => ({ ...group, reach: reachByGroup.get(group.id) ?? 0 })),
                 people: people.map((person) => ({
                   id: person.id,
                   name: person.fullName,
