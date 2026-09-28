@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createBroadcast,
   previewBroadcast,
+  saveDraft,
   sendTestBroadcast,
   type BroadcastPreview,
 } from "@/lib/broadcasts/actions";
@@ -40,16 +41,22 @@ type Props = {
   /** `reach`: how many in the group a message can reach right now. */
   groups: { id: string; name: string; reach: number }[];
   people: { id: string; name: string; group: string | null }[];
-  /** Called once it is sent or scheduled, with what to tell the organizer. */
+  /** A draft or a scheduled message being changed, instead of a blank one. */
+  initial?: { id: string; title: string; body: string; audience: Audience; scheduled: boolean };
+  /** Called once it is sent, scheduled or saved, with what to tell the organizer. */
   onSent: (notice: string) => void;
 };
 
-export function Composer({ eventId, eventName, cronLabel, groups, people, onSent }: Props) {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [kind, setKind] = useState<AudienceKind>("not_declined");
-  const [groupIds, setGroupIds] = useState<string[]>([]);
-  const [guestIds, setGuestIds] = useState<string[]>([]);
+export function Composer({ eventId, eventName, cronLabel, groups, people, initial, onSent }: Props) {
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [body, setBody] = useState(initial?.body ?? "");
+  const [kind, setKind] = useState<AudienceKind>(initial?.audience.kind ?? "not_declined");
+  const [groupIds, setGroupIds] = useState<string[]>(
+    initial?.audience.kind === "groups" ? initial.audience.ids : [],
+  );
+  const [guestIds, setGuestIds] = useState<string[]>(
+    initial?.audience.kind === "guests" ? initial.audience.ids : [],
+  );
   const [search, setSearch] = useState("");
   const [when, setWhen] = useState<"now" | "cron">("now");
 
@@ -134,7 +141,7 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
   function send() {
     setError(null);
     start(async () => {
-      const result = await createBroadcast(eventId, draft, audience, when);
+      const result = await createBroadcast(eventId, draft, audience, when, initial?.id);
       if (result.error) {
         setError(result.error);
         return;
@@ -144,11 +151,23 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
           ? "Listo, el mensaje va saliendo. Recarga la página para ver cómo avanzan los números."
           : `Listo, el mensaje sale ${cronLabel}. Hasta entonces puedes editarlo o quitarlo.`,
       );
-      setTitle("");
-      setBody("");
-      setGroupIds([]);
-      setGuestIds([]);
-      setPreview(null);
+    });
+  }
+
+  function saveAsDraft() {
+    setError(null);
+    setNotice(null);
+    start(async () => {
+      const result = await saveDraft(eventId, draft, audience, initial?.id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      onSent(
+        initial?.scheduled
+          ? "Guardado como borrador. Ya no está programado: sale cuando lo envíes."
+          : "Borrador guardado. Lo encuentras aquí para terminarlo y enviarlo cuando quieras.",
+      );
     });
   }
 
@@ -300,6 +319,14 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
             className="rounded-full bg-action px-5 py-2 text-[0.9rem] text-ink-onaction transition-opacity disabled:opacity-50"
           >
             {pending ? "Un momento…" : "Revisar y enviar"}
+          </button>
+          <button
+            type="button"
+            onClick={saveAsDraft}
+            disabled={(!title.trim() && !body.trim()) || pending}
+            className={buttonStyles.cancel}
+          >
+            Guardar borrador
           </button>
           <button
             type="button"

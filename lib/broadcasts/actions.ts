@@ -36,10 +36,20 @@ type Result = { error?: string };
 
 const where = (eventId: string) => `/eventos/${eventId}/mensajes`;
 
-function cleanDraft(draft: Draft): { title: string; body: string } | { error: string } {
+function cleanDraft(
+  draft: Draft,
+  /** A draft may be half written; only what is sent needs both parts. */
+  partial = false,
+): { title: string; body: string } | { error: string } {
   // One line: it is a template parameter, and Meta rejects line breaks in those.
   const title = draft.title.replace(/\s+/g, " ").trim();
   const body = draft.body.trim();
+  if (partial) {
+    if (!title && !body) return { error: "Escribe al menos el título o el mensaje." };
+    if (title.length > TITLE_MAX) return { error: `El título puede tener hasta ${TITLE_MAX} caracteres.` };
+    if (body.length > BODY_MAX) return { error: `El mensaje puede tener hasta ${BODY_MAX} caracteres.` };
+    return { title, body };
+  }
   if (!title) return { error: "Falta el título." };
   if (title.length > TITLE_MAX) return { error: `El título puede tener hasta ${TITLE_MAX} caracteres.` };
   if (!body) return { error: "Falta el mensaje." };
@@ -47,11 +57,11 @@ function cleanDraft(draft: Draft): { title: string; body: string } | { error: st
   return { title, body };
 }
 
-function cleanAudience(audience: Audience): Audience | { error: string } {
+function cleanAudience(audience: Audience, partial = false): Audience | { error: string } {
   if (!audienceOrder.includes(audience.kind)) return { error: "Elige a quién se lo mandas." };
   if (audience.kind === "groups" || audience.kind === "guests") {
     const ids = [...new Set(audience.ids)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
-    if (ids.length === 0) {
+    if (ids.length === 0 && !partial) {
       return {
         error: audience.kind === "groups" ? "Elige al menos un grupo." : "Elige al menos a una persona.",
       };
@@ -109,6 +119,10 @@ export async function previewBroadcast(
 /**
  * Saves the message and sends it — now, or at the next 11:00 run.
  *
+ * With an id, it is a draft or a scheduled message being sent as edited; the
+ * same row carries on rather than a copy, so a draft that goes out stops being
+ * a draft. Only while it has not left: the cron may have claimed it meanwhile.
+ *
  * "Ahora" still goes through the row and the claim in `sendBroadcast`: the
  * page answers at once and the sending carries on after it, so a message to
  * two hundred people does not hold a browser tab open until it finishes.
@@ -118,6 +132,7 @@ export async function createBroadcast(
   draft: Draft,
   audience: Audience,
   when: "now" | "cron",
+  id?: string,
 ): Promise<Result & { id?: string }> {
   const { userId } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
@@ -128,18 +143,33 @@ export async function createBroadcast(
   const chosen = cleanAudience(audience);
   if ("error" in chosen) return chosen;
 
-  const [row] = await db
-    .insert(broadcasts)
-    .values({
-      eventId,
-      title: clean.title,
-      body: clean.body,
-      audience: chosen,
-      status: "scheduled",
-      scheduledFor: when === "cron" ? nextCronRun() : null,
-      createdByUserId: userId,
-    })
-    .returning({ id: broadcasts.id });
+  const values = {
+    title: clean.title,
+    body: clean.body,
+    audience: chosen,
+    status: "scheduled" as const,
+    scheduledFor: when === "cron" ? nextCronRun() : null,
+    updatedAt: new Date(),
+  };
+
+  const [row] = id
+    ? await db
+        .update(broadcasts)
+        .set(values)
+        .where(
+          and(
+            eq(broadcasts.id, id),
+            eq(broadcasts.eventId, eventId),
+            eq(broadcasts.isTest, false),
+            inArray(broadcasts.status, ["draft", "scheduled"]),
+          ),
+        )
+        .returning({ id: broadcasts.id })
+    : await db
+        .insert(broadcasts)
+        .values({ eventId, ...values, createdByUserId: userId })
+        .returning({ id: broadcasts.id });
+  if (!row) return { error: "Ese mensaje ya salió; ya no se puede cambiar." };
 
   if (when === "now") {
     after(async () => {
@@ -234,30 +264,64 @@ export async function sendTestBroadcast(eventId: string, draft: Draft): Promise<
   return { sentTo: phone };
 }
 
-/** Only a message that has not gone out can change. */
-export async function updateBroadcast(eventId: string, id: string, draft: Draft): Promise<Result> {
+/**
+ * Saves without sending. New, or over a draft or a scheduled message — which
+ * takes the scheduled one out of the queue: a message being reworked should
+ * not go out at 11:00 half-changed.
+ *
+ * Lenient on purpose: a draft may have no text yet, or a group not chosen.
+ * Everything is checked again when it is sent.
+ */
+export async function saveDraft(
+  eventId: string,
+  draft: Draft,
+  audience: Audience,
+  id?: string,
+): Promise<Result & { id?: string }> {
+  const { userId } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
 
-  const clean = cleanDraft(draft);
+  const clean = cleanDraft(draft, true);
   if ("error" in clean) return clean;
+  const chosen = cleanAudience(audience, true);
+  if ("error" in chosen) return chosen;
 
-  const [row] = await db
-    .update(broadcasts)
-    .set({ title: clean.title, body: clean.body, updatedAt: new Date() })
-    .where(
-      and(eq(broadcasts.id, id), eq(broadcasts.eventId, eventId), eq(broadcasts.status, "scheduled")),
-    )
-    .returning({ id: broadcasts.id });
-  if (!row) return { error: "Ese mensaje ya salió; ya no se puede editar." };
+  const values = {
+    title: clean.title,
+    body: clean.body,
+    audience: chosen,
+    status: "draft" as const,
+    scheduledFor: null,
+    updatedAt: new Date(),
+  };
+
+  const [row] = id
+    ? await db
+        .update(broadcasts)
+        .set(values)
+        .where(
+          and(
+            eq(broadcasts.id, id),
+            eq(broadcasts.eventId, eventId),
+            eq(broadcasts.isTest, false),
+            inArray(broadcasts.status, ["draft", "scheduled"]),
+          ),
+        )
+        .returning({ id: broadcasts.id })
+    : await db
+        .insert(broadcasts)
+        .values({ eventId, ...values, createdByUserId: userId })
+        .returning({ id: broadcasts.id });
+  if (!row) return { error: "Ese mensaje ya salió; ya no se puede cambiar." };
 
   revalidatePath(where(eventId));
-  return {};
+  return { id: row.id };
 }
 
 /**
- * Takes a scheduled message out of the queue. Gone entirely — nothing was sent,
- * so there is nothing to keep a record of.
+ * Throws away a draft, or takes a scheduled message out of the queue. Gone
+ * entirely — nothing was sent, so there is nothing to keep a record of.
  */
 export async function deleteBroadcast(eventId: string, id: string): Promise<Result> {
   const guard = await editableEvent(eventId, "message");
@@ -266,7 +330,11 @@ export async function deleteBroadcast(eventId: string, id: string): Promise<Resu
   const [row] = await db
     .delete(broadcasts)
     .where(
-      and(eq(broadcasts.id, id), eq(broadcasts.eventId, eventId), eq(broadcasts.status, "scheduled")),
+      and(
+        eq(broadcasts.id, id),
+        eq(broadcasts.eventId, eventId),
+        inArray(broadcasts.status, ["draft", "scheduled"]),
+      ),
     )
     .returning({ id: broadcasts.id });
   if (!row) return { error: "Ese mensaje ya salió. Puedes retirarlo en lugar de borrarlo." };

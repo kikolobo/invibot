@@ -6,7 +6,7 @@ import { describeRun, nextCronRun } from "@/lib/broadcasts/schedule";
 import { audienceLabels, type Audience } from "@/lib/broadcasts/labels";
 import { resolveAudience } from "@/lib/broadcasts/audience";
 import { MensajesTabs } from "./mensajes-tabs";
-import { BroadcastCard, type BroadcastView, type RecipientView } from "./broadcast-card";
+import type { BroadcastView, RecipientView } from "./broadcast-card";
 
 export const metadata = { title: "Mensajes" };
 
@@ -108,6 +108,9 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
   const personNames = new Map(people.map((person) => [person.id, person.fullName]));
 
   const describeAudience = (audience: Audience): string => {
+    if ((audience.kind === "groups" || audience.kind === "guests") && audience.ids.length === 0) {
+      return `${audienceLabels[audience.kind]}: sin elegir`;
+    }
     if (audience.kind === "groups") {
       const names = audience.ids.map((gid) => groupNames.get(gid) ?? "grupo borrado");
       return `${names.length === 1 ? "Grupo" : "Grupos"}: ${names.join(", ")}`;
@@ -122,27 +125,32 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
   };
 
   const now = new Date();
+  const dateTime = new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: event.timezone,
+  });
+
   const views: BroadcastView[] = rows.map((row) => ({
     id: row.broadcast.id,
+    audienceValue: row.broadcast.audience,
     title: row.broadcast.title,
     body: row.broadcast.body,
     status: row.broadcast.status,
     audience: describeAudience(row.broadcast.audience),
     author: row.author,
     when:
-      row.broadcast.status === "scheduled"
-        ? row.broadcast.scheduledFor
-          ? `Se envía ${describeRun(row.broadcast.scheduledFor, event.timezone, now)}`
-          : "Enviándose…"
-        : row.broadcast.sentAt
-          ? `Enviado el ${new Intl.DateTimeFormat("es-MX", {
-              day: "numeric",
-              month: "long",
-              hour: "numeric",
-              minute: "2-digit",
-              timeZone: event.timezone,
-            }).format(row.broadcast.sentAt)}`
-          : "Enviándose…",
+      row.broadcast.status === "draft"
+        ? `Guardado el ${dateTime.format(row.broadcast.updatedAt)}`
+        : row.broadcast.status === "scheduled"
+          ? row.broadcast.scheduledFor
+            ? `Se envía ${describeRun(row.broadcast.scheduledFor, event.timezone, now)}`
+            : "Enviándose…"
+          : row.broadcast.sentAt
+            ? `Enviado el ${dateTime.format(row.broadcast.sentAt)}`
+            : "Enviándose…",
     excluded: row.broadcast.excluded,
     stats: {
       total: row.total,
@@ -166,7 +174,9 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
       </p>
 
       <MensajesTabs
-        sentCount={views.length}
+        eventId={event.id}
+        views={views}
+        editable={!archived}
         composer={
           archived
             ? null
@@ -182,19 +192,7 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
                 })),
               }
         }
-      >
-        {views.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line bg-paper-deep p-6 text-center text-ink-muted">
-            Todavía no has mandado ningún mensaje.
-          </p>
-        ) : (
-          <ul className="space-y-4">
-            {views.map((view) => (
-              <BroadcastCard key={view.id} eventId={event.id} view={view} editable={!archived} />
-            ))}
-          </ul>
-        )}
-      </MensajesTabs>
+      />
     </div>
   );
 }

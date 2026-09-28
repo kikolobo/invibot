@@ -1,18 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteBroadcast, retireBroadcast, updateBroadcast } from "@/lib/broadcasts/actions";
+import { deleteBroadcast, retireBroadcast } from "@/lib/broadcasts/actions";
 import {
-  BODY_MAX,
   exclusionLabels,
   statusLabels,
-  TITLE_MAX,
+  type Audience,
   type BroadcastStatus,
   type ExclusionReason,
   type RecipientRoute,
   type RecipientStatus,
 } from "@/lib/broadcasts/labels";
-import { Input, Textarea } from "@/components/ui/field";
 import { buttonStyles } from "../hechos/buttons";
 
 export type RecipientView = {
@@ -29,7 +27,10 @@ export type BroadcastView = {
   title: string;
   body: string;
   status: BroadcastStatus;
+  /** As the organizer reads it: "Grupos: Amigos, Core". */
   audience: string;
+  /** As it is stored, so the composer can open it again. */
+  audienceValue: Audience;
   author: string | null;
   when: string;
   excluded: Partial<Record<ExclusionReason, number>>;
@@ -47,6 +48,7 @@ export type BroadcastView = {
 };
 
 const statusTone: Record<BroadcastStatus, string> = {
+  draft: "bg-paper text-ink-soft ring-1 ring-line",
   scheduled: "bg-amber-100 text-amber-900",
   sending: "bg-blue-100 text-blue-900",
   sent: "bg-emerald-100 text-emerald-900",
@@ -63,25 +65,25 @@ function recipientState(r: RecipientView): string {
 }
 
 /**
- * One message in the history.
+ * One message in the list.
  *
- * What can be done depends on whether it left: a scheduled message can still
- * be edited or taken out of the queue; one already on people's phones can
- * only be retired.
+ * What can be done depends on whether it left: a draft or a scheduled message
+ * opens in the composer to be changed, or is thrown away; one already on
+ * people's phones can only be retired.
  */
 export function BroadcastCard({
   eventId,
   view,
   editable,
+  onEdit,
 }: {
   eventId: string;
   view: BroadcastView;
   editable: boolean;
+  /** Opens it in "Nuevo mensaje". */
+  onEdit: (view: BroadcastView) => void;
 }) {
-  const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState<"delete" | "retire" | null>(null);
-  const [title, setTitle] = useState(view.title);
-  const [body, setBody] = useState(view.body);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -103,7 +105,9 @@ export function BroadcastCard({
     <li className="rounded-xl border border-line bg-paper-deep p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-display text-lg leading-snug text-ink">{view.title}</p>
+          <p className="font-display text-lg leading-snug text-ink">
+            {view.title || <span className="text-ink-muted">Sin título</span>}
+          </p>
           <p className="mt-1 text-[0.82rem] text-ink-muted">
             {view.when} · {view.audience}
             {view.author && ` · por ${view.author}`}
@@ -116,19 +120,14 @@ export function BroadcastCard({
         </span>
       </div>
 
-      {editing ? (
-        <div className="mt-4 space-y-3">
-          <Input value={title} maxLength={TITLE_MAX} onChange={(e) => setTitle(e.target.value)} />
-          <Textarea value={body} rows={6} maxLength={BODY_MAX} onChange={(e) => setBody(e.target.value)} />
-        </div>
-      ) : (
+      {view.body && (
         <details className="mt-3">
           <summary className="cursor-pointer text-[0.85rem] text-accent">Ver mensaje</summary>
           <p className="mt-2 whitespace-pre-line text-[0.9rem] leading-relaxed text-ink-soft">{view.body}</p>
         </details>
       )}
 
-      {view.status !== "scheduled" && (
+      {view.status !== "scheduled" && view.status !== "draft" && (
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-[0.85rem] sm:grid-cols-4">
           <Stat label="Destinatarios" value={s.total} />
           <Stat label="Entregados" value={s.delivered} of={sent} />
@@ -168,41 +167,20 @@ export function BroadcastCard({
 
       {error && <p className="mt-3 text-[0.85rem] text-danger">{error}</p>}
 
-      {editable && view.status === "scheduled" && (
+      {editable && (view.status === "draft" || view.status === "scheduled") && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          {editing ? (
+          {confirming === "delete" ? (
             <>
-              <button
-                type="button"
-                disabled={pending}
-                className={buttonStyles.save}
-                onClick={() => run(() => updateBroadcast(eventId, view.id, { title, body }), () => setEditing(false))}
-              >
-                Guardar
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                className={buttonStyles.cancel}
-                onClick={() => {
-                  setTitle(view.title);
-                  setBody(view.body);
-                  setEditing(false);
-                }}
-              >
-                Cancelar
-              </button>
-            </>
-          ) : confirming === "delete" ? (
-            <>
-              <span className="text-[0.85rem] text-ink-soft">¿Quitarlo? No se enviará.</span>
+              <span className="text-[0.85rem] text-ink-soft">
+                {view.status === "draft" ? "¿Eliminar el borrador?" : "¿Quitarlo? No se enviará."}
+              </span>
               <button
                 type="button"
                 disabled={pending}
                 className={buttonStyles.discard}
                 onClick={() => run(() => deleteBroadcast(eventId, view.id))}
               >
-                Quitar
+                {view.status === "draft" ? "Eliminar" : "Quitar"}
               </button>
               <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming(null)}>
                 Cancelar
@@ -210,11 +188,11 @@ export function BroadcastCard({
             </>
           ) : (
             <>
-              <button type="button" className={buttonStyles.cancel} onClick={() => setEditing(true)}>
-                Editar
+              <button type="button" className={buttonStyles.save} onClick={() => onEdit(view)}>
+                {view.status === "draft" ? "Editar y enviar" : "Editar"}
               </button>
               <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming("delete")}>
-                Quitar de la cola
+                {view.status === "draft" ? "Eliminar" : "Quitar de la cola"}
               </button>
             </>
           )}

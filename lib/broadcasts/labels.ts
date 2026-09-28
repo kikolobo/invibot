@@ -67,9 +67,11 @@ export const TITLE_MAX = 60;
 /** WhatsApp cuts a message at 4,096 characters; this leaves room for the title. */
 export const BODY_MAX = 3000;
 
-export type BroadcastStatus = "scheduled" | "sending" | "sent" | "retired";
+/** A draft is saved and never sent until someone sends it from the composer. */
+export type BroadcastStatus = "draft" | "scheduled" | "sending" | "sent" | "retired";
 
 export const statusLabels: Record<BroadcastStatus, string> = {
+  draft: "Borrador",
   scheduled: "Programado",
   sending: "Enviando",
   sent: "Enviado",
