@@ -434,13 +434,18 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, onSent
 }
 
 /**
- * "Se enviará a 42 personas" under the audience, with how many of those are
- * paid. A line, not a panel: the full breakdown waits for "Revisar y enviar".
+ * "Se enviará a 9 personas · 8 por plantilla, 1 directo" under the audience.
+ * Only how it goes out: who is left out and why waits for "Revisar y enviar",
+ * where it has room to say why — in one line it read as part of the total.
  */
 function Estimate({ estimate }: { estimate: BroadcastPreview | null }) {
   if (!estimate) return null;
   const reach = estimate.names?.length ?? 0;
-  const left = Object.values(estimate.excluded ?? {}).reduce((sum, n) => sum + (n ?? 0), 0);
+  const routes = [
+    (estimate.template ?? 0) > 0 && `${estimate.template} por plantilla`,
+    (estimate.free ?? 0) > 0 && `${estimate.free} directo`,
+    (estimate.held ?? 0) > 0 && `${estimate.held} en espera de la plantilla`,
+  ].filter(Boolean);
 
   return (
     <p className="mt-3 text-[0.88rem] text-ink-soft">
@@ -452,15 +457,8 @@ function Estimate({ estimate }: { estimate: BroadcastPreview | null }) {
           <span className="font-medium text-ink">
             {reach === 1 ? "1 persona" : `${reach} personas`}
           </span>
-          {(estimate.template ?? 0) > 0 && ` · ${estimate.template} por plantilla, con costo`}
-          {(estimate.held ?? 0) > 0 && ` · ${estimate.held} en espera de la plantilla`}
+          {routes.length > 0 && ` · ${routes.join(", ")}`}
         </>
-      )}
-      {left > 0 && (
-        <span className="text-ink-muted">
-          {" "}
-          · {left === 1 ? "1 queda fuera" : `${left} quedan fuera`}
-        </span>
       )}
     </p>
   );
