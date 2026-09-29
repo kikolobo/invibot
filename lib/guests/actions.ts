@@ -428,6 +428,48 @@ export async function confirmGuests(
   return { ok: `Confirmaste ${people}${plus}.${skipped}` };
 }
 
+/**
+ * Moving a batch of guests into one of the event's groups, or out of any.
+ *
+ * Only groups that already exist: this is sorting a list, not naming a new
+ * group, and a stale page must not be able to fork one. `null` means "Sin
+ * grupo".
+ */
+export async function assignGroup(
+  eventId: string,
+  guestIds: string[],
+  groupName: string | null,
+): Promise<GuestActionState> {
+  const event = await ownedEvent(eventId);
+  if (!event) return { error: "No encontramos ese evento." };
+  if (guestIds.length === 0) return { error: "No hay nadie seleccionado." };
+
+  let groupId: string | null = null;
+  if (groupName !== null) {
+    const group = await db.query.guestGroups.findFirst({
+      where: and(
+        eq(guestGroups.eventId, eventId),
+        eq(guestGroups.normalizedName, normalizeGroupName(groupName)),
+      ),
+    });
+    if (!group) return { error: "Ese grupo ya no existe." };
+    groupId = group.id;
+  }
+
+  const moved = await db
+    .update(guests)
+    .set({ groupId, updatedAt: new Date() })
+    .where(and(eq(guests.eventId, eventId), inArray(guests.id, guestIds)))
+    .returning({ id: guests.id });
+
+  revalidatePath(`/eventos/${eventId}/invitados`);
+
+  const people = moved.length === 1 ? "1 invitado" : `${moved.length} invitados`;
+  return {
+    ok: groupName === null ? `Quitaste del grupo a ${people}.` : `Pasaste ${people} a ${groupName}.`,
+  };
+}
+
 export async function deleteGuests(eventId: string, guestIds: string[]) {
   const event = await ownedEvent(eventId);
   if (!event || guestIds.length === 0) return;

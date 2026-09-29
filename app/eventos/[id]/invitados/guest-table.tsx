@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState, useTransition } from "react";
-import { confirmGuests, deleteGuests } from "@/lib/guests/actions";
+import { assignGroup, confirmGuests, deleteGuests } from "@/lib/guests/actions";
 import { formatPhone } from "@/lib/phone";
 import { inviteLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
 import type { TemplateName } from "@/lib/whatsapp/templates";
@@ -155,6 +155,7 @@ export function GuestTable({
   const [history, setHistory] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
   const [filter, setFilter] = useState<null | keyof typeof filters>(null);
   const [sortKey, setSortKey] = useState<SortKey>("grupo");
   const [ascending, setAscending] = useState(true);
@@ -270,6 +271,16 @@ export function GuestTable({
       const result = await confirmGuests(eventId, ids, withCompanion);
       setNote(result.ok ?? result.error ?? null);
       setSelected(new Set());
+    });
+  }
+
+  function assignSelected(groupName: string | null) {
+    const ids = [...selected];
+    setGroupOpen(false);
+    startTransition(async () => {
+      const result = await assignGroup(eventId, ids, groupName);
+      setNote(result.ok ?? result.error ?? null);
+      if (result.ok) setSelected(new Set());
     });
   }
 
@@ -542,6 +553,55 @@ export function GuestTable({
               >
                 Confirmar con +1
               </button>
+            )}
+
+            {groups.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setGroupOpen((open) => !open)}
+                  disabled={pending}
+                  aria-haspopup="menu"
+                  aria-expanded={groupOpen}
+                  className="rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  Asignar grupo
+                </button>
+                {groupOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Cerrar"
+                      onClick={() => setGroupOpen(false)}
+                      className="fixed inset-0 z-40 cursor-default"
+                    />
+                    <div
+                      role="menu"
+                      className="absolute left-0 z-50 mt-2 max-h-72 min-w-48 overflow-y-auto rounded-xl border border-line bg-paper p-1 shadow-xl"
+                    >
+                      {groups.map((group) => (
+                        <button
+                          key={group}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => assignSelected(group)}
+                          className="block w-full rounded-lg px-3 py-2 text-left text-[0.85rem] text-ink transition-colors hover:bg-paper-deep"
+                        >
+                          {group}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => assignSelected(null)}
+                        className="mt-1 block w-full rounded-lg border-t border-line px-3 py-2 text-left text-[0.85rem] text-ink-muted transition-colors hover:bg-paper-deep"
+                      >
+                        Sin grupo
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
             {/* Lo único que no se deshace, detrás del ⋯. Es el único lugar
