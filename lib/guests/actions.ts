@@ -1,10 +1,10 @@
 "use server";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, max } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { guests, guestGroups, suppressions } from "@/db/schema";
+import { broadcasts, guests, guestGroups, suppressions } from "@/db/schema";
 import { editableEvent } from "@/lib/events/guard";
 import type { EventKind } from "@/lib/events/kinds";
 import { normalizePhone, variantsOf } from "@/lib/phone";
@@ -84,6 +84,168 @@ export async function listGroups(eventId: string): Promise<string[]> {
     .where(eq(guestGroups.eventId, eventId))
     .orderBy(asc(guestGroups.sortOrder), asc(guestGroups.name));
   return rows.map((r) => r.name);
+}
+
+/**
+ * Editing the vocabulary itself: adding, renaming and removing groups.
+ *
+ * Groups are addressed by name, the way the client already knows them, and
+ * found on their normalized form — so a stale page that still says "familia
+ * novia" lands on the group it meant.
+ */
+async function findGroup(eventId: string, name: string) {
+  return db.query.guestGroups.findFirst({
+    where: and(
+      eq(guestGroups.eventId, eventId),
+      eq(guestGroups.normalizedName, normalizeGroupName(name)),
+    ),
+  });
+}
+
+/**
+ * Messages that have not gone out yet. Their audience is resolved when they
+ * send, by group id, so these are the ones a removed or merged group would
+ * silently empty.
+ */
+async function waitingBroadcasts(eventId: string) {
+  return db
+    .select({ id: broadcasts.id, title: broadcasts.title, audience: broadcasts.audience })
+    .from(broadcasts)
+    .where(
+      and(
+        eq(broadcasts.eventId, eventId),
+        eq(broadcasts.isTest, false),
+        inArray(broadcasts.status, ["draft", "scheduled"]),
+      ),
+    );
+}
+
+export type GroupActionState = GuestActionState & {
+  /** A rename that would land on this existing group; ask before merging. */
+  conflict?: string;
+};
+
+export async function createGroup(eventId: string, rawName: string): Promise<GroupActionState> {
+  const event = await ownedEvent(eventId);
+  if (!event) return { error: "No encontramos ese evento." };
+
+  const name = cleanGroupName(rawName);
+  const normalized = normalizeGroupName(name);
+  if (!normalized) return { error: "Escribe un nombre para el grupo." };
+
+  const existing = await findGroup(eventId, name);
+  if (existing) return { error: `Ya existe ${existing.name}.` };
+
+  // Last, not first: a new group shows up where the organizer is looking,
+  // below the ones they already had.
+  const [{ last }] = await db
+    .select({ last: max(guestGroups.sortOrder) })
+    .from(guestGroups)
+    .where(eq(guestGroups.eventId, eventId));
+
+  await db
+    .insert(guestGroups)
+    .values({ eventId, name, normalizedName: normalized, sortOrder: (last ?? -1) + 1 })
+    .onConflictDoNothing();
+
+  revalidatePath(`/eventos/${eventId}/invitados`);
+  return { ok: `Agregaste ${name}.` };
+}
+
+/**
+ * Renaming, which can turn into merging.
+ *
+ * A new name that normalizes to another group's *is* that group — the whole
+ * vocabulary is built on that — so instead of refusing, the first call reports
+ * the clash and a second one with `merge` moves everybody across, points any
+ * waiting message at the survivor, and removes the old group.
+ */
+export async function renameGroup(
+  eventId: string,
+  from: string,
+  rawTo: string,
+  merge = false,
+): Promise<GroupActionState> {
+  const event = await ownedEvent(eventId);
+  if (!event) return { error: "No encontramos ese evento." };
+
+  const group = await findGroup(eventId, from);
+  if (!group) return { error: "Ese grupo ya no existe." };
+
+  const name = cleanGroupName(rawTo);
+  const normalized = normalizeGroupName(name);
+  if (!normalized) return { error: "Escribe un nombre para el grupo." };
+
+  const target = await findGroup(eventId, name);
+
+  // Only the spelling changed ("familia" → "Familia"): same group, new label.
+  if (!target || target.id === group.id) {
+    await db
+      .update(guestGroups)
+      .set({ name, normalizedName: normalized })
+      .where(eq(guestGroups.id, group.id));
+    revalidatePath(`/eventos/${eventId}/invitados`);
+    return { ok: `Ahora se llama ${name}.` };
+  }
+
+  if (!merge) return { conflict: target.name };
+
+  const waiting = await waitingBroadcasts(eventId);
+
+  const moved = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(guests)
+      .set({ groupId: target.id, updatedAt: new Date() })
+      .where(and(eq(guests.eventId, eventId), eq(guests.groupId, group.id)))
+      .returning({ id: guests.id });
+
+    for (const broadcast of waiting) {
+      const { audience } = broadcast;
+      if (audience.kind !== "groups" || !audience.ids.includes(group.id)) continue;
+      const ids = [...new Set(audience.ids.map((id) => (id === group.id ? target.id : id)))];
+      await tx
+        .update(broadcasts)
+        .set({ audience: { kind: "groups", ids }, updatedAt: new Date() })
+        .where(eq(broadcasts.id, broadcast.id));
+    }
+
+    await tx.delete(guestGroups).where(eq(guestGroups.id, group.id));
+    return rows.length;
+  });
+
+  revalidatePath(`/eventos/${eventId}/invitados`);
+  revalidatePath(`/eventos/${eventId}/mensajes`);
+  const people = moved === 1 ? "1 invitado" : `${moved} invitados`;
+  return { ok: `Uniste ${group.name} a ${target.name} (${people}).` };
+}
+
+/**
+ * Removing a group. Its guests stay on the list, just without a group — the
+ * foreign key sets them to null.
+ *
+ * Refused while a message that has not gone out is addressed to it: that
+ * message would quietly reach nobody, which is worse than a clear "no".
+ */
+export async function deleteGroup(eventId: string, name: string): Promise<GroupActionState> {
+  const event = await ownedEvent(eventId);
+  if (!event) return { error: "No encontramos ese evento." };
+
+  const group = await findGroup(eventId, name);
+  if (!group) return { error: "Ese grupo ya no existe." };
+
+  const blocking = (await waitingBroadcasts(eventId)).find(
+    ({ audience }) => audience.kind === "groups" && audience.ids.includes(group.id),
+  );
+  if (blocking) {
+    return {
+      error: `El mensaje «${blocking.title}» todavía no sale y va para ${group.name}. Cámbialo o bórralo antes de quitar el grupo.`,
+    };
+  }
+
+  await db.delete(guestGroups).where(eq(guestGroups.id, group.id));
+
+  revalidatePath(`/eventos/${eventId}/invitados`);
+  return { ok: `Quitaste ${group.name}.` };
 }
 
 export async function addGuest(
@@ -446,12 +608,7 @@ export async function assignGroup(
 
   let groupId: string | null = null;
   if (groupName !== null) {
-    const group = await db.query.guestGroups.findFirst({
-      where: and(
-        eq(guestGroups.eventId, eventId),
-        eq(guestGroups.normalizedName, normalizeGroupName(groupName)),
-      ),
-    });
+    const group = await findGroup(eventId, groupName);
     if (!group) return { error: "Ese grupo ya no existe." };
     groupId = group.id;
   }

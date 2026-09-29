@@ -9,6 +9,7 @@ import { SendInvitations } from "./send-invitations";
 import { EditGuest } from "./edit-guest";
 import { GuestTimeline } from "./guest-timeline";
 import { AddGuest } from "./add-guest";
+import { ManageGroups } from "./manage-groups";
 import { Overlay } from "@/components/ui/overlay";
 
 export type GuestRow = {
@@ -156,6 +157,7 @@ export function GuestTable({
   const [adding, setAdding] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
+  const [managingGroups, setManagingGroups] = useState(false);
   const [filter, setFilter] = useState<null | keyof typeof filters>(null);
   const [sortKey, setSortKey] = useState<SortKey>("grupo");
   const [ascending, setAscending] = useState(true);
@@ -312,6 +314,11 @@ export function GuestTable({
       <AddGuest eventId={eventId} maxPartySize={maxPartySize} groups={groups} />
     </Overlay>
   ) : null;
+
+  const groupCounts: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.groupName) groupCounts[row.groupName] = (groupCounts[row.groupName] ?? 0) + 1;
+  }
 
   const confirmedRows = rows.filter((row) => row.rsvpStatus === "confirmed");
   const seats = confirmedRows.reduce(
@@ -522,6 +529,13 @@ export function GuestTable({
             >
               {ascending ? "↑" : "↓"}
             </button>
+            <button
+              type="button"
+              onClick={() => setManagingGroups(true)}
+              className="rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent"
+            >
+              Grupos
+            </button>
             {addButton}
           </div>
         )}
@@ -555,54 +569,65 @@ export function GuestTable({
               </button>
             )}
 
-            {groups.length > 0 && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setGroupOpen((open) => !open)}
-                  disabled={pending}
-                  aria-haspopup="menu"
-                  aria-expanded={groupOpen}
-                  className="rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  Asignar grupo
-                </button>
-                {groupOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Cerrar"
-                      onClick={() => setGroupOpen(false)}
-                      className="fixed inset-0 z-40 cursor-default"
-                    />
-                    <div
-                      role="menu"
-                      className="absolute left-0 z-50 mt-2 max-h-72 min-w-48 overflow-y-auto rounded-xl border border-line bg-paper p-1 shadow-xl"
-                    >
-                      {groups.map((group) => (
-                        <button
-                          key={group}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => assignSelected(group)}
-                          className="block w-full rounded-lg px-3 py-2 text-left text-[0.85rem] text-ink transition-colors hover:bg-paper-deep"
-                        >
-                          {group}
-                        </button>
-                      ))}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setGroupOpen((open) => !open)}
+                disabled={pending}
+                aria-haspopup="menu"
+                aria-expanded={groupOpen}
+                className="rounded-full border border-line px-4 py-1.5 text-[0.85rem] text-ink-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                Asignar grupo
+              </button>
+              {groupOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Cerrar"
+                    onClick={() => setGroupOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    role="menu"
+                    className="absolute left-0 z-50 mt-2 max-h-72 min-w-48 overflow-y-auto rounded-xl border border-line bg-paper p-1 shadow-xl"
+                  >
+                    {groups.map((group) => (
                       <button
+                        key={group}
                         type="button"
                         role="menuitem"
-                        onClick={() => assignSelected(null)}
-                        className="mt-1 block w-full rounded-lg border-t border-line px-3 py-2 text-left text-[0.85rem] text-ink-muted transition-colors hover:bg-paper-deep"
+                        onClick={() => assignSelected(group)}
+                        className="block w-full rounded-lg px-3 py-2 text-left text-[0.85rem] text-ink transition-colors hover:bg-paper-deep"
                       >
-                        Sin grupo
+                        {group}
                       </button>
-                    </div>
-                  </>
-                )}
+                    ))}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => assignSelected(null)}
+                      className="mt-1 block w-full rounded-lg border-t border-line px-3 py-2 text-left text-[0.85rem] text-ink-muted transition-colors hover:bg-paper-deep"
+                    >
+                      Sin grupo
+                    </button>
+                    {/* Where the missing group gets noticed: halfway through
+                        assigning people to it. */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setGroupOpen(false);
+                        setManagingGroups(true);
+                      }}
+                      className="block w-full rounded-lg border-t border-line px-3 py-2 text-left text-[0.85rem] text-ink-muted transition-colors hover:bg-paper-deep hover:text-accent"
+                    >
+                      Editar grupos…
+                    </button>
+                  </div>
+                </>
+              )}
               </div>
-            )}
 
             {/* Lo único que no se deshace, detrás del ⋯. Es el único lugar
                 donde un menú se gana su lugar: esconder lo que no quieres
@@ -807,6 +832,12 @@ export function GuestTable({
       </div>
 
       {addDialog}
+
+      {managingGroups && (
+        <Overlay onClose={() => setManagingGroups(false)} title="Grupos">
+          <ManageGroups eventId={eventId} groups={groups} counts={groupCounts} />
+        </Overlay>
+      )}
 
       {historyGuest && (
         <GuestTimeline
