@@ -8,15 +8,19 @@ import { publicBase } from "@/lib/public-url";
 export const SHORT_PREFIX = "/s/";
 export const CODE_LENGTH = 7;
 
-/** "invibot.com", without the scheme: WhatsApp links a bare domain on its own. */
-export function shortHost(): string {
-  return publicBase().replace(/^https?:\/\//, "");
+/**
+ * "https://invibot.com", scheme included. WhatsApp does link a bare domain,
+ * but the scheme is what makes it reliably tappable and gets the preview of
+ * what it points to built.
+ */
+export function shortBase(): string {
+  return publicBase();
 }
 
 /**
  * Only links with a scheme. A bare "ejemplo.com" is short already, and
- * guessing at domains is how "Sr.Pérez" becomes a link. It also means an
- * already shortened "invibot.com/s/…" is never matched in the first place.
+ * guessing at domains is how "Sr.Pérez" becomes a link. A short link we
+ * already wrote is matched, and then skipped as one of ours.
  */
 const URL_PATTERN = /https?:\/\/[^\s<>"]+/gi;
 
@@ -55,7 +59,7 @@ function isOwn(url: URL): boolean {
  * goes.
  */
 export function linksToShorten(text: string): string[] {
-  const shortLength = `${shortHost()}${SHORT_PREFIX}`.length + CODE_LENGTH;
+  const shortLength = `${shortBase()}${SHORT_PREFIX}`.length + CODE_LENGTH;
   const found = new Set<string>();
   for (const match of text.matchAll(URL_PATTERN)) {
     const url = trimTail(match[0]);

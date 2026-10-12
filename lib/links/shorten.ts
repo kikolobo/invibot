@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { db } from "@/db";
 import { shortLinks } from "@/db/schema";
-import { CODE_LENGTH, linksToShorten, replaceLinks, shortHost, SHORT_PREFIX } from "./detect";
+import { CODE_LENGTH, linksToShorten, replaceLinks, shortBase, SHORT_PREFIX } from "./detect";
 
 /** Seven characters with no 0/O or 1/l, same alphabet as the maps links. */
 const newCode = customAlphabet("abcdefghjkmnpqrstuvwxyz23456789", CODE_LENGTH);
@@ -42,7 +42,7 @@ async function codeFor(eventId: string, url: string): Promise<string> {
 export async function shortenLinks(eventId: string, text: string): Promise<string> {
   const replacements = new Map<string, string>();
   for (const url of linksToShorten(text)) {
-    replacements.set(url, `${shortHost()}${SHORT_PREFIX}${await codeFor(eventId, url)}`);
+    replacements.set(url, `${shortBase()}${SHORT_PREFIX}${await codeFor(eventId, url)}`);
   }
   return replaceLinks(text, replacements);
 }
