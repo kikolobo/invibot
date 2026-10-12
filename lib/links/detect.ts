@@ -83,3 +83,16 @@ export function replaceLinks(text: string, replacements: Map<string, string>): s
     return short ? short + raw.slice(url.length) : raw;
   });
 }
+
+/**
+ * The codes of our own short links in a text, in order, each once — with or
+ * without the scheme, since messages saved before it was added carry none.
+ */
+export function shortCodesIn(text: string): string[] {
+  const host = new URL(publicBase()).hostname.replace(/^www\./, "").replace(/\./g, "\\.");
+  const pattern = new RegExp(
+    `(?:https?://)?(?<![a-z0-9.-])(?:www\\.)?${host}${SHORT_PREFIX}([a-z0-9]{${CODE_LENGTH}})(?![a-z0-9])`,
+    "gi",
+  );
+  return [...new Set([...text.matchAll(pattern)].map((m) => m[1].toLowerCase()))];
+}

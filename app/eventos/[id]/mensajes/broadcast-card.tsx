@@ -47,6 +47,19 @@ export type BroadcastView = {
     opened: number;
   };
   recipients: RecipientView[];
+  /** The short links in the body, with their taps. */
+  links: LinkView[];
+};
+
+/**
+ * One short link and how often it was tapped — counted per link across the
+ * event, not per message or per person, and including WhatsApp fetching it
+ * for the preview.
+ */
+export type LinkView = {
+  url: string;
+  clicks: number;
+  lastClicked: string | null;
 };
 
 const statusTone: Record<BroadcastStatus, string> = {
@@ -140,6 +153,32 @@ export function BroadcastCard({
           {s.held > 0 && <Stat label="En espera" value={s.held} tone="warn" />}
           {s.failed > 0 && <Stat label="Fallaron" value={s.failed} tone="danger" />}
         </dl>
+      )}
+
+      {view.status !== "scheduled" && view.status !== "draft" && view.links.length > 0 && (
+        <div className="mt-4">
+          <p className="text-[0.75rem] text-ink-muted">Enlaces</p>
+          <ul className="mt-1 space-y-1 text-[0.85rem]">
+            {view.links.map((link) => (
+              <li key={link.url} className="flex flex-wrap items-baseline justify-between gap-x-4">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block min-w-0 max-w-full truncate text-ink hover:text-accent"
+                  title={link.url}
+                >
+                  {link.url.replace(/^https?:\/\/(www\.)?/, "")}
+                </a>
+                <span className="shrink-0 text-ink-muted">
+                  <span className="font-medium text-ink">{link.clicks}</span>{" "}
+                  {link.clicks === 1 ? "clic" : "clics"}
+                  {link.lastClicked && ` · último el ${link.lastClicked}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {excluded.length > 0 && (

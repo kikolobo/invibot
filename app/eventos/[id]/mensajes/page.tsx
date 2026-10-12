@@ -1,12 +1,13 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { broadcastRecipients, broadcasts, guestGroups, guests, sends, users } from "@/db/schema";
+import { broadcastRecipients, broadcasts, guestGroups, guests, sends, shortLinks, users } from "@/db/schema";
 import { requireEventAccess } from "@/lib/events/access";
 import { describeRun, nextCronRun } from "@/lib/broadcasts/schedule";
 import { audienceLabels, type Audience } from "@/lib/broadcasts/labels";
 import { resolveAudience } from "@/lib/broadcasts/audience";
+import { shortCodesIn } from "@/lib/links/detect";
 import { MensajesTabs } from "./mensajes-tabs";
-import type { BroadcastView, RecipientView } from "./broadcast-card";
+import type { BroadcastView, LinkView, RecipientView } from "./broadcast-card";
 
 export const metadata = { title: "Mensajes" };
 
@@ -104,6 +105,24 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
     byBroadcast.set(row.broadcastId, list);
   }
 
+  // Read by the code in each body rather than joined: a short link belongs to
+  // the event, and the same playlist in two messages is one link and one count.
+  const codesByBroadcast = new Map(rows.map((row) => [row.broadcast.id, shortCodesIn(row.broadcast.body)]));
+  const allCodes = [...new Set([...codesByBroadcast.values()].flat())];
+  const linkRows =
+    allCodes.length === 0
+      ? []
+      : await db
+          .select({
+            code: shortLinks.code,
+            url: shortLinks.url,
+            clicks: shortLinks.clicks,
+            lastClickedAt: shortLinks.lastClickedAt,
+          })
+          .from(shortLinks)
+          .where(and(eq(shortLinks.eventId, id), inArray(shortLinks.code, allCodes)));
+  const linksByCode = new Map(linkRows.map((link) => [link.code, link]));
+
   const groupNames = new Map(groups.map((group) => [group.id, group.name]));
   const personNames = new Map(people.map((person) => [person.id, person.fullName]));
 
@@ -164,6 +183,17 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
       opened: row.opened,
     },
     recipients: byBroadcast.get(row.broadcast.id) ?? [],
+    links: (codesByBroadcast.get(row.broadcast.id) ?? []).flatMap((code): LinkView[] => {
+      const link = linksByCode.get(code);
+      if (!link) return [];
+      return [
+        {
+          url: link.url,
+          clicks: link.clicks,
+          lastClicked: link.lastClickedAt ? dateTime.format(link.lastClickedAt) : null,
+        },
+      ];
+    }),
   }));
 
   return (
