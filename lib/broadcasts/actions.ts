@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { broadcasts, organizers, users } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
+import { shortenLinks } from "@/lib/links/shorten";
 import { variantsOf } from "@/lib/phone";
 import { sendTemplate, sendText, whatsappConfig } from "@/lib/whatsapp/client";
 import { resolveAudience } from "./audience";
@@ -60,6 +61,20 @@ function cleanDraft(
   if (!body) return { error: "Falta el mensaje." };
   if (body.length > BODY_MAX) return { error: `El mensaje puede tener hasta ${BODY_MAX} caracteres.` };
   return { title, body, template };
+}
+
+/**
+ * Long links in the body become invibot.com/s/{code} on every save — draft,
+ * send or test — so whatever is stored is what goes out, and the assistant
+ * quoting the message later quotes the short one too. The title is left
+ * alone: it is a one-line template parameter, not a place for links.
+ */
+async function cleanBody<T extends { body: string } | { error: string }>(
+  eventId: string,
+  clean: T,
+): Promise<T> {
+  if ("error" in clean) return clean;
+  return { ...clean, body: await shortenLinks(eventId, clean.body) };
 }
 
 function cleanAudience(audience: Audience, partial = false): Audience | { error: string } {
@@ -141,12 +156,12 @@ export async function createBroadcast(
   audience: Audience,
   when: "now" | "cron",
   id?: string,
-): Promise<Result & { id?: string }> {
+): Promise<Result & { id?: string; body?: string }> {
   const { userId } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
 
-  const clean = cleanDraft(draft);
+  const clean = await cleanBody(eventId, cleanDraft(draft));
   if ("error" in clean) return clean;
   const chosen = cleanAudience(audience);
   if ("error" in chosen) return chosen;
@@ -192,7 +207,7 @@ export async function createBroadcast(
   }
 
   revalidatePath(where(eventId));
-  return { id: row.id };
+  return { id: row.id, body: clean.body };
 }
 
 /**
@@ -203,12 +218,15 @@ export async function createBroadcast(
  * through the client, never through the ledger. The row exists only so the
  * tap can find the text.
  */
-export async function sendTestBroadcast(eventId: string, draft: Draft): Promise<Result & { sentTo?: string }> {
+export async function sendTestBroadcast(
+  eventId: string,
+  draft: Draft,
+): Promise<Result & { sentTo?: string; body?: string }> {
   const { userId, name } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
 
-  const clean = cleanDraft(draft);
+  const clean = await cleanBody(eventId, cleanDraft(draft));
   if ("error" in clean) return clean;
 
   const account = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -249,7 +267,7 @@ export async function sendTestBroadcast(eventId: string, draft: Draft): Promise<
       }),
     );
     if (!result.ok) return { error: `WhatsApp no aceptó la prueba: ${result.title}` };
-    return { sentTo: phone };
+    return { sentTo: phone, body: clean.body };
   }
 
   // The template is still in review. Their own window may be open — they
@@ -271,7 +289,7 @@ export async function sendTestBroadcast(eventId: string, draft: Draft): Promise<
 
   const result = await sendText(config, phone, fullMessage(clean.title, clean.body));
   if (!result.ok) return { error: `WhatsApp no aceptó la prueba: ${result.title}` };
-  return { sentTo: phone };
+  return { sentTo: phone, body: clean.body };
 }
 
 /**
@@ -287,12 +305,12 @@ export async function saveDraft(
   draft: Draft,
   audience: Audience,
   id?: string,
-): Promise<Result & { id?: string }> {
+): Promise<Result & { id?: string; body?: string }> {
   const { userId } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
 
-  const clean = cleanDraft(draft, true);
+  const clean = await cleanBody(eventId, cleanDraft(draft, true));
   if ("error" in clean) return clean;
   const chosen = cleanAudience(audience, true);
   if ("error" in chosen) return chosen;
@@ -327,7 +345,7 @@ export async function saveDraft(
   if (!row) return { error: "Ese mensaje ya salió; ya no se puede cambiar." };
 
   revalidatePath(where(eventId));
-  return { id: row.id };
+  return { id: row.id, body: clean.body };
 }
 
 /**

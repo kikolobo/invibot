@@ -148,6 +148,8 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
     setNotice(null);
     start(async () => {
       const result = await sendTestBroadcast(eventId, draft);
+      // The links came back shortened; show the text as it was sent.
+      if (result.body !== undefined) setBody(result.body);
       if (result.error) setError(result.error);
       else setNotice(`Te mandamos la prueba a ${result.sentTo}. Toca «Leer mensaje» para ver el resto.`);
     });
