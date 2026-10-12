@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { guests, guestGroups } from "@/db/schema";
 import { can, eventAccess } from "@/lib/events/access";
 import { inviteLabels } from "@/lib/campaigns/labels";
+import { APPROVAL_LABELS, RSVP_LABELS } from "@/lib/guests/import";
 
 /**
  * The guest list as a spreadsheet.
@@ -10,16 +11,14 @@ import { inviteLabels } from "@/lib/campaigns/labels";
  * Exists because a list people actually work with ends up in Excel or Sheets
  * no matter what the app offers — for seating, for the caterer's headcount,
  * for the one column nobody anticipated.
+ *
+ * Also the backup: every column the organizer can set is here, under a header
+ * the importer recognises, so this file pasted back in rebuilds the list —
+ * groups, companions, tables, answers and all. "Invitación" is the exception:
+ * it is shown, and ignored on import, because whether a message went out is
+ * Meta's to report, not a spreadsheet's.
  */
 export const dynamic = "force-dynamic";
-
-const rsvpLabels: Record<string, string> = {
-  no_response: "Sin responder",
-  confirmed: "Confirmado",
-  declined: "No podrá",
-  maybe: "Tal vez",
-  waitlist: "Lista de espera",
-};
 
 /** RFC 4180: quote anything with a comma, quote or newline, and double the quotes. */
 function cell(value: string | number | null | undefined): string {
@@ -48,6 +47,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       isVip: guests.isVip,
       tableNumber: guests.tableNumber,
       optedOut: guests.optedOut,
+      notes: guests.notes,
+      approvalStatus: guests.approvalStatus,
     })
     .from(guests)
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))
@@ -59,13 +60,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     "Teléfono",
     "Correo",
     "Grupo",
-    "Invitación",
-    "Asistencia",
     "Lugares ofrecidos",
-    "Confirmados",
     "Acompañante",
     "Mesa",
     "VIP",
+    "Notas",
+    "Asistencia",
+    "Confirmados",
+    "Aprobación",
+    "Invitación",
     "Baja",
   ];
 
@@ -77,13 +80,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       cell(row.phoneE164 ? `'${row.phoneE164}` : ""),
       cell(row.email),
       cell(row.groupName),
-      cell(inviteLabels[row.inviteStatus] ?? row.inviteStatus),
-      cell(rsvpLabels[row.rsvpStatus] ?? row.rsvpStatus),
       cell(row.partySizeAllowed),
-      cell(row.rsvpStatus === "confirmed" ? (row.partySizeConfirmed ?? 1) : ""),
       cell(row.companions[0] ?? ""),
       cell(row.tableNumber),
       cell(row.isVip ? "Sí" : ""),
+      cell(row.notes),
+      cell(RSVP_LABELS[row.rsvpStatus] ?? row.rsvpStatus),
+      cell(row.rsvpStatus === "confirmed" ? (row.partySizeConfirmed ?? 1) : ""),
+      cell(APPROVAL_LABELS[row.approvalStatus] ?? row.approvalStatus),
+      cell(inviteLabels[row.inviteStatus] ?? row.inviteStatus),
       cell(row.optedOut ? "Sí" : ""),
     ].join(","),
   );

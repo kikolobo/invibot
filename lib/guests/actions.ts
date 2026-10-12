@@ -825,21 +825,53 @@ export async function confirmImport(
     groupIds.set(name, await resolveGroup(eventId, name));
   }
 
-  await db.insert(guests).values(
-    rows.map((g) => ({
+  const now = new Date();
+  const inserted = await db
+    .insert(guests)
+    .values(
+      rows.map((g) => ({
+        eventId,
+        fullName: g.fullName,
+        firstName: g.firstName,
+        phoneE164: g.phoneE164,
+        phoneVariants: g.phoneVariants,
+        email: g.email,
+        groupId: g.groupLabel ? (groupIds.get(g.groupLabel) ?? null) : null,
+        partySizeAllowed: g.partySizeAllowed,
+        companions: g.companionName ? [properCase(g.companionName)] : [],
+        tableNumber: g.tableNumber,
+        isVip: g.isVip,
+        notes: g.notes,
+        // A list exported from here carries the answers already given, so
+        // importing it back is a restore rather than a fresh start. Nothing is
+        // sent: same as the host recording an answer by hand.
+        rsvpStatus: g.rsvpStatus,
+        rsvpRespondedAt: g.rsvpStatus === "no_response" ? null : now,
+        partySizeConfirmed: g.partySizeConfirmed,
+        approvalStatus: g.approvalStatus,
+        approvedAt: g.approvalStatus === "approved" ? now : null,
+        optedOut: g.optedOut,
+        optedOutAt: g.optedOut ? now : null,
+        accessToken: newToken(),
+      })),
+    )
+    .returning({
+      id: guests.id,
+      rsvpStatus: guests.rsvpStatus,
+      partySizeConfirmed: guests.partySizeConfirmed,
+    });
+
+  for (const guest of inserted) {
+    if (guest.rsvpStatus !== "confirmed" && guest.rsvpStatus !== "declined") continue;
+    await recordGuestEvent({
       eventId,
-      fullName: g.fullName,
-      firstName: g.firstName,
-      phoneE164: g.phoneE164,
-      phoneVariants: g.phoneVariants,
-      email: g.email,
-      groupId: g.groupLabel ? (groupIds.get(g.groupLabel) ?? null) : null,
-      partySizeAllowed: g.partySizeAllowed,
-      tableNumber: g.tableNumber,
-      isVip: g.isVip,
-      accessToken: newToken(),
-    })),
-  );
+      guestId: guest.id,
+      type: guest.rsvpStatus,
+      at: now,
+      source: "organizer",
+      detail: { seats: guest.partySizeConfirmed, via: "import" },
+    });
+  }
 
   revalidatePath(`/eventos/${eventId}/invitados`);
   const skipped = preview.parsed.length - rows.length;

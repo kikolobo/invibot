@@ -42,7 +42,8 @@ export function ImportGuests({ eventId }: { eventId: string }) {
       <p className="mt-2 text-[0.88rem] leading-relaxed text-ink-muted">
         Copia y pega desde Excel o Numbers, o sube un archivo CSV. Reconocemos
         columnas de nombre, teléfono, correo, grupo y pases — con o sin
-        encabezado.
+        encabezado. Un CSV exportado desde aquí se importa completo:
+        acompañante, mesa, notas, asistencia y aprobación incluidos.
       </p>
 
       <label className="mt-4 inline-block cursor-pointer text-[0.88rem] text-accent hover:underline">
