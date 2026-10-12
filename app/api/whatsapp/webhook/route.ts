@@ -22,6 +22,7 @@ import {
 import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
 import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
+import { assistantName } from "@/lib/agent/identity";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { deliverOrSchedulePasses, requestPasses, sendDuePasses } from "@/lib/passes/send";
 import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
@@ -750,9 +751,12 @@ async function completeRegistration(
   if (!result.ok) console.error("[auto-registro] closed-event reply failed", result.title);
 }
 
-/** What a guest hears from us once their event is over, whatever they wrote. */
-const AFTER_EVENT_REPLY =
-  "El evento ya pasó, pero para el próximo aquí estaré al pendiente de lo que se ofrezca.";
+/**
+ * What a guest hears from us once their event is over, whatever they wrote.
+ * Signed with the assistant's name, the same one it gives when asked who it is.
+ */
+const afterEventReply = () =>
+  `El evento ya pasó, pero para el próximo aquí estaré al pendiente de lo que se ofrezca.\n\n— ${assistantName()}`;
 
 /**
  * After the event, the same short answer to everything.
@@ -763,7 +767,7 @@ const AFTER_EVENT_REPLY =
  */
 async function respondAfterEvent(guest: GuestRow, wamid: string, config: WhatsAppConfig): Promise<void> {
   await markRead(config, wamid);
-  const outcome = await sendTextToGuest(guest.id, AFTER_EVENT_REPLY, "custom", config);
+  const outcome = await sendTextToGuest(guest.id, afterEventReply(), "custom", config);
   if (!outcome.ok) console.error("[whatsapp] after-event reply failed", guest.id, outcome);
 }
 
