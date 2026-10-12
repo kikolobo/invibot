@@ -5,6 +5,7 @@ import { whatsappConfig, uploadMedia, type WhatsAppConfig } from "@/lib/whatsapp
 import { sendImageToGuest } from "@/lib/whatsapp/send";
 import { syncPasses, markPassSent, activePasses } from "./issue";
 import { renderPass } from "./render";
+import { eventIsOver, type EventTiming } from "@/lib/events/timing";
 
 type GuestRow = typeof guests.$inferSelect;
 
@@ -116,16 +117,6 @@ const PASS_URGENT_MS = 2 * 60 * 60 * 1000;
  */
 export const PASS_EARLY_MS = 48 * 60 * 60 * 1000;
 
-/**
- * When a pass stops being worth sending. `endsAt` when the organizer gave one,
- * otherwise a generous evening — a guest arriving late still needs the code.
- */
-const DEFAULT_EVENT_LENGTH_MS = 12 * 60 * 60 * 1000;
-
-type EventTiming = { startsAt: Date; endsAt: Date | null };
-
-const isOver = (event: EventTiming, now = Date.now()) =>
-  now > (event.endsAt?.getTime() ?? event.startsAt.getTime() + DEFAULT_EVENT_LENGTH_MS);
 
 /**
  * Sends the passes, or decides when to.
@@ -186,7 +177,7 @@ export async function requestPasses(
   if (guest.rsvpStatus !== "confirmed" || guest.optedOut) {
     return { ok: false, reason: "not_confirmed" };
   }
-  if (isOver(event)) return { ok: false, reason: "over" };
+  if (eventIsOver(event)) return { ok: false, reason: "over" };
 
   const delivered = (await activePasses(guest.id)).some((pass) => pass.sentAt !== null);
   const untilEvent = event.startsAt.getTime() - Date.now();

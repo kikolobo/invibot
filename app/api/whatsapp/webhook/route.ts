@@ -40,6 +40,7 @@ import {
 import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify";
 import { organizerEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
+import { eventIsOver } from "@/lib/events/timing";
 import { broadcastIdFromPayload } from "@/lib/broadcasts/template";
 import { deliverPendingMessages } from "@/lib/broadcasts/send";
 import { fullMessage } from "@/lib/broadcasts/labels";
@@ -140,9 +141,10 @@ export async function POST(request: Request) {
 
   if (answerable.length > 0) {
     after(async () => {
-      for (const { guest, intent, at, wamid, config, buttonPayload } of answerable) {
+      for (const { guest, intent, at, wamid, config, buttonPayload, eventOver } of answerable) {
         try {
-          await respond(guest, intent, at, wamid, config, buttonPayload);
+          if (eventOver) await respondAfterEvent(guest, wamid, config);
+          else await respond(guest, intent, at, wamid, config, buttonPayload);
         } catch (error) {
           console.error("[whatsapp] reply failed", guest.id, intent, error);
         }
@@ -459,6 +461,8 @@ type Answerable = {
   config: WhatsAppConfig;
   /** Which button, when it was one — [Leer mensaje] names its message here. */
   buttonPayload: string | null;
+  /** Their event has happened and this is not a BAJA or [Leer mensaje]; see `respondAfterEvent`. */
+  eventOver: boolean;
 };
 
 async function recordInbound(message: InboundMessage): Promise<Answerable | null> {
@@ -582,7 +586,20 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
   if (!row) return null;
 
   const intent = parseIntent(message);
-  await applyIntent(guest, intent, message.timestamp);
+
+  // Once the party has happened there is nothing left to answer: a "sí" can no
+  // longer mean they are coming, and a confirmation would mint passes for a
+  // door that has closed. Two exceptions take the usual path. A BAJA, because
+  // opting out is a legal right rather than an RSVP and holds for every event
+  // after this one. And [Leer mensaje], because "gracias por venir, aquí las
+  // fotos" is exactly what an organizer sends afterwards.
+  const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+  const eventOver =
+    !!event &&
+    eventIsOver(event, message.timestamp.getTime()) &&
+    intent !== "opt_out" &&
+    intent !== "message_request";
+  if (!eventOver) await applyIntent(guest, intent, message.timestamp);
 
   // Both of our numbers deliver here, so the reply follows the number the guest
   // wrote to rather than whichever profile the environment happens to prefer.
@@ -602,6 +619,7 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
     wamid: message.wamid,
     config,
     buttonPayload: message.buttonPayload,
+    eventOver,
   };
 }
 
@@ -730,6 +748,23 @@ async function completeRegistration(
   if (!config) return;
   const result = await sendText(config, fromPhoneE164, action.text);
   if (!result.ok) console.error("[auto-registro] closed-event reply failed", result.title);
+}
+
+/** What a guest hears from us once their event is over, whatever they wrote. */
+const AFTER_EVENT_REPLY =
+  "El evento ya pasó, pero para el próximo aquí estaré al pendiente de lo que se ofrezca.";
+
+/**
+ * After the event, the same short answer to everything.
+ *
+ * The assistant is not consulted: it would answer about the venue, the dress
+ * code, the parking — all true of a night that is over — and could still be
+ * talked into confirming. The organizer is not asked either.
+ */
+async function respondAfterEvent(guest: GuestRow, wamid: string, config: WhatsAppConfig): Promise<void> {
+  await markRead(config, wamid);
+  const outcome = await sendTextToGuest(guest.id, AFTER_EVENT_REPLY, "custom", config);
+  if (!outcome.ok) console.error("[whatsapp] after-event reply failed", guest.id, outcome);
 }
 
 /**
