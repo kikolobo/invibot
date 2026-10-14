@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteBroadcast, retireBroadcast } from "@/lib/broadcasts/actions";
+import { deleteBroadcast, retireBroadcast, setLinkDisabled } from "@/lib/broadcasts/actions";
 import {
   exclusionLabels,
   statusLabels,
@@ -57,12 +57,15 @@ export type BroadcastView = {
  * for the preview.
  */
 export type LinkView = {
+  code: string;
   /** "https://invibot.com/s/k7m2pqa", as the guest got it. */
   short: string;
   /** Where it goes. */
   url: string;
   clicks: number;
   lastClicked: string | null;
+  /** Switched off: it opens "no disponible" instead of the destination. */
+  disabled: boolean;
 };
 
 const statusTone: Record<BroadcastStatus, string> = {
@@ -211,7 +214,7 @@ export function BroadcastCard({
               </summary>
               <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-paper text-[0.85rem]">
                 {view.links.map((link) => (
-                  <LinkRow key={link.short} link={link} />
+                  <LinkRow key={link.short} eventId={eventId} link={link} editable={editable} />
                 ))}
               </ul>
             </details>
@@ -316,9 +319,22 @@ export function BroadcastCard({
  * counts as a tap, and an organizer checking their own link would inflate the
  * number they came to read. Copying hands over the short one for whoever
  * wants to try the redirect anyway.
+ *
+ * Switching it off or on asks first: the link is one per event, so either
+ * reaches every message that carries it.
  */
-function LinkRow({ link }: { link: LinkView }) {
+function LinkRow({ eventId, link, editable }: { eventId: string; link: LinkView; editable: boolean }) {
   const [copied, setCopied] = useState<boolean | "failed">(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const toggle = () =>
+    start(async () => {
+      const result = await setLinkDisabled(eventId, link.code, !link.disabled);
+      setError(result.error ?? null);
+      if (!result.error) setConfirming(false);
+    });
 
   const copy = async () => {
     try {
@@ -333,32 +349,72 @@ function LinkRow({ link }: { link: LinkView }) {
   };
 
   return (
-    <li className="flex flex-col gap-x-4 gap-y-0.5 px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate font-medium text-ink">{link.short.replace(/^https?:\/\//, "")}</span>
+    <li className="px-3 py-2">
+      <div className="flex flex-col gap-x-4 gap-y-0.5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`truncate font-medium ${link.disabled ? "text-ink-muted line-through" : "text-ink"}`}>
+              {link.short.replace(/^https?:\/\//, "")}
+            </span>
+            {link.disabled && (
+              <span className="shrink-0 rounded-full bg-stone-200 px-2 py-0.5 text-[0.7rem] font-medium text-stone-700">
+                Desactivado
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={copy}
+              className="shrink-0 rounded px-1.5 py-0.5 text-[0.75rem] text-accent ring-1 ring-line hover:bg-paper-deep"
+            >
+              {copied === true ? "Copiado" : copied === "failed" ? "No se pudo copiar" : "Copiar"}
+            </button>
+            {editable && !confirming && (
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                className="shrink-0 rounded px-1.5 py-0.5 text-[0.75rem] text-ink-muted ring-1 ring-line hover:bg-paper-deep"
+              >
+                {link.disabled ? "Activar" : "Desactivar"}
+              </button>
+            )}
+          </div>
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            className="block truncate text-[0.8rem] text-ink-muted hover:text-accent"
+            title={link.url}
+          >
+            → {link.url.replace(/^https?:\/\/(www\.)?/, "")}
+          </a>
+        </div>
+        <div className="shrink-0 text-ink-muted sm:text-right">
+          <span className="font-medium text-ink">{link.clicks}</span> {link.clicks === 1 ? "clic" : "clics"}
+          {link.lastClicked && <p className="text-[0.8rem]">último el {link.lastClicked}</p>}
+        </div>
+      </div>
+
+      {confirming && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-[0.85rem] text-ink-soft">
+            {link.disabled
+              ? "¿Activarlo? Vuelve a llevar al destino en todos los mensajes donde se envió."
+              : "¿Desactivarlo? Quien lo toque verá «El enlace no está disponible», en todos los mensajes donde se envió."}
+          </span>
           <button
             type="button"
-            onClick={copy}
-            className="shrink-0 rounded px-1.5 py-0.5 text-[0.75rem] text-accent ring-1 ring-line hover:bg-paper-deep"
+            disabled={pending}
+            className={link.disabled ? buttonStyles.save : buttonStyles.discard}
+            onClick={toggle}
           >
-            {copied === true ? "Copiado" : copied === "failed" ? "No se pudo copiar" : "Copiar"}
+            {link.disabled ? "Activar" : "Desactivar"}
+          </button>
+          <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming(false)}>
+            Cancelar
           </button>
         </div>
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noreferrer"
-          className="block truncate text-[0.8rem] text-ink-muted hover:text-accent"
-          title={link.url}
-        >
-          → {link.url.replace(/^https?:\/\/(www\.)?/, "")}
-        </a>
-      </div>
-      <div className="shrink-0 text-ink-muted sm:text-right">
-        <span className="font-medium text-ink">{link.clicks}</span> {link.clicks === 1 ? "clic" : "clics"}
-        {link.lastClicked && <p className="text-[0.8rem]">último el {link.lastClicked}</p>}
-      </div>
+      )}
+      {error && <p className="mt-2 text-[0.85rem] text-danger">{error}</p>}
     </li>
   );
 }

@@ -118,6 +118,7 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
             url: shortLinks.url,
             clicks: shortLinks.clicks,
             lastClickedAt: shortLinks.lastClickedAt,
+            disabledAt: shortLinks.disabledAt,
           })
           .from(shortLinks)
           .where(and(eq(shortLinks.eventId, id), inArray(shortLinks.code, allCodes)));
@@ -188,10 +189,12 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
       if (!link) return [];
       return [
         {
+          code,
           short: `${shortBase()}${SHORT_PREFIX}${code}`,
           url: link.url,
           clicks: link.clicks,
           lastClicked: link.lastClickedAt ? dateTime.format(link.lastClickedAt) : null,
+          disabled: link.disabledAt !== null,
         },
       ];
     }),

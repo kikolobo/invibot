@@ -1,12 +1,13 @@
 "use server";
 
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { broadcasts, organizers, users } from "@/db/schema";
+import { broadcasts, organizers, shortLinks, users } from "@/db/schema";
 import { requireOrg } from "@/lib/auth/session";
 import { editableEvent } from "@/lib/events/guard";
+import { shortBase, shortCodesIn, SHORT_PREFIX } from "@/lib/links/detect";
 import { shortenLinks } from "@/lib/links/shorten";
 import { variantsOf } from "@/lib/phone";
 import { sendTemplate, sendText, whatsappConfig } from "@/lib/whatsapp/client";
@@ -37,6 +38,15 @@ import { templates } from "@/lib/whatsapp/templates";
 export type Draft = { title: string; body: string; template: BroadcastTemplate };
 
 type Result = { error?: string };
+
+/** What a save hands back besides the outcome. */
+type Saved = Result & {
+  id?: string;
+  /** As stored, links shortened. */
+  body?: string;
+  /** Short links in it that an organizer switched off: they go out dead. */
+  disabled?: string[];
+};
 
 const where = (eventId: string) => `/eventos/${eventId}/mensajes`;
 
@@ -72,9 +82,26 @@ function cleanDraft(
 async function cleanBody<T extends { body: string } | { error: string }>(
   eventId: string,
   clean: T,
-): Promise<T> {
-  if ("error" in clean) return clean;
-  return { ...clean, body: await shortenLinks(eventId, clean.body) };
+): Promise<T extends { error: string } ? T : T & { disabled: string[] }> {
+  type Out = T extends { error: string } ? T : T & { disabled: string[] };
+  if ("error" in clean) return clean as Out;
+  const body = await shortenLinks(eventId, clean.body);
+  return { ...clean, body, disabled: await disabledIn(eventId, body) } as Out;
+}
+
+/**
+ * The short links in a text that are switched off. A pasted link reuses its
+ * code even then — one link per event — so the organizer is told rather than
+ * handed a fresh one that would split the count.
+ */
+async function disabledIn(eventId: string, body: string): Promise<string[]> {
+  const codes = shortCodesIn(body);
+  if (codes.length === 0) return [];
+  const rows = await db
+    .select({ code: shortLinks.code })
+    .from(shortLinks)
+    .where(and(eq(shortLinks.eventId, eventId), inArray(shortLinks.code, codes), isNotNull(shortLinks.disabledAt)));
+  return rows.map((row) => `${shortBase()}${SHORT_PREFIX}${row.code}`);
 }
 
 function cleanAudience(audience: Audience, partial = false): Audience | { error: string } {
@@ -156,7 +183,7 @@ export async function createBroadcast(
   audience: Audience,
   when: "now" | "cron",
   id?: string,
-): Promise<Result & { id?: string; body?: string }> {
+): Promise<Saved> {
   const { userId } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
@@ -207,7 +234,7 @@ export async function createBroadcast(
   }
 
   revalidatePath(where(eventId));
-  return { id: row.id, body: clean.body };
+  return { id: row.id, body: clean.body, disabled: clean.disabled };
 }
 
 /**
@@ -221,7 +248,7 @@ export async function createBroadcast(
 export async function sendTestBroadcast(
   eventId: string,
   draft: Draft,
-): Promise<Result & { sentTo?: string; body?: string }> {
+): Promise<Result & { sentTo?: string; body?: string; disabled?: string[] }> {
   const { userId, name } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
@@ -267,7 +294,7 @@ export async function sendTestBroadcast(
       }),
     );
     if (!result.ok) return { error: `WhatsApp no aceptó la prueba: ${result.title}` };
-    return { sentTo: phone, body: clean.body };
+    return { sentTo: phone, body: clean.body, disabled: clean.disabled };
   }
 
   // The template is still in review. Their own window may be open — they
@@ -289,7 +316,7 @@ export async function sendTestBroadcast(
 
   const result = await sendText(config, phone, fullMessage(clean.title, clean.body));
   if (!result.ok) return { error: `WhatsApp no aceptó la prueba: ${result.title}` };
-  return { sentTo: phone, body: clean.body };
+  return { sentTo: phone, body: clean.body, disabled: clean.disabled };
 }
 
 /**
@@ -305,7 +332,7 @@ export async function saveDraft(
   draft: Draft,
   audience: Audience,
   id?: string,
-): Promise<Result & { id?: string; body?: string }> {
+): Promise<Saved> {
   const { userId } = await requireOrg();
   const guard = await editableEvent(eventId, "message");
   if (!guard.ok) return { error: guard.error };
@@ -345,7 +372,7 @@ export async function saveDraft(
   if (!row) return { error: "Ese mensaje ya salió; ya no se puede cambiar." };
 
   revalidatePath(where(eventId));
-  return { id: row.id, body: clean.body };
+  return { id: row.id, body: clean.body, disabled: clean.disabled };
 }
 
 /**
@@ -394,6 +421,32 @@ export async function retireBroadcast(eventId: string, id: string): Promise<Resu
     )
     .returning({ id: broadcasts.id });
   if (!row) return { error: "No encontramos ese mensaje enviado." };
+
+  revalidatePath(where(eventId));
+  return {};
+}
+
+/**
+ * Switches a short link off, or back on. Off, /s/{code} says it is no longer
+ * available instead of following it — in every message of the event that
+ * carries it, since the link is one per event.
+ */
+export async function setLinkDisabled(eventId: string, code: string, disabled: boolean): Promise<Result> {
+  const guard = await editableEvent(eventId, "message");
+  if (!guard.ok) return { error: guard.error };
+
+  const [row] = await db
+    .update(shortLinks)
+    .set({ disabledAt: disabled ? new Date() : null })
+    .where(
+      and(
+        eq(shortLinks.eventId, eventId),
+        eq(shortLinks.code, code),
+        disabled ? isNull(shortLinks.disabledAt) : isNotNull(shortLinks.disabledAt),
+      ),
+    )
+    .returning({ id: shortLinks.id });
+  if (!row) return { error: disabled ? "Ese enlace ya estaba desactivado." : "Ese enlace ya estaba activo." };
 
   revalidatePath(where(eventId));
   return {};

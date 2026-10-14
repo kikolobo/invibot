@@ -1,0 +1,1 @@
+ALTER TABLE "short_links" ADD COLUMN "disabled_at" timestamp with time zone;

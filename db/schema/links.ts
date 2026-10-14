@@ -23,6 +23,14 @@ export const shortLinks = pgTable(
     clicks: integer("clicks").notNull().default(0),
     lastClickedAt: timestamp("last_clicked_at", { withTimezone: true }),
 
+    /**
+     * Turned off by an organizer: /s/{code} says the link is no longer
+     * available instead of following it. One link per event, so this reaches
+     * every message that carries it, and pasting the same link again reuses it
+     * switched off.
+     */
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -57,6 +57,19 @@ type Props = {
   onSent: (notice: string) => void;
 };
 
+/**
+ * Said after a save when the message carries a link someone switched off: it
+ * goes out as the "no disponible" page, and turning it back on reaches every
+ * message it is in.
+ */
+function disabledNote(disabled: string[] | undefined): string {
+  if (!disabled?.length) return "";
+  const shown = disabled.map((link) => link.replace(/^https?:\/\//, ""));
+  return shown.length === 1
+    ? ` Nota: el enlace ${shown[0]} está deshabilitado. Si lo habilitas, se habilita en todos los mensajes donde se envió.`
+    : ` Nota: los enlaces ${shown.slice(0, -1).join(", ")} y ${shown.at(-1)} están deshabilitados. Si los habilitas, se habilitan en todos los mensajes donde se enviaron.`;
+}
+
 export function Composer({ eventId, eventName, cronLabel, groups, people, initial, onSent }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [body, setBody] = useState(initial?.body ?? "");
@@ -151,7 +164,10 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
       // The links came back shortened; show the text as it was sent.
       if (result.body !== undefined) setBody(result.body);
       if (result.error) setError(result.error);
-      else setNotice(`Te mandamos la prueba a ${result.sentTo}. Toca «Leer mensaje» para ver el resto.`);
+      else
+        setNotice(
+          `Te mandamos la prueba a ${result.sentTo}. Toca «Leer mensaje» para ver el resto.${disabledNote(result.disabled)}`,
+        );
     });
   }
 
@@ -164,9 +180,10 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
         return;
       }
       onSent(
-        when === "now"
+        (when === "now"
           ? "Listo, el mensaje va saliendo. Recarga la página para ver cómo avanzan los números."
-          : `Listo, el mensaje sale ${cronLabel}. Hasta entonces puedes editarlo o quitarlo.`,
+          : `Listo, el mensaje sale ${cronLabel}. Hasta entonces puedes editarlo o quitarlo.`) +
+          disabledNote(result.disabled),
       );
     });
   }
@@ -181,9 +198,10 @@ export function Composer({ eventId, eventName, cronLabel, groups, people, initia
         return;
       }
       onSent(
-        initial?.scheduled
+        (initial?.scheduled
           ? "Guardado como borrador. Ya no está programado: sale cuando lo envíes."
-          : "Borrador guardado. Lo encuentras aquí para terminarlo y enviarlo cuando quieras.",
+          : "Borrador guardado. Lo encuentras aquí para terminarlo y enviarlo cuando quieras.") +
+          disabledNote(result.disabled),
       );
     });
   }
