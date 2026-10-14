@@ -333,8 +333,8 @@ function LinkRow({ link }: { link: LinkView }) {
   };
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-x-4 gap-y-0.5 px-3 py-2">
-      <div className="min-w-0 max-w-full">
+    <li className="flex flex-col gap-x-4 gap-y-0.5 px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-medium text-ink">{link.short.replace(/^https?:\/\//, "")}</span>
           <button
@@ -355,7 +355,7 @@ function LinkRow({ link }: { link: LinkView }) {
           → {link.url.replace(/^https?:\/\/(www\.)?/, "")}
         </a>
       </div>
-      <div className="shrink-0 text-right text-ink-muted">
+      <div className="shrink-0 text-ink-muted sm:text-right">
         <span className="font-medium text-ink">{link.clicks}</span> {link.clicks === 1 ? "clic" : "clics"}
         {link.lastClicked && <p className="text-[0.8rem]">último el {link.lastClicked}</p>}
       </div>
