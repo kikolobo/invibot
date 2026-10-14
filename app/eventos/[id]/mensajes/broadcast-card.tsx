@@ -57,6 +57,9 @@ export type BroadcastView = {
  * for the preview.
  */
 export type LinkView = {
+  /** "https://invibot.com/s/k7m2pqa", as the guest got it. */
+  short: string;
+  /** Where it goes. */
   url: string;
   clicks: number;
   lastClicked: string | null;
@@ -111,6 +114,7 @@ export function BroadcastCard({
 
   const s = view.stats;
   const sent = s.total - s.held;
+  const linkClicks = view.links.reduce((sum, link) => sum + link.clicks, 0);
   const excluded = Object.entries(view.excluded).filter(([, n]) => n && n > 0) as [
     ExclusionReason,
     number,
@@ -152,33 +156,21 @@ export function BroadcastCard({
           {s.free > 0 && <Stat label="Sin costo" value={s.free} />}
           {s.held > 0 && <Stat label="En espera" value={s.held} tone="warn" />}
           {s.failed > 0 && <Stat label="Fallaron" value={s.failed} tone="danger" />}
+          {view.links.length > 0 && <Stat label="Clics en enlaces" value={linkClicks} />}
         </dl>
       )}
 
       {view.status !== "scheduled" && view.status !== "draft" && view.links.length > 0 && (
-        <div className="mt-4">
-          <p className="text-[0.75rem] text-ink-muted">Enlaces</p>
-          <ul className="mt-1 space-y-1 text-[0.85rem]">
+        <details className="mt-3">
+          <summary className="cursor-pointer text-[0.85rem] text-accent">
+            Enlaces ({view.links.length})
+          </summary>
+          <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-paper text-[0.85rem]">
             {view.links.map((link) => (
-              <li key={link.url} className="flex flex-wrap items-baseline justify-between gap-x-4">
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block min-w-0 max-w-full truncate text-ink hover:text-accent"
-                  title={link.url}
-                >
-                  {link.url.replace(/^https?:\/\/(www\.)?/, "")}
-                </a>
-                <span className="shrink-0 text-ink-muted">
-                  <span className="font-medium text-ink">{link.clicks}</span>{" "}
-                  {link.clicks === 1 ? "clic" : "clics"}
-                  {link.lastClicked && ` · último el ${link.lastClicked}`}
-                </span>
-              </li>
+              <LinkRow key={link.short} link={link} />
             ))}
           </ul>
-        </div>
+        </details>
       )}
 
       {excluded.length > 0 && (
@@ -267,6 +259,60 @@ export function BroadcastCard({
           )}
         </div>
       )}
+    </li>
+  );
+}
+
+/**
+ * A short link as the guest saw it, with where it goes underneath.
+ *
+ * The link itself opens the destination, not /s/{code}: every visit there
+ * counts as a tap, and an organizer checking their own link would inflate the
+ * number they came to read. Copying hands over the short one for whoever
+ * wants to try the redirect anyway.
+ */
+function LinkRow({ link }: { link: LinkView }) {
+  const [copied, setCopied] = useState<boolean | "failed">(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link.short);
+      setCopied(true);
+    } catch {
+      // Denied over plain http and in some in-app browsers; say so rather
+      // than leave a button that seems to do nothing.
+      setCopied("failed");
+    }
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-x-4 gap-y-0.5 px-3 py-2">
+      <div className="min-w-0 max-w-full">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium text-ink">{link.short.replace(/^https?:\/\//, "")}</span>
+          <button
+            type="button"
+            onClick={copy}
+            className="shrink-0 rounded px-1.5 py-0.5 text-[0.75rem] text-accent ring-1 ring-line hover:bg-paper-deep"
+          >
+            {copied === true ? "Copiado" : copied === "failed" ? "No se pudo copiar" : "Copiar"}
+          </button>
+        </div>
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noreferrer"
+          className="block truncate text-[0.8rem] text-ink-muted hover:text-accent"
+          title={link.url}
+        >
+          → {link.url.replace(/^https?:\/\/(www\.)?/, "")}
+        </a>
+      </div>
+      <div className="shrink-0 text-right text-ink-muted">
+        <span className="font-medium text-ink">{link.clicks}</span> {link.clicks === 1 ? "clic" : "clics"}
+        {link.lastClicked && <p className="text-[0.8rem]">último el {link.lastClicked}</p>}
+      </div>
     </li>
   );
 }

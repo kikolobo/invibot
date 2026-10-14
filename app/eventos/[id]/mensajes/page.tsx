@@ -5,7 +5,7 @@ import { requireEventAccess } from "@/lib/events/access";
 import { describeRun, nextCronRun } from "@/lib/broadcasts/schedule";
 import { audienceLabels, type Audience } from "@/lib/broadcasts/labels";
 import { resolveAudience } from "@/lib/broadcasts/audience";
-import { shortCodesIn } from "@/lib/links/detect";
+import { shortBase, shortCodesIn, SHORT_PREFIX } from "@/lib/links/detect";
 import { MensajesTabs } from "./mensajes-tabs";
 import type { BroadcastView, LinkView, RecipientView } from "./broadcast-card";
 
@@ -188,6 +188,7 @@ export default async function Mensajes({ params }: { params: Promise<{ id: strin
       if (!link) return [];
       return [
         {
+          short: `${shortBase()}${SHORT_PREFIX}${code}`,
           url: link.url,
           clicks: link.clicks,
           lastClicked: link.lastClickedAt ? dateTime.format(link.lastClickedAt) : null,
