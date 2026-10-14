@@ -47,6 +47,8 @@ export function MensajesTabs({
   const [active, setActive] = useState<Tab>("list");
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<BroadcastView | null>(null);
+  // One open at a time, so the list stays a list.
+  const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const shown = views.filter((view) => inFilter(view.status, filter));
@@ -132,13 +134,15 @@ export function MensajesTabs({
             No hay mensajes {filter === "all" ? "" : `con estado «${statusLabels[filter]}»`}.
           </p>
         ) : (
-          <ul className="space-y-4">
+          <ul className="space-y-2">
             {shown.map((view) => (
               <BroadcastCard
                 key={view.id}
                 eventId={eventId}
                 view={view}
                 editable={editable}
+                open={openId === view.id}
+                onToggle={() => setOpenId((current) => (current === view.id ? null : view.id))}
                 onEdit={(chosen) => {
                   setEditing(chosen);
                   setNotice(null);

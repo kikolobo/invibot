@@ -83,21 +83,27 @@ function recipientState(r: RecipientView): string {
 }
 
 /**
- * One message in the list.
+ * One message in the list: a row to scan, opening into everything about it.
  *
- * What can be done depends on whether it left: a draft or a scheduled message
- * opens in the composer to be changed, or is thrown away; one already on
- * people's phones can only be retired.
+ * Closed, it shows what it is, when, to whom, and for a sent one how it did.
+ * Open, the full stats, links and recipients. What can be done depends on
+ * whether it left: a draft or a scheduled message opens in the composer to be
+ * changed, or is thrown away; one already on people's phones can only be
+ * retired.
  */
 export function BroadcastCard({
   eventId,
   view,
   editable,
+  open,
+  onToggle,
   onEdit,
 }: {
   eventId: string;
   view: BroadcastView;
   editable: boolean;
+  open: boolean;
+  onToggle: () => void;
   /** Opens it in "Nuevo mensaje". */
   onEdit: (view: BroadcastView) => void;
 }) {
@@ -120,142 +126,182 @@ export function BroadcastCard({
     number,
   ][];
 
+  const left = view.status !== "draft" && view.status !== "scheduled";
+  const preview = view.body.split("\n").find((line) => line.trim())?.trim();
+
   return (
-    <li className="rounded-xl border border-line bg-paper-deep p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display text-lg leading-snug text-ink">
-            {view.title || <span className="text-ink-muted">Sin título</span>}
-          </p>
-          <p className="mt-1 text-[0.82rem] text-ink-muted">
-            {view.when} · {view.audience}
-            {view.author && ` · por ${view.author}`}
-          </p>
+    <li className="rounded-xl border border-line bg-paper-deep">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start gap-3 rounded-xl p-4 text-left transition-colors hover:bg-paper/60 sm:px-5"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-0.5 text-[0.75rem] font-medium ${statusTone[view.status]}`}
+            >
+              {statusLabels[view.status]}
+            </span>
+            <p className="min-w-0 truncate font-display text-lg leading-snug text-ink">
+              {view.title || (
+                <span className="text-ink-muted">
+                  Sin título{preview && <span className="font-sans text-[0.9rem]"> — «{preview}»</span>}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-[0.82rem] text-ink-muted">
+            <span>
+              {view.when} · {view.audience}
+              {view.author && ` · por ${view.author}`}
+            </span>
+            {left && !open && (
+              <span>
+                Leídos <span className="font-medium text-ink">{s.read}</span>
+                {sent > 0 && ` / ${sent}`}
+                {view.links.length > 0 && (
+                  <>
+                    {" · "}
+                    <span className="font-medium text-ink">{linkClicks}</span> {linkClicks === 1 ? "clic" : "clics"}
+                  </>
+                )}
+                {s.held > 0 && <span className="text-amber-700"> · {s.held} en espera</span>}
+                {s.failed > 0 && <span className="text-danger"> · {s.failed} fallaron</span>}
+              </span>
+            )}
+          </div>
         </div>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[0.75rem] font-medium ${statusTone[view.status]}`}
+          aria-hidden
+          className={`mt-1 shrink-0 text-xl leading-none text-ink-muted transition-transform ${open ? "rotate-90" : ""}`}
         >
-          {statusLabels[view.status]}
+          ›
         </span>
-      </div>
+      </button>
 
-      {view.body && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-[0.85rem] text-accent">Ver mensaje</summary>
-          <p className="mt-2 whitespace-pre-line text-[0.9rem] leading-relaxed text-ink-soft">{view.body}</p>
-        </details>
-      )}
-
-      {view.status !== "scheduled" && view.status !== "draft" && (
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-[0.85rem] sm:grid-cols-4">
-          <Stat label="Destinatarios" value={s.total} />
-          <Stat label="Entregados" value={s.delivered} of={sent} />
-          <Stat label="Leídos" value={s.read} of={sent} />
-          <Stat label="Abrieron el mensaje completo" value={s.opened} of={sent} />
-          {s.template > 0 && <Stat label="Por plantilla" value={s.template} />}
-          {s.free > 0 && <Stat label="Sin costo" value={s.free} />}
-          {s.held > 0 && <Stat label="En espera" value={s.held} tone="warn" />}
-          {s.failed > 0 && <Stat label="Fallaron" value={s.failed} tone="danger" />}
-          {view.links.length > 0 && <Stat label="Clics en enlaces" value={linkClicks} />}
-        </dl>
-      )}
-
-      {view.status !== "scheduled" && view.status !== "draft" && view.links.length > 0 && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-[0.85rem] text-accent">
-            Enlaces ({view.links.length})
-          </summary>
-          <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-paper text-[0.85rem]">
-            {view.links.map((link) => (
-              <LinkRow key={link.short} link={link} />
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {excluded.length > 0 && (
-        <p className="mt-3 text-[0.8rem] text-ink-muted">
-          {excluded.map(([reason, n]) => exclusionLabels[reason](n)).join(" · ")}.
-        </p>
-      )}
-
-      {view.recipients.length > 0 && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-[0.85rem] text-accent">
-            A quiénes ({view.recipients.length})
-          </summary>
-          <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-paper text-[0.85rem]">
-            {view.recipients.map((r, i) => (
-              <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-3 py-2">
-                <span className="text-ink">{r.name}</span>
-                <span className="text-ink-muted" title={r.error ?? undefined}>
-                  {r.route === "free" ? "Completo" : "Plantilla"} · {recipientState(r)}
-                  {r.route === "template" && r.status === "sent" && (r.opened ? " · Abrió el mensaje" : " · Sólo el título")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {error && <p className="mt-3 text-[0.85rem] text-danger">{error}</p>}
-
-      {editable && (view.status === "draft" || view.status === "scheduled") && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {confirming === "delete" ? (
-            <>
-              <span className="text-[0.85rem] text-ink-soft">
-                {view.status === "draft" ? "¿Eliminar el borrador?" : "¿Quitarlo? No se enviará."}
-              </span>
-              <button
-                type="button"
-                disabled={pending}
-                className={buttonStyles.discard}
-                onClick={() => run(() => deleteBroadcast(eventId, view.id))}
-              >
-                {view.status === "draft" ? "Eliminar" : "Quitar"}
-              </button>
-              <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming(null)}>
-                Cancelar
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className={buttonStyles.save} onClick={() => onEdit(view)}>
-                {view.status === "draft" ? "Editar y enviar" : "Editar"}
-              </button>
-              <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming("delete")}>
-                {view.status === "draft" ? "Eliminar" : "Quitar de la cola"}
-              </button>
-            </>
+      {open && (
+        <div className="border-t border-line px-4 pb-5 sm:px-5">
+          {view.body && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-[0.85rem] text-accent">Ver mensaje</summary>
+              <p className="mt-2 whitespace-pre-line text-[0.9rem] leading-relaxed text-ink-soft">{view.body}</p>
+            </details>
           )}
-        </div>
-      )}
 
-      {editable && (view.status === "sent" || view.status === "sending") && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {confirming === "retire" ? (
-            <>
-              <span className="text-[0.85rem] text-ink-soft">
-                ¿Retirarlo? Quien no lo haya abierto ya no podrá leerlo, y el asistente deja de
-                mencionarlo.
-              </span>
-              <button
-                type="button"
-                disabled={pending}
-                className={buttonStyles.discard}
-                onClick={() => run(() => retireBroadcast(eventId, view.id), () => setConfirming(null))}
-              >
-                Retirar
-              </button>
-              <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming(null)}>
-                Cancelar
-              </button>
-            </>
-          ) : (
-            <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming("retire")}>
-              Retirar
-            </button>
+          {left && (
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-[0.85rem] sm:grid-cols-4">
+              <Stat label="Destinatarios" value={s.total} />
+              <Stat label="Entregados" value={s.delivered} of={sent} />
+              <Stat label="Leídos" value={s.read} of={sent} />
+              <Stat label="Abrieron el mensaje completo" value={s.opened} of={sent} />
+              {s.template > 0 && <Stat label="Por plantilla" value={s.template} />}
+              {s.free > 0 && <Stat label="Sin costo" value={s.free} />}
+              {s.held > 0 && <Stat label="En espera" value={s.held} tone="warn" />}
+              {s.failed > 0 && <Stat label="Fallaron" value={s.failed} tone="danger" />}
+              {view.links.length > 0 && <Stat label="Clics en enlaces" value={linkClicks} />}
+            </dl>
+          )}
+
+          {left && view.links.length > 0 && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-[0.85rem] text-accent">
+                Enlaces ({view.links.length})
+              </summary>
+              <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-paper text-[0.85rem]">
+                {view.links.map((link) => (
+                  <LinkRow key={link.short} link={link} />
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {excluded.length > 0 && (
+            <p className="mt-3 text-[0.8rem] text-ink-muted">
+              {excluded.map(([reason, n]) => exclusionLabels[reason](n)).join(" · ")}.
+            </p>
+          )}
+
+          {view.recipients.length > 0 && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-[0.85rem] text-accent">
+                A quiénes ({view.recipients.length})
+              </summary>
+              <ul className="mt-2 divide-y divide-line rounded-lg border border-line bg-paper text-[0.85rem]">
+                {view.recipients.map((r, i) => (
+                  <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-3 py-2">
+                    <span className="text-ink">{r.name}</span>
+                    <span className="text-ink-muted" title={r.error ?? undefined}>
+                      {r.route === "free" ? "Completo" : "Plantilla"} · {recipientState(r)}
+                      {r.route === "template" && r.status === "sent" && (r.opened ? " · Abrió el mensaje" : " · Sólo el título")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {error && <p className="mt-3 text-[0.85rem] text-danger">{error}</p>}
+
+          {editable && (view.status === "draft" || view.status === "scheduled") && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {confirming === "delete" ? (
+                <>
+                  <span className="text-[0.85rem] text-ink-soft">
+                    {view.status === "draft" ? "¿Eliminar el borrador?" : "¿Quitarlo? No se enviará."}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    className={buttonStyles.discard}
+                    onClick={() => run(() => deleteBroadcast(eventId, view.id))}
+                  >
+                    {view.status === "draft" ? "Eliminar" : "Quitar"}
+                  </button>
+                  <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming(null)}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className={buttonStyles.save} onClick={() => onEdit(view)}>
+                    {view.status === "draft" ? "Editar y enviar" : "Editar"}
+                  </button>
+                  <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming("delete")}>
+                    {view.status === "draft" ? "Eliminar" : "Quitar de la cola"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {editable && (view.status === "sent" || view.status === "sending") && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {confirming === "retire" ? (
+                <>
+                  <span className="text-[0.85rem] text-ink-soft">
+                    ¿Retirarlo? Quien no lo haya abierto ya no podrá leerlo, y el asistente deja de
+                    mencionarlo.
+                  </span>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    className={buttonStyles.discard}
+                    onClick={() => run(() => retireBroadcast(eventId, view.id), () => setConfirming(null))}
+                  >
+                    Retirar
+                  </button>
+                  <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming(null)}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button type="button" className={buttonStyles.cancel} onClick={() => setConfirming("retire")}>
+                  Retirar
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
