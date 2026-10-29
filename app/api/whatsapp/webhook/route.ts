@@ -17,6 +17,8 @@ import {
   applyIntent,
   replyFor,
   isConfirmation,
+  holdsDetails,
+  detailsFor,
   type GuestIntent,
 } from "@/lib/whatsapp/intents";
 import { sendTextToGuest, sendTemplateToGuest, sendImageToGuest } from "@/lib/whatsapp/send";
@@ -24,6 +26,7 @@ import { resolveCardMediaId } from "@/lib/events/card-media";
 import { answerGuest } from "@/lib/agent/respond";
 import { assistantName } from "@/lib/agent/identity";
 import { recordGuestEvent } from "@/lib/guests/history";
+import { oweDetails, takeOwedDetails } from "@/lib/whatsapp/owed";
 import { deliverOrSchedulePasses, requestPasses, sendDuePasses } from "@/lib/passes/send";
 import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
 import { passesUnavailableReply } from "@/lib/whatsapp/replies";
@@ -835,11 +838,36 @@ async function respond(
       if (!outcome.ok) console.error("[whatsapp] assistant reply failed", guest.id, outcome);
     }
 
+    // Their answer to "¿cómo se llama quien te acompaña?" — a name, or "todavía
+    // no sé" — is what releases the rest of the confirmation: the details, the
+    // card and the pass, after the assistant's reply and never before it.
+    const owed = await takeOwedDetails(guest.id);
+    if (owed) {
+      const fresh = (await db.query.guests.findFirst({ where: eq(guests.id, guest.id) })) ?? guest;
+      if (owed === "text") {
+        const details = await detailsFor(fresh);
+        if (details) {
+          const sent = await sendTextToGuest(guest.id, details, "rsvp_confirmation", config);
+          if (!sent.ok) console.error("[whatsapp] owed details failed", guest.id, sent);
+        }
+      }
+      await deliverConfirmation(fresh, config);
+      return;
+    }
+
     // A guest who says "sí voy" in words is owed exactly what a tapped button
     // earns them. This path used to return here, so someone who cancelled and
     // then changed their mind had their status updated and never received the
     // new pass — the old one stayed revoked and no new one was issued.
-    if (answer.confirmed) await deliverConfirmation(guest, config);
+    //
+    // Unless they are bringing someone we cannot name yet: the assistant just
+    // asked who, and the card and pass wait for that answer like a tap's do.
+    if (answer.confirmed) {
+      const fresh = (await db.query.guests.findFirst({ where: eq(guests.id, guest.id) })) ?? guest;
+      const bringsSomeone = (fresh.partySizeConfirmed ?? 1) >= 2 && fresh.companions.length === 0;
+      if (bringsSomeone) await oweDetails(guest.id, "card");
+      else await deliverConfirmation(fresh, config);
+    }
     return;
   }
 
@@ -853,7 +881,13 @@ async function respond(
     // the part that must arrive, and an image that fails to upload should never
     // take the confirmation down with it. Declines get nothing — someone who
     // just said they cannot come has no use for the invitation.
-    if (isConfirmation(intent)) await deliverConfirmation(guest, config);
+    //
+    // A plus-one we cannot name yet was only asked who: the details, the card
+    // and the pass wait for the answer, so the question is not buried.
+    if (isConfirmation(intent)) {
+      if (holdsDetails(guest, intent)) await oweDetails(guest.id, "text");
+      else await deliverConfirmation(guest, config);
+    }
     return;
   }
 

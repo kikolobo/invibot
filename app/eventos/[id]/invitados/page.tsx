@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guests, guestGroups, sends } from "@/db/schema";
 import { requireEventAccess } from "@/lib/events/access";
+import { reconcilePending } from "@/lib/billing/credit";
 import { listGroups } from "@/lib/guests/actions";
 import { invitationPlan, eventVariables, greetingName, templateForGuest } from "@/lib/campaigns/recipients";
 import { ImportGuests } from "./import-guests";
@@ -18,11 +19,17 @@ export const maxDuration = 60;
 
 export default async function Invitados({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ pago?: string }>;
 }) {
   const { id } = await params;
+  const { pago } = await searchParams;
   const { event } = await requireEventAccess(id, "guests");
+  // Back from paying inside "Enviar invitaciones": count the payment before
+  // anything else reads the places.
+  if (pago === "listo") await reconcilePending(id);
 
   const rows = await db
     .select({
@@ -107,6 +114,13 @@ export default async function Invitados({
 
   return (
     <div>
+
+      {pago === "listo" && (
+        <p className="mb-6 rounded-xl border border-line bg-paper-deep px-5 py-4 text-[0.9rem] text-ink">
+          ¡Gracias! Con tarjeta tus lugares ya están listos: vuelve a seleccionar a tus invitados y dale «Enviar
+          invitaciones». Si pagaste en OXXO o por transferencia, se acreditan en cuanto el banco nos avise.
+        </p>
+      )}
 
       <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
         Invitados

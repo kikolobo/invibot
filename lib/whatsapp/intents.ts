@@ -11,7 +11,7 @@ import { guestMapsLink } from "@/lib/events/maps";
 import { templates } from "./templates";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { revokePasses } from "@/lib/passes/issue";
-import { confirmationReply, declineReply } from "./replies";
+import { asksCompanionName, confirmationDetails, confirmationReply, declineReply, type ReplyFacts } from "./replies";
 import type { InboundMessage } from "./webhook";
 import { assistantName } from "@/lib/agent/identity";
 import { READ_PAYLOAD } from "@/lib/broadcasts/template";
@@ -206,10 +206,29 @@ export async function applyIntent(
 export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<string | null> {
   if (!isConfirmation(intent) && intent !== "rsvp_no") return null;
 
+  const facts = await factsFor(guest);
+  if (!facts) return null;
+
+  if (intent === "rsvp_no") return declineReply(facts);
+  return confirmationReply(facts, intent === "rsvp_yes_plus_one");
+}
+
+/** Whether this confirmation will ask the companion's name first, holding the rest back. */
+export function holdsDetails(guest: GuestRow, intent: GuestIntent): boolean {
+  return intent === "rsvp_yes_plus_one" && asksCompanionName({ companionName: guest.companions[0] ?? null }, true);
+}
+
+/** The details a guest was owed after the companion question, or null. */
+export async function detailsFor(guest: GuestRow): Promise<string | null> {
+  const facts = await factsFor(guest);
+  return facts ? confirmationDetails(facts) : null;
+}
+
+async function factsFor(guest: GuestRow): Promise<ReplyFacts | null> {
   const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
   if (!event) return null;
 
-  const facts = {
+  return {
     name: guest.firstName ?? guest.fullName,
     eventName: event.name,
     when: formatEventWhen(event),
@@ -219,7 +238,4 @@ export async function replyFor(guest: GuestRow, intent: GuestIntent): Promise<st
     assistant: assistantName(),
     companionName: guest.companions[0] ?? null,
   };
-
-  if (intent === "rsvp_no") return declineReply(facts);
-  return confirmationReply(facts, intent === "rsvp_yes_plus_one");
 }

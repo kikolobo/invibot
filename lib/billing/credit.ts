@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { events, payments } from "@/db/schema";
 import { stripeFromEnv } from "./stripe";
@@ -57,5 +57,57 @@ export async function closeSession(session: Stripe.Checkout.Session, status: "fa
   await db
     .update(payments)
     .set({ status })
+    .where(and(eq(payments.id, payment.id), eq(payments.status, "pending")));
+}
+
+/**
+ * Asks Stripe about this event's payments still marked pending, and credits
+ * the ones that have settled. The webhook is the main road; this is the
+ * backup for when it is down, misconfigured or simply slower than the buyer's
+ * redirect back — so a person who just paid never sees zero places.
+ *
+ * Safe to call on every visit: crediting moves only `pending` payments, so a
+ * payment the webhook already credited is left alone.
+ */
+export async function reconcilePending(eventId: string): Promise<number> {
+  const stripe = stripeFromEnv();
+  if (!stripe) return 0;
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const pending = await db.query.payments.findMany({
+    where: and(eq(payments.eventId, eventId), eq(payments.status, "pending"), gt(payments.createdAt, since)),
+  });
+
+  let credited = 0;
+  for (const payment of pending) {
+    if (!payment.stripeSessionId) continue;
+    try {
+      const session = await stripe.checkout.sessions.retrieve(payment.stripeSessionId);
+      if (session.payment_status === "paid") {
+        if (await creditSession(session)) credited++;
+      } else if (session.status === "complete") {
+        await markAwaiting(session);
+      } else if (session.status === "expired") {
+        await closeSession(session, "expired");
+      }
+    } catch (error) {
+      console.error("[billing] could not check session", payment.stripeSessionId, error);
+    }
+  }
+  return credited;
+}
+
+/**
+ * The buyer finished at Stripe but the money is still on its way — an OXXO
+ * voucher or a SPEI reference. Recording the method is what tells this real
+ * wait apart from a checkout somebody opened and walked away from: only the
+ * first is shown to the organizer as "esperando".
+ */
+export async function markAwaiting(session: Stripe.Checkout.Session) {
+  const payment = await paymentFor(session);
+  if (!payment || payment.status !== "pending" || payment.method) return;
+  const method = (await methodOf(session)) ?? "async";
+  await db
+    .update(payments)
+    .set({ method })
     .where(and(eq(payments.id, payment.id), eq(payments.status, "pending")));
 }

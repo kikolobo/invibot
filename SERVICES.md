@@ -379,8 +379,12 @@ Organizers buy guest places per event (`/eventos/[id]/pago`); everything else
 is free. Checkout Sessions in `lib/billing/actions.ts`, credited only by the
 webhook in `app/api/stripe/webhook/route.ts`.
 
-- **Env:** `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Without the key the
-  pay button says payments are not active; nothing crashes.
+- **Env:** `STRIPE_SECRET_KEY` (a restricted `rk_` key), `STRIPE_PUBLISHABLE_KEY`
+  (`pk_` of the same mode) and, locally only, `STRIPE_WEBHOOK_SECRET` from
+  `stripe listen`. In production the webhook secret is created from Admin →
+  Conectores and kept in `site_settings`. Without the secret key the pay button
+  says payments are not active; without the publishable key payment falls back
+  from the in-page window to Stripe's hosted page.
 - **Webhook endpoint:** `https://www.invibot.com/api/stripe/webhook`, with the
   events `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
   `checkout.session.async_payment_failed` and `checkout.session.expired`.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
-import { confirmationReply, declineReply } from "@/lib/whatsapp/replies";
+import { confirmationDetails, confirmationReply, declineReply } from "@/lib/whatsapp/replies";
 import { Bubble, Phone } from "./chat-bubble";
 
 /**
@@ -109,6 +109,17 @@ export function WhatsAppPreview({
           <Bubble from="them">
             <p className="whitespace-pre-line">{reply}</p>
           </Bubble>
+          {/* With a companion to name, the question goes alone; the details
+              arrive once they answer — shown here so the preview tells the
+              same story the phone will. */}
+          {effective === "plus_one" && (
+            <>
+              <Bubble from="me">Pedro Ramírez</Bubble>
+              <Bubble from="them">
+                <p className="whitespace-pre-line">{confirmationDetails(facts)}</p>
+              </Bubble>
+            </>
+          )}
 
           {effective !== "no" &&
             (cardSrc ? (

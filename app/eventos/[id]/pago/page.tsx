@@ -1,12 +1,14 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { payments } from "@/db/schema";
 import { requireEventAccess } from "@/lib/events/access";
-import { slotStatus, quote } from "@/lib/billing/slots";
-import { redeemPromo, startCheckout } from "@/lib/billing/actions";
-import { stripeFromEnv } from "@/lib/billing/stripe";
+import { slotStatus } from "@/lib/billing/slots";
+import { paymentOffer } from "@/lib/billing/offer";
+import { redeemPromo } from "@/lib/billing/actions";
+import { reconcilePending } from "@/lib/billing/credit";
 import { getSettings } from "@/lib/site/settings";
-import { BuyForm } from "./buy-form";
+import { included, methods, priceLabels } from "@/lib/billing/pricing";
+import { PayControl } from "./pay-control";
 import { CodeForm } from "./code-form";
 
 export const metadata = { title: "Pagos" };
@@ -43,32 +45,96 @@ export default async function Pago({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ estado?: string; lugares?: string }>;
+  searchParams: Promise<{ pago?: string; lugares?: string }>;
 }) {
   const { id } = await params;
-  const { estado, lugares } = await searchParams;
+  const { pago: estado, lugares } = await searchParams;
   await requireEventAccess(id, "event");
+  // Before reading anything: a payment that settled while the webhook was
+  // away should already count on this page.
+  await reconcilePending(id);
 
   const [status, settings, history] = await Promise.all([
     slotStatus(id),
     getSettings(),
-    db.select().from(payments).where(eq(payments.eventId, id)).orderBy(desc(payments.createdAt)).limit(20),
+    // Only what happened: paid, or really waiting on OXXO/SPEI (which is what
+    // a recorded method on a pending payment means). Abandoned attempts are
+    // staff's business, in /admin/pagos.
+    db
+      .select()
+      .from(payments)
+      .where(
+        and(
+          eq(payments.eventId, id),
+          or(eq(payments.status, "paid"), and(eq(payments.status, "pending"), isNotNull(payments.method))),
+        ),
+      )
+      .orderBy(desc(payments.createdAt))
+      .limit(20),
   ]);
   if (!status) return null;
 
+  // Starts at 20, or at every guest still without a place when that is more.
   const needed = Math.max(Number(lugares) || 0, status.waiting - status.available, 0);
-  const sample = quote(1, settings);
-  const pending = history.filter((payment) => payment.status === "pending" && payment.stripeSessionId);
-  const configured = stripeFromEnv() !== null;
+  const offer = await paymentOffer(id, needed);
+  const labels = priceLabels(settings);
+  const pending = history.filter((payment) => payment.status === "pending");
+  // Back from Stripe and the money is not in yet: the latest checkout, from
+  // the last half hour, still pending and not an OXXO/SPEI wait (those carry
+  // a method). Only the latest — an older abandoned attempt must not hold the
+  // button.
+  const [latest] =
+    estado === "listo"
+      ? await db
+          .select({
+            status: payments.status,
+            method: payments.method,
+            // Postgres's clock, not the render's: a page must not ask the time.
+            recent: sql<boolean>`${payments.createdAt} > now() - interval '30 minutes'`,
+          })
+          .from(payments)
+          .where(eq(payments.eventId, id))
+          .orderBy(desc(payments.createdAt))
+          .limit(1)
+      : [];
+  const settling = Boolean(
+    latest &&
+      latest.status === "pending" &&
+      latest.method === null &&
+      latest.recent,
+  );
 
   return (
     <div className="max-w-2xl">
       <h1 className="font-display text-4xl text-ink">Pagos</h1>
-      <p className="mt-3 max-w-lg leading-relaxed text-ink-soft">
-        Armar tu evento es gratis. Lo que se paga es hablar con tus invitados por WhatsApp:{" "}
-        {money(settings.pricePerGuestMinor, settings.currency)} por invitado, una sola vez, e incluye su invitación,
-        su confirmación, los recordatorios, su pase y todo lo que le pregunte al asistente.
-      </p>
+
+      {/* The price first, as the thing it is: one number, what it buys, and
+          that building the event costs nothing. */}
+      <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-paper-deep">
+        <div className="grid gap-6 p-6 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-10 sm:p-8">
+          <div>
+            <p className="eyebrow">Por invitado</p>
+            <p className="mt-2 font-display text-6xl leading-none tracking-tight text-ink sm:text-7xl">
+              {labels.perGuest}
+            </p>
+            <p className="mt-2 text-[0.85rem] text-ink-muted">
+              {labels.currency} · IVA incluido · un solo pago
+            </p>
+          </div>
+          <ul className="space-y-1.5 text-[0.92rem] text-ink-soft">
+            {included.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span aria-hidden className="text-accent">✓</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="border-t border-line px-6 py-3 text-[0.85rem] text-ink-muted sm:px-8">
+          Armar tu evento es gratis. Pagas sólo por los invitados a los que les escribimos: una boda de{" "}
+          {labels.example.guests} invitados son {labels.example.total}. {methods}.
+        </p>
+      </div>
 
       {estado === "listo" && (
         <p className="mt-6 rounded-xl border border-line bg-paper-deep px-5 py-4 text-[0.9rem] text-ink">
@@ -118,19 +184,9 @@ export default async function Pago({
 
           <section className="mt-10 border-t border-line pt-8">
             <h2 className="font-display text-2xl text-ink">Comprar lugares</h2>
-            {configured ? (
-              <BuyForm
-                action={startCheckout.bind(null, id)}
-                suggested={needed}
-                unitAmountMinor={sample.unitAmountMinor}
-                minimumSlots={settings.minimumSlots}
-                currency={settings.currency}
-              />
-            ) : (
-              <p className="mt-4 text-[0.9rem] text-ink-muted">
-                Los pagos todavía no están activos. Escríbenos y te ayudamos.
-              </p>
-            )}
+            <div className="mt-6">
+              <PayControl eventId={id} offer={offer} settling={settling} />
+            </div>
           </section>
         </>
       )}

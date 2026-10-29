@@ -20,3 +20,19 @@ export const stripeMode = (): "live" | "test" | null => {
   if (!key) return null;
   return key.startsWith("sk_live_") || key.startsWith("rk_live_") ? "live" : "test";
 };
+
+/**
+ * The publishable key, read at request time and handed to the page, not a
+ * NEXT_PUBLIC_ variable: those are frozen into the bundle at build time, so a
+ * key added or rotated in Vercel would not reach the browser until the next
+ * build. Null when it is missing or from the other mode than the secret key —
+ * a test form against a live session fails at the last step, so better not to
+ * show it at all.
+ */
+export function stripePublishableKey(): string | null {
+  const key = process.env.STRIPE_PUBLISHABLE_KEY?.trim();
+  if (!key) return null;
+  const mode = stripeMode();
+  if (mode && !key.startsWith(mode === "live" ? "pk_live_" : "pk_test_")) return null;
+  return key;
+}

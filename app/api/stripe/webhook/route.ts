@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { revalidatePath } from "next/cache";
 import { stripeFromEnv } from "@/lib/billing/stripe";
-import { closeSession, creditSession } from "@/lib/billing/credit";
+import { closeSession, creditSession, markAwaiting } from "@/lib/billing/credit";
 import { getSettings } from "@/lib/site/settings";
 
 /**
@@ -41,9 +41,11 @@ export async function POST(request: Request) {
         const session = event.data.object;
         if (session.payment_status === "paid") {
           await creditSession(session);
-          const eventId = session.metadata?.eventId;
-          if (eventId) revalidatePath(`/eventos/${eventId}/pago`);
+        } else {
+          await markAwaiting(session);
         }
+        const eventId = session.metadata?.eventId;
+        if (eventId) revalidatePath(`/eventos/${eventId}/pago`);
         break;
       }
       case "checkout.session.async_payment_failed":

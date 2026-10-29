@@ -13,6 +13,7 @@ import { recordGuestEvent } from "@/lib/guests/history";
 import { invitationPlan, invitationVariables, templateForGuest } from "./recipients";
 import { missingLabels } from "./labels";
 import { shortfallFor } from "@/lib/billing/slots";
+import { paymentOffer, type PaymentOffer } from "@/lib/billing/offer";
 
 /**
  * Sending the invitations — the one action that opens a conversation.
@@ -42,7 +43,7 @@ export type InviteOutcome = {
 export type InviteReport = {
   error?: string;
   /** Set when the batch needs more paid places than the event has left. */
-  payment?: { needed: number };
+  payment?: PaymentOffer;
   sent?: number;
   failed?: number;
   outcomes?: InviteOutcome[];
@@ -104,7 +105,7 @@ export async function sendInvitations(
         needed === 1
           ? "Falta pagar el lugar de 1 invitado para poder enviar."
           : `Faltan ${needed} lugares por pagar para enviar a todos.`,
-      payment: { needed },
+      payment: await paymentOffer(eventId, needed),
     };
   }
 

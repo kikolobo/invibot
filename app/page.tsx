@@ -1,5 +1,11 @@
 import { SiteShell } from "@/components/site-chrome";
 import { Phone, type Line } from "@/components/chat";
+import { getSettings } from "@/lib/site/settings";
+import { free, included, methods, priceLabels } from "@/lib/billing/pricing";
+
+// The price is set in the admin and read on every visit, so changing it there
+// changes it here without a deploy.
+export const dynamic = "force-dynamic";
 
 const heroThread: Line[] = [
   {
@@ -66,7 +72,9 @@ const features = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const price = priceLabels(await getSettings());
+
   return (
     <SiteShell tone="night">
       <section className="px-6 pt-8 pb-20 sm:px-10 sm:pt-14">
@@ -160,6 +168,61 @@ export default function Home() {
                 <p className="mt-3 leading-relaxed text-night-soft">{feature.body}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="precio" className="scroll-mt-8 px-6 pb-24 sm:px-10">
+        <div className="mx-auto max-w-5xl">
+          <p className="eyebrow !text-gold">Precio</p>
+          <h2 className="mt-6 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight text-night-text sm:text-6xl">
+            Armar tu evento es gratis. Pagas sólo por los invitados{" "}
+            <em className="italic">a los que les escribimos</em>.
+          </h2>
+
+          <div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-night-line bg-night-line lg:grid-cols-[1.1fr_1fr]">
+            <div className="bg-night-raised p-8 sm:p-10">
+              <p className="text-sm uppercase tracking-[0.2em] text-night-soft">Por invitado</p>
+              <p className="mt-4 font-display text-8xl leading-none tracking-tight text-gold sm:text-9xl">
+                {price.perGuest}
+              </p>
+              <p className="mt-4 text-night-soft">{price.currency} · IVA incluido · un solo pago por evento</p>
+              <ul className="mt-8 space-y-3">
+                {included.map((item) => (
+                  <li key={item} className="flex gap-3 text-night-text">
+                    <span aria-hidden className="text-gold">✓</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex flex-col justify-between gap-10 bg-night-surface p-8 sm:p-10">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-night-soft">Siempre gratis</p>
+                <ul className="mt-5 space-y-2.5 text-night-soft">
+                  {free.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="border-t border-night-line pt-6">
+                <p className="font-display text-3xl leading-tight text-night-text">
+                  Una boda de {price.example.guests} invitados: {price.example.total}.
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-night-soft">
+                  Pagas cuando vas a enviar las invitaciones, por los invitados que todavía no tienen lugar. Si
+                  agregas más después, pagas sólo esos. Compra mínima de {price.minimum} ({price.minimumTotal}).{" "}
+                  {methods}. ¿Tienes un código de cortesía? Lo usas en ese mismo paso.
+                </p>
+                <a
+                  href="/registro"
+                  className="mt-7 inline-flex items-center justify-center rounded-full border border-gold px-8 py-3.5 text-sm font-medium tracking-wide text-gold transition-colors hover:bg-gold hover:text-night"
+                >
+                  Crear mi evento gratis
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>

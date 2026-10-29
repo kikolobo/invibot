@@ -5,6 +5,7 @@ import { sendInvitations, type InviteReport } from "@/lib/campaigns/actions";
 import { skipLabels, missingLabels, type SkipReason, type MissingField } from "@/lib/campaigns/labels";
 import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 import { Bubble, Phone } from "../chat-bubble";
+import { PayControl } from "../pago/pay-control";
 
 /**
  * The confirmation step before the only paid thing this app does.
@@ -179,18 +180,40 @@ export function SendInvitations({
         </>
       )}
 
-      {report?.error && <p className="mt-4 text-[0.9rem] text-danger">{report.error}</p>}
-      {report?.payment && (
-        <a
-          href={`/eventos/${eventId}/pago?lugares=${report.payment.needed}`}
-          className="mt-3 inline-block rounded-full bg-action px-5 py-2 text-[0.9rem] text-ink-onaction"
-        >
-          Pagar lugares
-        </a>
+      {report?.error && !report.payment && <p className="mt-4 text-[0.9rem] text-danger">{report.error}</p>}
+      {report?.payment && pending && (
+        // Paid; the window has closed and the batch is going out. Several
+        // seconds of sequential sends, which must read as progress.
+        <div className="mt-5 flex items-center gap-4 rounded-xl border border-accent/40 bg-paper p-5" role="status">
+          <span className="h-7 w-7 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent" />
+          <div>
+            <p className="font-display text-xl text-ink">Pago recibido</p>
+            <p className="text-[0.88rem] text-ink-soft">
+              {recipients.length === 1 ? "Enviando la invitación…" : `Enviando ${recipients.length} invitaciones…`}
+            </p>
+          </div>
+        </div>
+      )}
+      {report?.payment && !pending && (
+        // A step of sending, not an error: pay for what is missing right here,
+        // and the moment the card goes through the invitations go out — no
+        // reload, no second press. OXXO/SPEI wait for the bank instead.
+        <div className="mt-5 rounded-xl border border-accent/40 bg-paper p-5">
+          <p className="font-display text-xl text-ink">
+            {report.payment.needed === 1
+              ? "Para enviar esta invitación falta 1 lugar"
+              : `Para enviar estas invitaciones faltan ${report.payment.needed} lugares`}
+          </p>
+          <p className="mt-1 mb-4 text-[0.85rem] leading-relaxed text-ink-muted">
+            Cada invitado ocupa un lugar pagado: incluye su invitación, confirmación, recordatorios, pase y las
+            respuestas de Aura. Al pagar, las invitaciones salen en ese momento.
+          </p>
+          <PayControl eventId={eventId} offer={report.payment} returnTo="invitados" onPaid={confirm} />
+        </div>
       )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        {missing.length === 0 && recipients.length > 0 && (
+        {missing.length === 0 && recipients.length > 0 && !report?.payment && (
           <button
             type="button"
             onClick={confirm}

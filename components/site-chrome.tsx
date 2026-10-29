@@ -41,6 +41,9 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
           out it lands on the sign-in form — which is what "Login" promises
           either way, where "App" left people guessing. */}
       <nav className="flex items-center gap-5">
+        <Link href="/#precio" className={`hidden text-sm transition-colors sm:inline ${t.muted} ${t.link}`}>
+          Precio
+        </Link>
         <Link href="/registro" className={`text-sm transition-colors ${t.muted} ${t.link}`}>
           Crear cuenta
         </Link>

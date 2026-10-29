@@ -164,7 +164,9 @@ async function perform(
     case "set_companion_name": {
       const outcome = await recordCompanionName(guest.id, action.name);
       if (outcome.ok) {
-        return `Guardado: lo acompaña ${outcome.name}. Confírmaselo en una frase corta y sigue con lo que estaban hablando.`;
+        // The details of the event follow in a message of their own right
+        // after this reply, so repeating them here would say it all twice.
+        return `Guardado: lo acompaña ${outcome.name}. Confírmaselo en una frase corta, sin repetir la fecha ni el lugar del evento (le llegan aparte enseguida), y sigue con lo que estaban hablando.`;
       }
       if (outcome.reason === "not_allowed") {
         return "No se guardó: su invitación es para una sola persona. No le prometas un lugar extra.";

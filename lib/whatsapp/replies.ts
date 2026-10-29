@@ -33,23 +33,49 @@ export type ReplyFacts = {
 };
 
 /**
+ * Whether a confirmation asks for the companion's name before anything else.
+ * When it does, the details, the card and the pass wait for the answer.
+ */
+export const asksCompanionName = (facts: Pick<ReplyFacts, "companionName">, withCompanion: boolean) =>
+  withCompanion && !facts.companionName;
+
+/**
  * Mirrors the `confirmacion_rsvp` template, which goes out in its place when the
  * service window has closed. The two should read the same.
+ *
+ * With a companion we do not know yet, this is only the confirmation and the
+ * question — on its own, so it is the thing they answer. The date, the place
+ * and Aura's introduction follow once they have (`confirmationDetails`); a
+ * question in the middle of all that was read past and left unanswered.
  */
 export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): string {
+  if (asksCompanionName(facts, withCompanion)) {
+    return [
+      `Listo ${facts.name} ✅`,
+      "",
+      `Tu lugar y el de tu acompañante están confirmados para ${facts.eventName}.`,
+      "",
+      "¿Cómo se llama quien te acompaña? Así lo anoto en la lista.",
+    ].join("\n");
+  }
   return [
     `Listo ${facts.name} ✅`,
     "",
     withCompanion
       ? `Tu lugar y el de tu acompañante están confirmados para ${facts.eventName}.`
       : `Tu lugar está confirmado para ${facts.eventName}.`,
-    // Asked here because this is the moment they are holding the thread. The
-    // approved template cannot ask it, which is fine: whoever falls back to it
-    // can still be asked by the assistant later.
-    ...(withCompanion && !facts.companionName
-      ? ["", "¿Cómo se llama quien te acompaña? Así lo anoto en la lista."]
-      : []),
     "",
+    ...detailLines(facts),
+  ].join("\n");
+}
+
+/** The second half, for a guest who was first asked their companion's name. */
+export function confirmationDetails(facts: ReplyFacts): string {
+  return ["Aquí van los detalles:", "", ...detailLines(facts)].join("\n");
+}
+
+function detailLines(facts: ReplyFacts): string[] {
+  return [
     `📅 ${facts.when}`,
     ...(facts.addressLines?.length
       ? [`📍 ${facts.addressLines[0]}`, ...facts.addressLines.slice(1)]
@@ -62,7 +88,7 @@ export function confirmationReply(facts: ReplyFacts, withCompanion: boolean): st
     // another notification to swipe away.
     `Yo soy ${facts.assistant} ✨, Planner IA del evento. Avísame si tienes alguna duda.`,
     "¡Pregúntame lo que quieras! 💫",
-  ].join("\n");
+  ];
 }
 
 /**
