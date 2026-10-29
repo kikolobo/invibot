@@ -26,7 +26,11 @@ export default async function Actividad({
           <li key={entry.id} className="px-4 py-3 text-[0.9rem]">
             <span className="text-ink">{auditLabels[entry.action as AuditAction] ?? entry.action}</span>
             {" · "}
-            {entry.action === "settings" ? (
+            {entry.action === "promo_create" || entry.action === "promo_toggle" ? (
+              <Link href="/admin/codigos" className="text-ink-soft hover:text-accent">
+                {String(entry.detail?.code ?? "Código")}
+              </Link>
+            ) : entry.action === "settings" ? (
               <Link href="/admin/configuracion" className="text-ink-soft hover:text-accent">
                 Sitio
               </Link>

@@ -375,9 +375,21 @@ save. Accuracy on Mexican addresses is the weak point; see above.
 
 ### Stripe — payments
 
-- **⚠️ Enable OXXO and SPEI.** Mexican customers frequently pay cash at OXXO
-  or by bank transfer rather than by card.
-- **Status:** not needed while the prototype is free.
+Organizers buy guest places per event (`/eventos/[id]/pago`); everything else
+is free. Checkout Sessions in `lib/billing/actions.ts`, credited only by the
+webhook in `app/api/stripe/webhook/route.ts`.
+
+- **Env:** `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Without the key the
+  pay button says payments are not active; nothing crashes.
+- **Webhook endpoint:** `https://www.invibot.com/api/stripe/webhook`, with the
+  events `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed` and `checkout.session.expired`.
+  Locally: `stripe listen --forward-to localhost:3000/api/stripe/webhook`.
+- **⚠️ Enable OXXO and SPEI** (bank transfer) in the dashboard's payment
+  methods. Checkout passes no `payment_method_types`, so the dashboard decides
+  what the buyer sees; SPEI works because every buyer has a Customer.
+- **No CFDI.** Stripe does not issue Mexican invoices; a provider for that is
+  still to choose.
 
 ### Sentry — error tracking
 

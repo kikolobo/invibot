@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth/session";
 import { dashboardStats } from "@/lib/admin/stats";
+import { salesStats } from "@/lib/admin/payments";
 import {
   Breakdown,
   Panel,
@@ -8,6 +9,7 @@ import {
   StatGrid,
   formatMoney,
   formatNumber,
+  formatUsd,
   percent,
   pricingLabels,
   sendKindLabels,
@@ -28,14 +30,57 @@ const dayFmt = new Intl.DateTimeFormat("es-MX", {
  */
 export default async function Dashboard() {
   await requireStaff();
-  const { accounts, events, guests, sends, byKind, byTemplate, costs, conversation, perDay, topEvents } =
-    await dashboardStats();
+  const [{ accounts, events, guests, sends, byKind, byTemplate, costs, conversation, perDay, topEvents }, money] =
+    await Promise.all([dashboardStats(), salesStats()]);
+  const { sales, ai, billed } = money;
+  const currency = sales.currency ?? "MXN";
+  // The figure the price was set against: what the assistant costs per guest it talked to.
+  const perGuest = ai.guests > 0 ? ai.replyCost / ai.guests : 0;
 
   const delivered = sends.total - sends.failed - sends.queued;
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-6 py-12 sm:px-10">
       <h1 className="font-display text-4xl text-ink sm:text-5xl">Dashboard</h1>
+
+      <Panel title="Ventas">
+        <StatGrid>
+          <Stat
+            label="Ventas"
+            value={formatMoney(sales.revenue, currency)}
+            href="/admin/pagos?estado=paid"
+            note={`${formatNumber(sales.paid)} pagos de ${formatNumber(sales.customers)} clientes`}
+          />
+          <Stat label="Últimos 30 días" value={formatMoney(sales.revenue30, currency)} />
+          <Stat label="Lugares vendidos" value={sales.slotsSold} note={`${formatNumber(billed)} invitados con lugar ocupado`} />
+          <Stat
+            label="Esperando pago"
+            value={formatMoney(sales.pendingAmount, currency)}
+            href="/admin/pagos?estado=pending"
+            note={`${formatNumber(sales.pending)} pagos en OXXO, SPEI o sin terminar`}
+          />
+        </StatGrid>
+      </Panel>
+
+      <Panel
+        title="Costo del asistente"
+        note={
+          ai.since
+            ? `Lo que Claude nos ha cobrado desde que empezamos a medirlo (${new Date(ai.since).toLocaleDateString("es-MX", { timeZone: "America/Mexico_City" })}), al precio del modelo que contestó.`
+            : "Todavía no hay consumo medido: se empieza a registrar con la próxima respuesta del asistente."
+        }
+      >
+        <StatGrid>
+          <Stat label="Total" value={formatUsd(ai.cost)} note={`${formatNumber(ai.calls)} llamadas`} />
+          <Stat label="Últimos 30 días" value={formatUsd(ai.cost30)} />
+          <Stat
+            label="Por invitado atendido"
+            value={ai.guests ? formatUsd(perGuest) : "—"}
+            note={`${formatNumber(ai.replies)} respuestas a ${formatNumber(ai.guests)} invitados`}
+          />
+          <Stat label="Simulador" value={formatUsd(ai.simulatorCost)} note="Pruebas de los organizadores" />
+        </StatGrid>
+      </Panel>
 
       <Panel title="Cuentas">
         <StatGrid>

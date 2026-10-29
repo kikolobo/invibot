@@ -72,6 +72,7 @@ export function EventNav({
     ...(can.message ? [{ href: `${base}/mensajes`, label: "Mensajes" }] : []),
     // Available on an archived event too: it reads, it does not change anything.
     ...(can.event ? [{ href: `${base}/simulador`, label: "Simulador WhatsApp" }] : []),
+    ...(can.event ? [{ href: `${base}/pago`, label: "Pagos" }] : []),
   ];
 
   return (

@@ -180,6 +180,14 @@ export function SendInvitations({
       )}
 
       {report?.error && <p className="mt-4 text-[0.9rem] text-danger">{report.error}</p>}
+      {report?.payment && (
+        <a
+          href={`/eventos/${eventId}/pago?lugares=${report.payment.needed}`}
+          className="mt-3 inline-block rounded-full bg-action px-5 py-2 text-[0.9rem] text-ink-onaction"
+        >
+          Pagar lugares
+        </a>
+      )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {missing.length === 0 && recipients.length > 0 && (

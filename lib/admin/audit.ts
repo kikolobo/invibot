@@ -17,7 +17,12 @@ export type AuditAction =
   | "suspend_event"
   | "unsuspend_event"
   | "event_limit"
-  | "settings";
+  | "settings"
+  | "billing_exempt"
+  | "gift_slots"
+  | "promo_create"
+  | "promo_toggle"
+  | "connector";
 
 export const auditLabels: Record<AuditAction, string> = {
   create: "Creó la cuenta",
@@ -36,6 +41,11 @@ export const auditLabels: Record<AuditAction, string> = {
   unsuspend_event: "Reactivó un evento",
   event_limit: "Cambió el límite de un evento",
   settings: "Cambió la configuración",
+  billing_exempt: "Cambió la cortesía",
+  gift_slots: "Regaló lugares",
+  promo_create: "Creó un código de cortesía",
+  promo_toggle: "Cambió un código de cortesía",
+  connector: "Cambió un conector",
 };
 
 /**

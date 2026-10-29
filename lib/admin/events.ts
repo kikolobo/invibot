@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gt, ilike, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { broadcasts, events, organizations, organizers, users } from "@/db/schema";
+import { broadcasts, events, organizations, organizers, payments, users } from "@/db/schema";
+import { slotStatus } from "@/lib/billing/slots";
 import { guestLimit } from "@/lib/limits";
 import { PAGE_SIZE } from "./users";
 
@@ -114,6 +115,7 @@ export async function getEventDetail(eventId: string) {
       ownerEmail: users.email,
       ownerPhone: users.phone,
       ownerMaxGuests: users.maxGuestsPerEvent,
+      ownerExempt: users.billingExempt,
     })
     .from(events)
     .innerJoin(organizations, eq(organizations.id, events.orgId))
@@ -123,6 +125,19 @@ export async function getEventDetail(eventId: string) {
 
   const rows = <T>(query: ReturnType<typeof sql>) =>
     db.execute(query) as unknown as Promise<T[]>;
+
+  const [slots, purchases, [ai]] = await Promise.all([
+    slotStatus(eventId),
+    db.select().from(payments).where(eq(payments.eventId, eventId)).orderBy(desc(payments.createdAt)),
+    rows<{ cost: number; replies: number; simulator: number; guests: number }>(sql`
+      select
+        coalesce(sum(cost_micro_usd), 0)::bigint::float8 as cost,
+        count(*) filter (where source = 'guest_reply')::int as replies,
+        count(*) filter (where source = 'simulator')::int as simulator,
+        count(distinct guest_id) filter (where source = 'guest_reply')::int as guests
+      from ai_usage where event_id = ${eventId}
+    `),
+  ]);
 
   const [guestStats, sendStats, byKind, byTemplate, failures, conversation, crew, messages, limit] =
     await Promise.all([
@@ -265,5 +280,8 @@ export async function getEventDetail(eventId: string) {
     crew,
     messages,
     limit,
+    slots,
+    purchases,
+    ai,
   };
 }

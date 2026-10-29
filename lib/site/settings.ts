@@ -20,6 +20,12 @@ const DEFAULTS: SiteSettings = {
   maintenanceMessage: null,
   defaultMaxEvents: null,
   defaultMaxGuestsPerEvent: null,
+  pricePerGuestMinor: 1000,
+  currency: "MXN",
+  minimumSlots: 20,
+  freeSimulatorTurns: 20,
+  stripeWebhookId: null,
+  stripeWebhookSecret: null,
   updatedAt: new Date(0),
   updatedByUserId: null,
 };

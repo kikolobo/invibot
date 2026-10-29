@@ -1,3 +1,4 @@
+import { recordUsage } from "@/lib/ai/usage";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { anthropicFromEnv } from "@/lib/agent/run";
@@ -114,8 +115,9 @@ export async function splitNames(raw: string): Promise<SplitOutcome> {
 
   let parsed: z.infer<typeof Schema> | null = null;
   try {
+    const model = process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
     const response = await client.messages.parse({
-      model: process.env.ANTHROPIC_MODEL ?? "claude-opus-5",
+      model,
       max_tokens: 1024,
       // A line of names needs no deliberation, and this runs inside the
       // webhook's `after`, where a guest is waiting on the reply.
@@ -124,6 +126,16 @@ export async function splitNames(raw: string): Promise<SplitOutcome> {
       messages: [{ role: "user", content: raw.slice(0, 200) }],
     });
     parsed = response.parsed_output;
+    await recordUsage({
+      source: "name_split",
+      model,
+      usage: {
+        input: response.usage.input_tokens,
+        output: response.usage.output_tokens,
+        cacheRead: response.usage.cache_read_input_tokens ?? 0,
+        cacheWrite: response.usage.cache_creation_input_tokens ?? 0,
+      },
+    });
   } catch (error) {
     console.error("[names] could not split", error);
     return { ok: false, reason: "unavailable" };

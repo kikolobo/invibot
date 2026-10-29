@@ -12,6 +12,7 @@ import { sendTemplateToGuest } from "@/lib/whatsapp/send";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { invitationPlan, invitationVariables, templateForGuest } from "./recipients";
 import { missingLabels } from "./labels";
+import { shortfallFor } from "@/lib/billing/slots";
 
 /**
  * Sending the invitations — the one action that opens a conversation.
@@ -40,6 +41,8 @@ export type InviteOutcome = {
 
 export type InviteReport = {
   error?: string;
+  /** Set when the batch needs more paid places than the event has left. */
+  payment?: { needed: number };
   sent?: number;
   failed?: number;
   outcomes?: InviteOutcome[];
@@ -54,6 +57,8 @@ const failureText: Record<string, string> = {
   not_approved: "Falta aprobarlo.",
   not_configured: "WhatsApp no está configurado en este entorno.",
   provider_error: "WhatsApp rechazó el envío.",
+  event_suspended: "El evento está pausado por el equipo de Invibot.",
+  payment_required: "Falta pagar su lugar.",
 };
 
 export async function sendInvitations(
@@ -89,6 +94,19 @@ export async function sendInvitations(
   }
 
   const ids = recipients.map((guest) => guest.id);
+
+  // Asked before anything goes out, so a batch never stops halfway for want
+  // of places: either all of it is covered, or the organizer pays first.
+  const needed = await shortfallFor(eventId, ids);
+  if (needed > 0) {
+    return {
+      error:
+        needed === 1
+          ? "Falta pagar el lugar de 1 invitado para poder enviar."
+          : `Faltan ${needed} lugares por pagar para enviar a todos.`,
+      payment: { needed },
+    };
+  }
 
   const [campaign] = await db
     .insert(campaigns)

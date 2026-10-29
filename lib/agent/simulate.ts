@@ -6,7 +6,9 @@ import { db } from "@/db";
 import { guests } from "@/db/schema";
 import { can, eventAccess } from "@/lib/events/access";
 import { buildContext } from "./context";
-import { anthropicFromEnv, runAgentTurn } from "./run";
+import { MODEL, anthropicFromEnv, runAgentTurn } from "./run";
+import { recordUsage } from "@/lib/ai/usage";
+import { simulatorAllowance } from "@/lib/billing/slots";
 import { describeAction, type AgentAction } from "./tools";
 import { PASSES_SENT } from "./passes";
 import { weatherReportFor } from "./weather";
@@ -50,6 +52,15 @@ export async function simulateReply(
   const client = anthropicFromEnv();
   if (!client) return { error: "Falta configurar ANTHROPIC_API_KEY en este entorno." };
 
+  // Every rehearsal turn is a real model call. Free up to a point, then it
+  // waits for the event to have paid places.
+  const allowance = await simulatorAllowance(eventId);
+  if (!allowance.unlimited && allowance.left === 0) {
+    return {
+      error: `Ya usaste las ${allowance.free} pruebas gratis del simulador. Se desbloquea al pagar los lugares de tus invitados.`,
+    };
+  }
+
   const turns = history.slice(-MAX_TURNS).filter((turn) => turn.text.trim().length > 0);
   if (turns.length === 0 || turns[turns.length - 1].role !== "user") {
     return { error: "Escribe algo primero." };
@@ -92,6 +103,10 @@ export async function simulateReply(
         return `Guardado: lo acompaña ${action.name}. Confírmaselo en una frase corta y sigue con lo que estaban hablando.`;
     }
   }, tools);
+
+  if (result.usage) {
+    await recordUsage({ source: "simulator", model: MODEL, usage: result.usage, eventId: event.id });
+  }
 
   if ("error" in result) return { error: result.error };
 

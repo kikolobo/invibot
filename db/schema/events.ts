@@ -186,6 +186,14 @@ export const events = pgTable(
     suspendedReason: text("suspended_reason"),
     suspendedByUserId: text("suspended_by_user_id"),
 
+    /**
+     * Places paid for, and places staff gave away. A guest takes one the
+     * first time we send them anything (`guests.billed_at`); with none left,
+     * `deliver()` refuses until more are bought.
+     */
+    paidSlots: integer("paid_slots").notNull().default(0),
+    giftedSlots: integer("gifted_slots").notNull().default(0),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

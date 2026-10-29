@@ -39,6 +39,13 @@ export default async function Configuracion() {
           <dd>{limit(settings.defaultMaxEvents)}</dd>
           <dt className="text-ink-muted">Invitados por evento</dt>
           <dd>{limit(settings.defaultMaxGuestsPerEvent)}</dd>
+          <dt className="text-ink-muted">Precio por invitado</dt>
+          <dd>
+            {new Intl.NumberFormat("es-MX", { style: "currency", currency: settings.currency }).format(
+              settings.pricePerGuestMinor / 100,
+            )}{" "}
+            · mínimo {settings.minimumSlots}
+          </dd>
         </dl>
       </div>
     );
@@ -87,6 +94,42 @@ export default async function Configuracion() {
                 hint="Cambiarlo invalida el anterior al instante, incluso para quien ya lo había escrito y no terminó."
               />
             </div>
+          </div>
+        </Panel>
+
+        <Panel
+          title="Precio"
+          note="Lo que paga un organizador por cada invitado, una sola vez, con IVA incluido. Cubre su invitación, confirmación, recordatorios, pase y las respuestas del asistente. Un cambio aplica a las compras siguientes; lo ya pagado no se toca."
+        >
+          <div className="grid max-w-lg gap-4 sm:grid-cols-3">
+            <Field
+              label={`Por invitado (${settings.currency})`}
+              name="pricePerGuest"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              required
+              defaultValue={(settings.pricePerGuestMinor / 100).toString()}
+            />
+            <Field
+              label="Compra mínima (lugares)"
+              name="minimumSlots"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              required
+              defaultValue={settings.minimumSlots}
+            />
+            <Field
+              label="Simulador gratis (turnos)"
+              name="freeSimulatorTurns"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              required
+              defaultValue={settings.freeSimulatorTurns}
+            />
           </div>
         </Panel>
 

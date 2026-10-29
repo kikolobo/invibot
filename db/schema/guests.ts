@@ -210,6 +210,13 @@ export const guests = pgTable(
      */
     rsvpReminderSentAt: timestamp("rsvp_reminder_sent_at", { withTimezone: true }),
 
+    /**
+     * When this guest took one of the event's paid places — the first time
+     * anything was sent to them. From then on the place is theirs: removing
+     * them does not give it back, so a list cannot be swapped out after the
+     * fact to invite twice the people for the same money.
+     */
+    billedAt: timestamp("billed_at", { withTimezone: true }),
     optedOut: boolean("opted_out").notNull().default(false),
     optedOutAt: timestamp("opted_out_at", { withTimezone: true }),
 

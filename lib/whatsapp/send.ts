@@ -9,6 +9,7 @@ import {
   sends,
 } from "@/db/schema";
 import { variantsOf } from "@/lib/phone";
+import { claimSlot, releaseSlot } from "@/lib/billing/slots";
 import {
   whatsappConfig,
   activeProfile,
@@ -44,6 +45,7 @@ export type SendFailureReason =
   | "window_closed"
   | "not_configured"
   | "event_suspended"
+  | "payment_required"
   | "provider_error";
 
 export type SendOutcome =
@@ -262,6 +264,19 @@ async function deliver(
       .returning();
   }
 
+  // The guest's paid place, taken now that nothing else stands in the way.
+  // Auto-registro's fixed replies are exempt: they go to people who wrote to
+  // us first, inside a window Meta does not charge for, and say nothing the
+  // host has not published.
+  let claimed = false;
+  if (input.kind !== "auto_register") {
+    const slot = await claimSlot(guest.id, guest.eventId);
+    if (!slot.ok) {
+      return fail("payment_required", `No paid place left for ${guest.fullName} on ${guest.eventId}`, true);
+    }
+    claimed = slot.claimed;
+  }
+
   // The ledger row goes in before the network call, so a send that succeeds at
   // Meta and then dies on the way home still leaves evidence. The schema's
   // NULLS DISTINCT on provider_message_id exists for exactly this window.
@@ -288,6 +303,8 @@ async function deliver(
       .update(sends)
       .set({ status: "failed", errorCode: result.code, errorTitle: result.title })
       .where(eq(sends.id, send.id));
+    // Nothing reached them, so the place they just took is not theirs yet.
+    if (claimed) await releaseSlot(guest.id);
 
     return {
       ok: false,

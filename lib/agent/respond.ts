@@ -7,7 +7,8 @@ import { sendLocationToGuest } from "@/lib/whatsapp/send";
 import { formatEventAddressLines } from "@/lib/events/format";
 import { normalizeQuestion } from "@/lib/events/facts";
 import { buildContext } from "./context";
-import { anthropicFromEnv, runAgentTurn } from "./run";
+import { MODEL, anthropicFromEnv, runAgentTurn } from "./run";
+import { recordUsage } from "@/lib/ai/usage";
 import type { AgentAction } from "./tools";
 import { askOrganizer, responderFor } from "@/lib/organizers/notify";
 import { requestPasses } from "@/lib/passes/send";
@@ -97,6 +98,10 @@ export async function answerGuest(
     },
     tools,
   );
+
+  if (result.usage) {
+    await recordUsage({ source: "guest_reply", model: MODEL, usage: result.usage, eventId: event.id, guestId: guest.id });
+  }
 
   if ("error" in result) {
     console.error("[agent] turn failed", guest.id, result.error);

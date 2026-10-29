@@ -10,7 +10,8 @@ import { agentTools, type AgentAction } from "./tools";
  */
 
 /** Model choice is a per-deployment decision; see SERVICES.md on cost per event. */
-const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
+/** Exported so usage can be priced at the model that actually answered. */
+export const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
 
 /**
  * A guest asking about parking needs no deliberation, and effort is the first
@@ -30,7 +31,8 @@ export type AgentTurn = {
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
 };
 
-export type AgentFailure = { error: string };
+/** What the rounds before the failure used still cost money, so it comes back too. */
+export type AgentFailure = { error: string; usage?: AgentTurn["usage"] };
 
 export function anthropicFromEnv(): Anthropic | null {
   // Mirrors `r2FromEnv` and `configFromEnv`: unconfigured is a disabled
@@ -102,7 +104,7 @@ export async function runAgentTurn(
 
     // Checked before reading content, which is empty on a refusal.
     if (response.stop_reason === "refusal") {
-      return { error: "El asistente no pudo responder a eso." };
+      return { error: "El asistente no pudo responder a eso.", usage };
     }
 
     const text = response.content
@@ -137,5 +139,5 @@ export async function runAgentTurn(
     messages.push({ role: "user", content: results });
   }
 
-  return { error: "El asistente se quedó dando vueltas sin contestar." };
+  return { error: "El asistente se quedó dando vueltas sin contestar.", usage };
 }

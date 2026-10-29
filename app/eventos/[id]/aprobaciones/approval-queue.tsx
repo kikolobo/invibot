@@ -77,7 +77,12 @@ export function ApprovalQueue({
       const report = await approveAndInvite(eventId, ids, group);
       setSelected(new Set());
       if (report.error) {
-        setError(report.error);
+        // Approved either way; only the invitation waits for the payment.
+        setError(
+          report.payment
+            ? `${report.error} Ya quedaron aprobados: paga sus lugares en «Pagos» y envíales la invitación desde la lista.`
+            : report.error,
+        );
         return;
       }
       const failed = report.outcomes?.filter((o) => !o.ok) ?? [];

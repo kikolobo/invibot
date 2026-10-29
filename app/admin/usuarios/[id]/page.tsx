@@ -11,6 +11,7 @@ import {
   restoreUser,
   revokeSessions,
   setPassword,
+  setBillingExempt,
   setRole,
   setUserLimits,
   suspendUser,
@@ -90,6 +91,11 @@ export default async function Cuenta({
           <span className="rounded-full border border-line px-3 py-0.5 text-[0.8rem] text-ink-soft">
             {isPlatformRole(user.role) ? roleLabels[user.role] : user.role}
           </span>
+          {user.billingExempt && (
+            <span className="rounded-full border border-accent px-3 py-0.5 text-[0.8rem] text-accent">
+              Cortesía
+            </span>
+          )}
         </div>
         <p className="mt-3 text-ink-soft">
           {user.email}
@@ -228,6 +234,22 @@ export default async function Cuenta({
             <dt className="text-ink-muted">Invitados por evento</dt>
             <dd>{user.maxGuestsPerEvent ?? "Sin límite"}</dd>
           </dl>
+        )}
+      </Section>
+
+      <Section
+        title="Cortesía"
+        note="Una cuenta de cortesía envía a sus invitados sin pagar, en todos sus eventos. Para nosotros y para quien tengamos un trato."
+      >
+        {isAdmin ? (
+          <AdminForm action={setBillingExempt} userId={user.id} submit="Guardar" className="space-y-4">
+            <label className="flex items-center gap-3">
+              <input type="checkbox" name="exempt" defaultChecked={user.billingExempt} />
+              <span className="text-ink">Cuenta de cortesía</span>
+            </label>
+          </AdminForm>
+        ) : (
+          <p className="text-[0.9rem] text-ink-soft">{user.billingExempt ? "Sí" : "No"}</p>
         )}
       </Section>
 

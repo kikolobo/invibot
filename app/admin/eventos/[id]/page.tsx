@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/auth/session";
 import { eventStateLabels, eventStateOf, getEventDetail } from "@/lib/admin/events";
-import { impersonateUser, setEventLimit, suspendEvent, unsuspendEvent } from "@/lib/admin/actions";
+import { giftSlots, impersonateUser, setEventLimit, suspendEvent, unsuspendEvent } from "@/lib/admin/actions";
 import { statusLabels as broadcastStatusLabels, type BroadcastStatus } from "@/lib/broadcasts/labels";
 import { formatPhone } from "@/lib/phone";
 import { AdminForm, Field } from "../../admin-form";
@@ -14,6 +14,9 @@ import {
   StatGrid,
   formatMoney,
   formatNumber,
+  formatUsd,
+  paymentMethodLabels,
+  paymentStatusLabels,
   percent,
   sendKindLabels,
 } from "../../ui";
@@ -94,6 +97,68 @@ export default async function Evento({ params }: { params: Promise<{ id: string 
           tone="quiet"
         />
       )}
+
+      <Panel
+        title="Pagos"
+        note={
+          detail.ownerExempt
+            ? "Su dueño es de cortesía: este evento envía sin pagar."
+            : "Un invitado ocupa un lugar la primera vez que le escribimos. Sin lugares disponibles, no sale nada a los invitados que no tienen uno."
+        }
+      >
+        {detail.slots && (
+          <StatGrid>
+            <Stat label="Pagados" value={detail.slots.paid} />
+            <Stat label="De regalo" value={detail.slots.gifted} />
+            <Stat label="Usados" value={detail.slots.used} />
+            <Stat
+              label="Disponibles"
+              value={detail.ownerExempt ? "∞" : detail.slots.available}
+              alert={!detail.ownerExempt && detail.slots.waiting > detail.slots.available}
+              note={`${formatNumber(detail.slots.waiting)} invitados aprobados sin lugar`}
+            />
+            <Stat
+              label="Costo del asistente"
+              value={formatUsd(detail.ai.cost)}
+              note={`${formatNumber(detail.ai.replies)} respuestas · ${formatNumber(detail.ai.simulator)} en simulador`}
+            />
+            <Stat
+              label="Por invitado"
+              value={detail.ai.guests ? formatUsd(detail.ai.cost / detail.ai.guests) : "—"}
+              note={`${formatNumber(detail.ai.guests)} invitados atendidos`}
+            />
+          </StatGrid>
+        )}
+        {detail.purchases.length > 0 && (
+          <div className="mt-6">
+            <Breakdown
+              head={["Compra", "Lugares", "Monto", "Estado"]}
+              rows={detail.purchases.map((payment) => [
+                formatDate(payment.paidAt ?? payment.createdAt),
+                payment.slots,
+                formatMoney(payment.amountMinor, payment.currency),
+                `${paymentStatusLabels[payment.status] ?? payment.status}${
+                  payment.method ? ` · ${paymentMethodLabels[payment.method] ?? payment.method}` : ""
+                }`,
+              ])}
+            />
+          </div>
+        )}
+        {isAdmin && (
+          <AdminForm action={giftSlots} submit="Regalar lugares" className="mt-6 max-w-sm space-y-4">
+            <input type="hidden" name="eventId" value={event.id} />
+            <Field
+              label="Lugares"
+              name="slots"
+              type="number"
+              inputMode="numeric"
+              required
+              hint="Un número negativo quita lugares de regalo que no se hayan usado."
+            />
+            <Field label="Motivo" name="reason" required hint="Queda en el historial." />
+          </AdminForm>
+        )}
+      </Panel>
 
       <Panel title="Invitados">
         <StatGrid>

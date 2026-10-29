@@ -330,6 +330,27 @@
       "when": 1793309601313,
       "tag": "0046_limits_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793311053161,
+      "tag": "0047_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793311558646,
+      "tag": "0048_promo_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793311717979,
+      "tag": "0049_stripe_webhook",
+      "breakpoints": true
     }
   ]
 }

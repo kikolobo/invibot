@@ -124,6 +124,27 @@ export const sendKindLabels: Record<string, string> = {
   auto_register: "Auto-registro",
 };
 
+export const paymentStatusLabels: Record<string, string> = {
+  pending: "Esperando pago",
+  paid: "Pagado",
+  failed: "No se completó",
+  expired: "Venció",
+};
+
+export const paymentMethodLabels: Record<string, string> = {
+  card: "Tarjeta",
+  oxxo: "OXXO",
+  customer_balance: "SPEI",
+};
+
+/** Claude's cost is kept in millionths of a dollar. */
+export const formatUsd = (micro: number) =>
+  new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: micro < 1_000_000 ? 4 : 2,
+  }).format(micro / 1_000_000);
+
 export const pricingLabels: Record<string, string> = {
   marketing: "Marketing",
   utility: "Utilidad",

@@ -47,6 +47,12 @@ export const users = pgTable(
      */
     maxEvents: integer("max_events"),
     maxGuestsPerEvent: integer("max_guests_per_event"),
+    /**
+     * "Cortesía": sends without paying, on every event this account owns.
+     * Set by staff, for us and for the people we have a deal with.
+     */
+    billingExempt: boolean("billing_exempt").notNull().default(false),
+    stripeCustomerId: text("stripe_customer_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()

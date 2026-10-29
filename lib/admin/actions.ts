@@ -7,7 +7,10 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { APIError } from "better-auth/api";
 import { db } from "@/db";
-import { events, organizations, users } from "@/db/schema";
+import { events, organizations, promoCodes, users } from "@/db/schema";
+import { generateCode, normalizeCode } from "@/lib/billing/promo";
+import { stripeFromEnv } from "@/lib/billing/stripe";
+import { STRIPE_EVENTS, STRIPE_METHODS, describe as describeStripe, webhookPath } from "@/lib/connectors/stripe";
 import { getSettings, saveSettings } from "@/lib/site/settings";
 import { auth } from "@/lib/auth";
 import { getSession, requireAdmin, type StaffSession } from "@/lib/auth/session";
@@ -574,6 +577,16 @@ export async function updateSettings(_prev: AdminState, formData: FormData): Pro
   if (isError(defaultMaxEvents)) return defaultMaxEvents;
   if (isError(defaultMaxGuestsPerEvent)) return defaultMaxGuestsPerEvent;
 
+  const pesos = Number(String(formData.get("pricePerGuest") ?? "").trim());
+  if (!Number.isFinite(pesos) || pesos < 0 || pesos > 10_000) {
+    return { error: "El precio por invitado es un número en pesos, como 10 o 12.50." };
+  }
+  const pricePerGuestMinor = Math.round(pesos * 100);
+  const minimumSlots = readLimit(formData, "minimumSlots");
+  const freeSimulatorTurns = readLimit(formData, "freeSimulatorTurns");
+  if (isError(minimumSlots)) return minimumSlots;
+  if (isError(freeSimulatorTurns)) return freeSimulatorTurns;
+
   const maintenance = formData.get("maintenance") === "on";
   const maintenanceMessage = String(formData.get("maintenanceMessage") ?? "").trim() || null;
 
@@ -584,6 +597,9 @@ export async function updateSettings(_prev: AdminState, formData: FormData): Pro
     maintenanceMessage,
     defaultMaxEvents,
     defaultMaxGuestsPerEvent,
+    pricePerGuestMinor,
+    minimumSlots: minimumSlots ?? 1,
+    freeSimulatorTurns: freeSimulatorTurns ?? 0,
   } as const;
 
   const failed = await attempt(() => saveSettings(after, staff.userId));
@@ -601,4 +617,187 @@ export async function updateSettings(_prev: AdminState, formData: FormData): Pro
 
   revalidatePath("/admin", "layout");
   return { ok: "Configuración guardada." };
+}
+
+/** "Cortesía": every event this account owns sends without paying. */
+export async function setBillingExempt(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const found = await target(formData, { allowSelf: true });
+  if ("error" in found) return found;
+  const { staff, user } = found;
+
+  const exempt = formData.get("exempt") === "on";
+  if (exempt === user.billingExempt) return { ok: "No había nada que cambiar." };
+
+  const failed = await attempt(() =>
+    db.update(users).set({ billingExempt: exempt }).where(eq(users.id, user.id)),
+  );
+  if (failed) return { error: failed };
+
+  await audit({ actorUserId: staff.userId, target: user, action: "billing_exempt", detail: { to: exempt } });
+  refresh(user.id);
+  return { ok: exempt ? "Ahora es de cortesía: no paga por sus invitados." : "Ya no es de cortesía." };
+}
+
+/** Places on the house, for one event. Negative takes back unused ones. */
+export async function giftSlots(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const found = await eventTarget(formData);
+  if ("error" in found) return { error: found.error };
+  const { staff, event, ownerId, ownerEmail } = found;
+
+  const amount = Math.trunc(Number(formData.get("slots")));
+  if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 5000) {
+    return { error: "Escribe cuántos lugares regalar (o un número negativo para quitar)." };
+  }
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { error: "Escribe por qué. Queda en el historial." };
+
+  const next = event.giftedSlots + amount;
+  if (next < 0) return { error: `Sólo tiene ${event.giftedSlots} lugares de regalo para quitar.` };
+
+  const failed = await attempt(() =>
+    db.update(events).set({ giftedSlots: next }).where(eq(events.id, event.id)),
+  );
+  if (failed) return { error: failed };
+
+  await audit({
+    actorUserId: staff.userId,
+    target: { id: ownerId, email: ownerEmail },
+    action: "gift_slots",
+    detail: { eventId: event.id, eventName: event.name, amount, reason },
+  });
+  refreshEvent(event.id, ownerId);
+  return { ok: `Listo: ahora tiene ${next} lugares de regalo.` };
+}
+
+export async function createPromoCode(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+
+  const code = normalizeCode(String(formData.get("code") ?? "")) || generateCode();
+  if (!/^[A-Z0-9-]{4,32}$/.test(code)) {
+    return { error: "El código va de 4 a 32 letras, números o guiones." };
+  }
+  const slotsPerUser = Math.floor(Number(formData.get("slotsPerUser")));
+  const maxRedemptions = Math.floor(Number(formData.get("maxRedemptions")));
+  if (!Number.isFinite(slotsPerUser) || slotsPerUser < 1 || slotsPerUser > 5000) {
+    return { error: "Los lugares por usuario van de 1 a 5,000." };
+  }
+  if (!Number.isFinite(maxRedemptions) || maxRedemptions < 1 || maxRedemptions > 100_000) {
+    return { error: "El número de usuarios va de 1 a 100,000." };
+  }
+  const rawExpiry = String(formData.get("expiresAt") ?? "").trim();
+  // A date alone means through the end of that day in Mexico City.
+  const expiresAt = rawExpiry ? new Date(`${rawExpiry}T23:59:59-06:00`) : null;
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) return { error: "Esa fecha no se entiende." };
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const taken = await db.query.promoCodes.findFirst({ where: eq(promoCodes.code, code), columns: { id: true } });
+  if (taken) return { error: `Ya existe el código ${code}.` };
+
+  const failed = await attempt(() =>
+    db.insert(promoCodes).values({
+      code,
+      slotsPerUser,
+      maxRedemptions,
+      expiresAt,
+      note,
+      createdByUserId: staff.userId,
+    }),
+  );
+  if (failed) return { error: failed };
+
+  await audit({
+    actorUserId: staff.userId,
+    target: null,
+    action: "promo_create",
+    detail: { code, slotsPerUser, maxRedemptions, expiresAt: expiresAt?.toISOString() ?? null },
+  });
+  revalidatePath("/admin/codigos");
+  return { ok: `Código ${code} creado: ${maxRedemptions} usuarios, ${slotsPerUser} invitados cada uno.` };
+}
+
+export async function setPromoActive(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const id = String(formData.get("codeId") ?? "");
+  const active = formData.get("active") === "true";
+  const promo = await db.query.promoCodes.findFirst({ where: eq(promoCodes.id, id) });
+  if (!promo) return { error: "Ese código ya no existe." };
+
+  const failed = await attempt(() => db.update(promoCodes).set({ active }).where(eq(promoCodes.id, id)));
+  if (failed) return { error: failed };
+
+  await audit({ actorUserId: staff.userId, target: null, action: "promo_toggle", detail: { code: promo.code, active } });
+  revalidatePath("/admin/codigos");
+  return { ok: active ? "Activado." : "Desactivado: ya nadie lo puede usar." };
+}
+
+/**
+ * Creates — or repairs — the webhook Stripe uses to tell us a payment went
+ * through, pointed at the host this admin is using. Stripe hands back the
+ * signing secret only at creation, so an endpoint whose secret we never kept
+ * is replaced rather than reused.
+ */
+export async function setupStripeWebhook(): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const stripe = stripeFromEnv();
+  if (!stripe) return { error: "Primero pon STRIPE_SECRET_KEY en el entorno." };
+
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  if (/^(localhost|127\.|\[::1\])/.test(host)) {
+    return {
+      error: `Stripe no puede llegar a ${host}. En local usa: stripe listen --forward-to localhost:3000${webhookPath}`,
+    };
+  }
+  const url = `https://${host}${webhookPath}`;
+  const settings = await getSettings();
+
+  try {
+    const existing = (await stripe.webhookEndpoints.list({ limit: 100 })).data.find(
+      (endpoint) => endpoint.url === url || endpoint.id === settings.stripeWebhookId,
+    );
+    if (existing && existing.id === settings.stripeWebhookId && settings.stripeWebhookSecret) {
+      await stripe.webhookEndpoints.update(existing.id, { url, enabled_events: STRIPE_EVENTS, disabled: false });
+      await audit({ actorUserId: staff.userId, target: null, action: "connector", detail: { stripe: "webhook_updated", url } });
+      revalidatePath("/admin/conectores");
+      return { ok: "Webhook al día." };
+    }
+    if (existing) await stripe.webhookEndpoints.del(existing.id);
+
+    const created = await stripe.webhookEndpoints.create({
+      url,
+      enabled_events: STRIPE_EVENTS,
+      description: "Invibot: lugares pagados",
+    });
+    await saveSettings({ stripeWebhookId: created.id, stripeWebhookSecret: created.secret ?? null }, staff.userId);
+    await audit({ actorUserId: staff.userId, target: null, action: "connector", detail: { stripe: "webhook_created", url } });
+  } catch (error) {
+    return { error: describeStripe(error) };
+  }
+
+  revalidatePath("/admin/conectores");
+  return { ok: `Webhook creado en ${url}. Los pagos ya se acreditan solos.` };
+}
+
+/** Turns one payment method on or off in the configuration Checkout uses. */
+export async function setStripeMethod(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const stripe = stripeFromEnv();
+  if (!stripe) return { error: "Stripe no está configurado." };
+
+  const method = String(formData.get("method") ?? "");
+  if (!STRIPE_METHODS.some((m) => m.key === method)) return { error: "Ese método no existe." };
+  const configurationId = String(formData.get("configurationId") ?? "");
+  const on = formData.get("on") === "true";
+
+  try {
+    await stripe.paymentMethodConfigurations.update(configurationId, {
+      [method]: { display_preference: { preference: on ? "on" : "off" } },
+    });
+  } catch (error) {
+    return { error: describeStripe(error) };
+  }
+
+  await audit({ actorUserId: staff.userId, target: null, action: "connector", detail: { stripe: "method", method, on } });
+  revalidatePath("/admin/conectores");
+  return { ok: on ? "Activado." : "Desactivado." };
 }
