@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { cookies } from "next/headers";
@@ -9,6 +10,10 @@ import { normalizePhone } from "@/lib/phone";
 import { INVITE_COOKIE, acceptInvitesForPhone, inviteOpensSignup } from "@/lib/organizers/invites";
 import { PHONE_TAKEN, phoneTaken } from "@/lib/organizers/account-phone";
 import { GATE_COOKIE, gateOpen } from "./signup-gate";
+import { ac, roles } from "./permissions";
+import { signIns, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { getSettings } from "@/lib/site/settings";
 
 /**
  * Organizer authentication. Guests never authenticate — they reach their
@@ -53,6 +58,9 @@ const createAuth = () =>
         // below. Not `required` here: existing accounts have none, and the hook
         // is what insists on it for new ones.
         phone: { type: "string", required: false, input: true },
+        // Set only by staff actions, so the session carries it and every
+        // page can refuse a deleted account without another query.
+        deletedAt: { type: "date", required: false, input: false },
       },
     },
     emailAndPassword: {
@@ -78,9 +86,29 @@ const createAuth = () =>
      * every user insert, whichever way the request arrived.
      */
     databaseHooks: {
+      session: {
+        create: {
+          // A history line, never a gate: a failed insert here must not be
+          // what keeps somebody from signing in.
+          after: async (session) => {
+            try {
+              await db.insert(signIns).values({
+                userId: session.userId,
+                sessionId: session.id,
+                ipAddress: session.ipAddress ?? null,
+                userAgent: session.userAgent ?? null,
+                impersonatedBy:
+                  typeof session.impersonatedBy === "string" ? session.impersonatedBy : null,
+              });
+            } catch (error) {
+              console.error("[auth] could not record sign-in", error);
+            }
+          },
+        },
+      },
       user: {
         create: {
-          before: async (user) => {
+          before: async (user, context) => {
             // Same reasoning as the gate: the form's `type="tel"` is a hint,
             // this is the check. Stored canonical so it compares cleanly with
             // the numbers Meta sends us.
@@ -89,10 +117,13 @@ const createAuth = () =>
             // Two ways through: the shared passcode, or an invitation to help
             // run an event — which is only good for the number it was sent to,
             // so a forwarded link does not make an account for a stranger.
+            // A third: staff creating the account from /admin. The endpoint
+            // has already checked that the caller may create users.
             const jar = await cookies();
             const invite = jar.get(INVITE_COOKIE)?.value;
             const invited = Boolean(invite && phone && (await inviteOpensSignup(invite, phone.e164)));
-            if (!invited && !gateOpen(jar.get(GATE_COOKIE)?.value)) {
+            const byStaff = context?.path === "/admin/create-user";
+            if (!byStaff && !invited && !(await gateOpen(jar.get(GATE_COOKIE)?.value))) {
               throw new APIError("FORBIDDEN", {
                 message: invite
                   ? "Esta invitación es para otro número de WhatsApp."
@@ -117,6 +148,20 @@ const createAuth = () =>
             context?.setCookie(GATE_COOKIE, "", { path: "/", maxAge: 0 });
             context?.setCookie(INVITE_COOKIE, "", { path: "/", maxAge: 0 });
 
+            // The limits in force today, copied rather than referenced: a
+            // later change to the defaults is for later accounts. Staff
+            // creating the account can change them right after.
+            const settings = await getSettings();
+            if (settings.defaultMaxEvents !== null || settings.defaultMaxGuestsPerEvent !== null) {
+              await db
+                .update(users)
+                .set({
+                  maxEvents: settings.defaultMaxEvents,
+                  maxGuestsPerEvent: settings.defaultMaxGuestsPerEvent,
+                })
+                .where(eq(users.id, user.id));
+            }
+
             // Whatever was waiting for this number becomes access now, however
             // they came to sign up.
             await acceptInvitesForPhone({
@@ -129,8 +174,21 @@ const createAuth = () =>
         },
       },
     },
-    // Must stay last: it lets server actions set the session cookie.
-    plugins: [nextCookies()],
+    plugins: [
+      admin({
+        ac,
+        roles,
+        // Support is staff but not an admin: it must not count as one when
+        // somebody asks to impersonate it, and it can be impersonated.
+        adminRoles: ["admin"],
+        bannedUserMessage: "Esta cuenta está suspendida. Escríbenos si crees que es un error.",
+        // Long enough to reproduce a problem, short enough that a forgotten
+        // tab does not leave staff signed in as a customer.
+        impersonationSessionDuration: 60 * 60,
+      }),
+      // Must stay last: it lets server actions set the session cookie.
+      nextCookies(),
+    ],
   });
 
 type Auth = ReturnType<typeof createAuth>;

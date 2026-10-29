@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  events,
   guests,
   suppressions,
   conversations,
@@ -42,6 +43,7 @@ export type SendFailureReason =
   | "suppressed"
   | "window_closed"
   | "not_configured"
+  | "event_suspended"
   | "provider_error";
 
 export type SendOutcome =
@@ -209,6 +211,16 @@ async function deliver(
   }
 
   if (guest.optedOut) return fail("opted_out", `${guest.fullName} opted out of this event`);
+
+  // Staff switched the event off. Everything to its guests stops here, the
+  // assistant's replies included — that is what suspending an event means.
+  const event = await db.query.events.findFirst({
+    where: eq(events.id, guest.eventId),
+    columns: { suspendedAt: true },
+  });
+  if (event?.suspendedAt) {
+    return fail("event_suspended", `Event ${guest.eventId} is suspended`, true);
+  }
 
   // The global opt-out list. Checked on every send, not as a courtesy but
   // because LFPDPPP requires it — see the comment on the table.

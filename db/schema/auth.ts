@@ -3,10 +3,12 @@
  * `timestamptz`. The generator emits naive timestamps, which is inconsistent
  * with the rest of the schema and genuinely risky for session expiry — a
  * naive `expires_at` compared against a UTC now is wrong by the server's
- * offset. Re-apply this edit, and `users.phone`, if the file is regenerated.
+ * offset. Re-apply this edit, `users.phone`, and the admin plugin's columns
+ * (`role`, `banned`, `ban_*`, `deleted_at`, `sessions.impersonated_by`) if the
+ * file is regenerated.
  */
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable(
   "users",
@@ -22,6 +24,29 @@ export const users = pgTable(
      * accounts created before signup asked for it have none.
      */
     phone: text("phone_e164"),
+    /**
+     * Invibot-wide role, from the admin plugin: `user`, `support` or `admin`.
+     * Not the same thing as `memberships.role`, which is about one
+     * organization — a customer's planner is an org admin, not staff.
+     */
+    role: text("role").notNull().default("user"),
+    /** Suspended. The admin plugin refuses new sessions while this is set. */
+    banned: boolean("banned").notNull().default(false),
+    banReason: text("ban_reason"),
+    banExpires: timestamp("ban_expires", { withTimezone: true }),
+    /**
+     * Deleted, logically. The account is also banned so it cannot sign in, and
+     * everything it owns stays put until an admin purges it — or restores it.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /**
+     * Limits, copied from the site defaults when the account is created and
+     * changed only by staff afterwards — so raising the default does not
+     * quietly raise everybody's. Null is no limit, which is what every account
+     * from before limits existed has.
+     */
+    maxEvents: integer("max_events"),
+    maxGuestsPerEvent: integer("max_guests_per_event"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -44,6 +69,8 @@ export const sessions = pgTable(
       .notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    /** The admin behind an impersonation session ("ver como"). */
+    impersonatedBy: text("impersonated_by"),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),

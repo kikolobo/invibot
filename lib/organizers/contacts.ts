@@ -6,6 +6,7 @@ import { normalizePhone } from "@/lib/phone";
 import { cleanName, looksLikeAName } from "@/lib/guests/auto-register";
 import { recordGuestEvent } from "@/lib/guests/history";
 import { organizerEvents } from "./index";
+import { guestLimitError } from "@/lib/limits";
 import type { SharedContact } from "@/lib/whatsapp/webhook";
 
 /**
@@ -52,7 +53,8 @@ export type ContactOutcome =
   | { kind: "no_whatsapp"; name: string }
   | { kind: "suppressed"; name: string }
   | { kind: "needs_name"; name: string; phone: string }
-  | { kind: "unusable"; name: string };
+  | { kind: "unusable"; name: string }
+  | { kind: "full"; name: string };
 
 /** Lo que el organizador lee de vuelta, y lo que quedó pendiente de preguntar. */
 export type ContactResult = {
@@ -150,8 +152,8 @@ export async function addAll(
       continue;
     }
 
-    await addGuestFromContact(event.id, event.maxPartySize, name, normalized, organizerName);
-    outcomes.push({ kind: "added", name });
+    const added = await addGuestFromContact(event.id, event.maxPartySize, name, normalized, organizerName);
+    outcomes.push({ kind: added ? "added" : "full", name });
   }
 
   return { text: summarize(eventName, outcomes), asking, eventId };
@@ -164,7 +166,10 @@ export async function addGuestFromContact(
   fullName: string,
   phone: { e164: string; variants: string[] },
   organizerName: string,
-): Promise<void> {
+): Promise<boolean> {
+  // The event's guest limit, checked here so both callers honour it.
+  if (await guestLimitError(eventId)) return false;
+
   const [guest] = await db
     .insert(guests)
     .values({
@@ -186,7 +191,8 @@ export async function addGuestFromContact(
     .onConflictDoNothing()
     .returning();
 
-  if (!guest) return;
+  // Already on the list: nothing to add, and nothing to do with the limit.
+  if (!guest) return true;
 
   await recordGuestEvent({
     guestId: guest.id,
@@ -196,6 +202,7 @@ export async function addGuestFromContact(
     source: "organizer",
     detail: { via: "contacto compartido", organizer: organizerName },
   });
+  return true;
 }
 
 /**
@@ -213,6 +220,7 @@ function summarize(eventName: string, outcomes: ContactOutcome[]): string {
   const noWhatsApp = of("no_whatsapp");
   const suppressed = of("suppressed");
   const unusable = of("unusable");
+  const full = of("full");
 
   const lines: string[] = [`${eventName}`];
 
@@ -227,6 +235,9 @@ function summarize(eventName: string, outcomes: ContactOutcome[]): string {
     lines.push("", `Pidieron no recibir mensajes: ${suppressed.join(", ")}`);
   }
   if (unusable.length > 0) lines.push("", `No pude leer su teléfono: ${unusable.join(", ")}`);
+  if (full.length > 0) {
+    lines.push("", `El evento llegó a su límite de invitados; no agregué a: ${full.join(", ")}`);
+  }
 
   if (lines.length === 1) lines.push("", "No pude agregar a nadie de lo que me mandaste.");
 
@@ -354,13 +365,17 @@ export async function answerPending(
         where: eq(events.id, pending.payload.eventId),
       });
       if (event) {
-        await addGuestFromContact(
+        const added = await addGuestFromContact(
           event.id,
           event.maxPartySize,
           name,
           phone,
           organizer.fullName,
         );
+        if (!added) {
+          await forget(organizer.id);
+          return `El evento llegó a su límite de invitados, así que ${name} no quedó en la lista. Escríbenos si necesitas más lugares.`;
+        }
       }
     }
 

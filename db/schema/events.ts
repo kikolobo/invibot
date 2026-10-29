@@ -171,6 +171,21 @@ export const events = pgTable(
      * having lost where it was. Null means active.
      */
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+
+    /**
+     * How many guests this one event may hold, set by staff. Wins over the
+     * owner's per-event limit in either direction; null defers to it.
+     */
+    maxGuests: integer("max_guests"),
+    /**
+     * Switched off by staff. Nothing goes out to its guests while this is set
+     * — `deliver()` refuses — and its organizers see why. Orthogonal to
+     * `archivedAt`, which is the owner's own decision.
+     */
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspendedReason: text("suspended_reason"),
+    suspendedByUserId: text("suspended_by_user_id"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

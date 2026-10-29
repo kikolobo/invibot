@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { events, guests, suppressions } from "@/db/schema";
 import { normalizePhone, variantsOf } from "@/lib/phone";
 import { recordGuestEvent } from "./history";
+import { guestLimitError } from "@/lib/limits";
 import { formatEventDate } from "@/lib/events/format";
 import {
   parseRegistration,
@@ -44,6 +45,7 @@ export const COPY = {
   nameUpdated: "Listo, actualicé tu nombre.",
   nameKept: "Perfecto, lo dejamos como está.",
   closed: "El evento ya está cerrado. ¡Gracias!",
+  full: "El registro para este evento ya está lleno. ¡Gracias por tu interés!",
 
   /**
    * Asked once and only once. If they answer with something that is not a
@@ -132,6 +134,13 @@ export async function handleAutoRegistro(args: {
 
   if (existing) return await existingGuest(existing, event, parsed.name);
 
+  // A new person needs a place; somebody already on the list does not.
+  if (await guestLimitError(event.id)) {
+    return (await isSuppressed(fromPhoneE164))
+      ? { kind: "silent" }
+      : { kind: "reply-phone", text: COPY.full };
+  }
+
   return register(event, fromPhoneE164, parsed.name, cleanName(profileName ?? ""));
 }
 
@@ -163,6 +172,7 @@ async function unapprovedWithoutCode(phoneE164: string): Promise<RegistrationAct
 function acceptingRegistrations(event: EventRow): boolean {
   if (!event.autoRegisterEnabled) return false;
   if (event.archivedAt) return false;
+  if (event.suspendedAt) return false;
   if (event.status === "closed" || event.status === "cancelled") return false;
   // The date is the backstop, not the switch: a host may close registration a
   // week early, but nobody registers for a party that already happened.

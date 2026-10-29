@@ -58,7 +58,20 @@ export default async function EventLayout({
         }}
         roleLabel={access.role === "owner" ? null : roleLabels[access.role]}
       />
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        {event.suspendedAt && (
+          // The organizer's half of a suspension: nothing reaches their guests,
+          // and they should hear that from us before a guest tells them.
+          <div className="mb-8 rounded-xl border border-danger/40 bg-danger-soft px-5 py-4 text-[0.9rem] text-ink">
+            <p className="font-medium">Este evento está pausado por el equipo de Invibot.</p>
+            <p className="mt-1 text-ink-soft">
+              Mientras tanto no sale ningún mensaje a tus invitados: ni invitaciones, ni recordatorios,
+              ni respuestas del asistente. Escríbenos para reactivarlo.
+            </p>
+          </div>
+        )}
+        {children}
+      </div>
     </div>
   );
 }

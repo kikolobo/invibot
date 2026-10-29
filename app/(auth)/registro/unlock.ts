@@ -19,7 +19,7 @@ export async function unlockSignup(
   const typed = String(formData.get("passcode") ?? "");
   if (!typed.trim()) return { error: "Escribe el código." };
 
-  const signed = passcodeAccepted(typed);
+  const signed = await passcodeAccepted(typed);
   if (!signed) {
     // Deliberately not "that code is wrong" versus "registration is closed".
     // Somebody guessing should not learn which of the two they are up against.

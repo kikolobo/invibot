@@ -151,7 +151,9 @@ async function reportableEvents(): Promise<EventRow[]> {
   return db
     .select()
     .from(events)
-    .where(and(isNull(events.archivedAt), gt(events.startsAt, new Date())));
+    .where(
+      and(isNull(events.archivedAt), isNull(events.suspendedAt), gt(events.startsAt, new Date())),
+    );
 }
 
 const windowOpenFor = (organizer: OrganizerRow, now: Date) => {

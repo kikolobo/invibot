@@ -1,7 +1,8 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react";
-import { inferAdditionalFields } from "better-auth/client/plugins";
+import { adminClient, inferAdditionalFields } from "better-auth/client/plugins";
+import { ac, roles } from "./permissions";
 
 /**
  * No baseURL on purpose: the client then talks to the origin the page was
@@ -13,7 +14,10 @@ import { inferAdditionalFields } from "better-auth/client/plugins";
 export const authClient = createAuthClient({
   // Mirrors `user.additionalFields` in the server config, spelled out rather
   // than inferred from it so this client bundle never imports server code.
-  plugins: [inferAdditionalFields({ user: { phone: { type: "string", required: false } } })],
+  plugins: [
+    inferAdditionalFields({ user: { phone: { type: "string", required: false } } }),
+    adminClient({ ac, roles }),
+  ],
 });
 
 export const { signIn, signUp, signOut, useSession } = authClient;

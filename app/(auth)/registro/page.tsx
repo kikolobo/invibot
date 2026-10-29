@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SiteShell } from "@/components/site-chrome";
 import { getSession } from "@/lib/auth/session";
 import { GATE_COOKIE, gateOpen, gateConfigured } from "@/lib/auth/signup-gate";
+import { getSettings } from "@/lib/site/settings";
 import { AuthForm } from "../auth-form";
 import { PasscodeForm } from "./passcode-form";
 
@@ -11,8 +12,12 @@ export const metadata = { title: "Crear cuenta" };
 export default async function Registro() {
   if (await getSession()) redirect("/eventos");
 
+  const settings = await getSettings();
+  if (settings.maintenance) redirect("/mantenimiento");
+
   const jar = await cookies();
-  const open = gateOpen(jar.get(GATE_COOKIE)?.value);
+  const open = await gateOpen(jar.get(GATE_COOKIE)?.value);
+  const configured = await gateConfigured();
 
   return (
     <SiteShell tone="paper">
@@ -29,11 +34,11 @@ export default async function Registro() {
         ) : (
           <>
             <p className="mt-3 leading-relaxed text-ink-soft">
-              {gateConfigured()
+              {configured
                 ? "Por ahora las cuentas son por invitación. Si tienes un código, escríbelo aquí."
                 : "Las cuentas están cerradas por el momento."}
             </p>
-            <PasscodeForm />
+            {configured && <PasscodeForm />}
           </>
         )}
       </div>

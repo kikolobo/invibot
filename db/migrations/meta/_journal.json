@@ -309,6 +309,27 @@
       "when": 1792003824303,
       "tag": "0043_short_links_disabled",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793307809298,
+      "tag": "0044_platform_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793309231871,
+      "tag": "0045_sign_ins",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793309601313,
+      "tag": "0046_limits_settings",
+      "breakpoints": true
     }
   ]
 }

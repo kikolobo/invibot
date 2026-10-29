@@ -185,6 +185,8 @@ export async function sendDueBroadcasts(now = new Date()): Promise<number> {
         eq(broadcasts.isTest, false),
         lte(broadcasts.scheduledFor, now),
         isNull(events.archivedAt),
+        // A suspended event's messages wait, still scheduled, for it to come back.
+        isNull(events.suspendedAt),
       ),
     )
     .orderBy(asc(broadcasts.scheduledFor));

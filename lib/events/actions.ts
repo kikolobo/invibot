@@ -22,6 +22,8 @@ import { answersToFacts, setPath } from "./facts";
 import { seedGroups } from "@/lib/guests/actions";
 import { ensureOwner } from "@/lib/organizers/owner";
 import { can, eventAccess } from "./access";
+import { eventLimitError } from "@/lib/limits";
+import { users } from "@/db/schema";
 
 const slugId = customAlphabet("abcdefghijkmnpqrstuvwxyz23456789", 6);
 
@@ -112,6 +114,8 @@ export async function createEvent(
   }
 
   const v = parsed.data;
+  const overLimit = await eventLimitError(orgId);
+  if (overLimit) return { error: overLimit };
   // Best-effort and never fatal: the pin is what lets the assistant send a
   // native map card, and an event with no coordinates simply falls back to the
   // link. Resolved on save so no guest ever waits on a geocoder.
@@ -394,6 +398,23 @@ export async function cloneEvent(
   const time = String(formData.get("time") ?? "");
   const copyGuests = formData.get("copyGuests") === "on";
 
+  const overLimit = await eventLimitError(orgId);
+  if (overLimit) return { error: overLimit };
+  // The copy is a new event with no override of its own, so it is bound by
+  // the caller's per-event limit — not by whatever the original was allowed.
+  if (copyGuests) {
+    const mine = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { maxGuestsPerEvent: true },
+    });
+    const copying = await db.$count(guests, and(eq(guests.eventId, sourceId), ne(guests.approvalStatus, "rejected")));
+    if (mine?.maxGuestsPerEvent != null && copying > mine.maxGuestsPerEvent) {
+      return {
+        error: `La lista tiene ${copying} invitados y tu cuenta permite ${mine.maxGuestsPerEvent} por evento. Duplícalo sin invitados o escríbenos.`,
+      };
+    }
+  }
+
   if (name.length < 2) return { fieldErrors: { name: "Ponle un nombre al evento" } };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { fieldErrors: { date: "Elige una fecha" } };
   if (!/^\d{2}:\d{2}$/.test(time)) return { fieldErrors: { time: "Elige una hora" } };
@@ -546,6 +567,9 @@ export async function unarchiveEvent(eventId: string): Promise<ActionState & { o
   // Not `editableEvent`: that refuses archived events, which is all this touches.
   const access = await eventAccess(eventId);
   if (!access || !can(access, "event")) return { error: "No encontramos ese evento." };
+  // Restoring makes it active again, so it needs a place like a new one does.
+  const overLimit = await eventLimitError(access.event.orgId);
+  if (overLimit) return { error: overLimit };
 
   // `status` is untouched in both directions, so an event comes back exactly
   // where it left off rather than reset to a draft.

@@ -2,6 +2,7 @@
 
 import { and, asc, eq, inArray, max } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { guestLimitError } from "@/lib/limits";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { broadcasts, guests, guestGroups, suppressions } from "@/db/schema";
@@ -292,6 +293,9 @@ export async function addGuest(
 
   const table = readTable(formData.get("tableNumber"));
   if ("error" in table) return { error: table.error };
+
+  const full = await guestLimitError(eventId);
+  if (full) return { error: full };
 
   await db.insert(guests).values({
     eventId,
@@ -817,6 +821,9 @@ export async function confirmImport(
   if (rows.length === 0) {
     return { error: "No hay filas que se puedan importar." };
   }
+  // All or nothing: half a list imported is harder to fix than none.
+  const full = await guestLimitError(eventId, rows.length);
+  if (full) return { error: full };
 
   // Resolve each distinct group name once, so a 200-row import does not issue
   // 200 lookups for the same four groups.
