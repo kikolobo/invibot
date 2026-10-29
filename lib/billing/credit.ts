@@ -38,7 +38,9 @@ export async function creditSession(session: Stripe.Checkout.Session): Promise<b
   return db.transaction(async (tx) => {
     const [moved] = await tx
       .update(payments)
-      .set({ status: "paid", paidAt: new Date(), method, stripePaymentIntentId: intent ?? null })
+      // The mode as Stripe reports it, which is the last word on which keys
+      // must refund this — not only the mode that was active when it began.
+      .set({ status: "paid", paidAt: new Date(), method, stripePaymentIntentId: intent ?? null, livemode: session.livemode })
       .where(and(eq(payments.id, payment.id), eq(payments.status, "pending")))
       .returning();
     if (!moved) return false;

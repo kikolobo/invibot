@@ -12,6 +12,7 @@ import { cancelPayment, recordManualPayment, refundPayment, type AdjustResult } 
 import { generateCode, normalizeCode } from "@/lib/billing/promo";
 import { activeStripe, configuredModes } from "@/lib/billing/stripe";
 import { STRIPE_EVENTS, STRIPE_METHODS, describe as describeStripe, webhookPath } from "@/lib/connectors/stripe";
+import { submitMissingTemplates } from "@/lib/connectors/templates-submit";
 import { getSettings, saveSettings } from "@/lib/site/settings";
 import { auth } from "@/lib/auth";
 import { getSession, requireAdmin, type StaffSession } from "@/lib/auth/session";
@@ -919,12 +920,133 @@ export async function adjustPayment(_prev: AdminState, formData: FormData): Prom
     detail: {
       eventId: row.payment.eventId,
       eventName: row.eventName,
+      paymentId: row.payment.id,
       slots: row.payment.slots,
       amountMinor: row.payment.amountMinor,
+      currency: row.payment.currency,
+      // Which Stripe moved the money back, so the log says plainly whether a
+      // refund was real.
+      stripeMode: row.payment.method === "manual" ? "manual" : row.payment.livemode ? "live" : "test",
       reason,
     },
   });
   refreshEvent(row.payment.eventId, row.ownerId);
   revalidatePath("/admin/pagos");
   return { ok: result.message };
+}
+
+/**
+ * The event page's one "Ajustar lugares" form: give places, take back gifted
+ * ones, or record a payment made outside Stripe — each still its own action
+ * and its own line in the log.
+ */
+export async function adjustPlaces(prev: AdminState, formData: FormData): Promise<AdminState> {
+  const kind = String(formData.get("kind") ?? "");
+  if (kind === "manual") return recordPayment(prev, formData);
+  if (kind === "gift" || kind === "ungift") {
+    const amount = Math.abs(Math.trunc(Number(formData.get("slots"))));
+    if (!amount) return { error: "Escribe cuántos lugares." };
+    formData.set("slots", String(kind === "gift" ? amount : -amount));
+    return giftSlots(prev, formData);
+  }
+  return { error: "Elige qué quieres hacer." };
+}
+
+const readUsd = (formData: FormData, field: string): number | null | { error: string } => {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 1_000_000) return { error: "Los montos son en dólares, como 100 o 12.50." };
+  return Math.round(value * 100);
+};
+
+/**
+ * The Anthropic balance as the console shows it today. Entering it restarts
+ * the estimate and re-arms the low-credit warning.
+ */
+export async function setAnthropicBalance(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const balance = readUsd(formData, "balance");
+  const alertAt = readUsd(formData, "alert");
+  if (isError(balance)) return balance;
+  if (isError(alertAt)) return alertAt;
+  if (balance === null) return { error: "Escribe el saldo que ves en la consola de Anthropic." };
+
+  const failed = await attempt(() =>
+    saveSettings(
+      {
+        anthropicBalanceCents: balance,
+        anthropicBalanceAt: new Date(),
+        anthropicAlertCents: alertAt ?? 2000,
+        anthropicAlertedAt: null,
+      },
+      staff.userId,
+    ),
+  );
+  if (failed) return { error: failed };
+  await audit({
+    actorUserId: staff.userId,
+    target: null,
+    action: "connector",
+    detail: { anthropic: "balance", balanceCents: balance, alertCents: alertAt ?? 2000 },
+  });
+  revalidatePath("/admin/conectores");
+  return { ok: "Saldo guardado. Desde ahora se descuenta lo que gaste el asistente." };
+}
+
+/** WhatsApp's monthly budget and the per-message rates the estimate uses. */
+export async function setWhatsappBudget(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const budget = readUsd(formData, "budget");
+  if (isError(budget)) return budget;
+  const rate = (field: string) => {
+    const value = Number(String(formData.get(field) ?? "").trim());
+    return Number.isFinite(value) && value >= 0 && value < 10 ? Math.round(value * 1_000_000) : null;
+  };
+  const marketing = rate("marketingRate");
+  const utility = rate("utilityRate");
+  if (marketing === null || utility === null) return { error: "Las tarifas son dólares por mensaje, como 0.0305." };
+
+  const failed = await attempt(() =>
+    saveSettings(
+      {
+        whatsappBudgetCents: budget,
+        whatsappMarketingMicroUsd: marketing,
+        whatsappUtilityMicroUsd: utility,
+        whatsappAlertedMonth: null,
+      },
+      staff.userId,
+    ),
+  );
+  if (failed) return { error: failed };
+  await audit({
+    actorUserId: staff.userId,
+    target: null,
+    action: "connector",
+    detail: { whatsapp: "budget", budgetCents: budget, marketing, utility },
+  });
+  revalidatePath("/admin/conectores");
+  return { ok: budget === null ? "Guardado, sin presupuesto." : "Presupuesto guardado." };
+}
+
+/** Sends the templates Meta does not have yet to review, for one number. */
+export async function submitTemplates(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const profile = formData.get("profile") === "production" ? "production" : "test";
+  const outcomes = await submitMissingTemplates(profile);
+  if ("error" in outcomes) return { error: outcomes.error };
+  if (!outcomes.length) return { ok: "Meta ya tiene todas las plantillas." };
+
+  await audit({
+    actorUserId: staff.userId,
+    target: null,
+    action: "connector",
+    detail: { whatsapp: "templates_submitted", profile, outcomes },
+  });
+  revalidatePath("/admin/conectores");
+  const sent = outcomes.filter((o) => o.ok).map((o) => o.name);
+  const failed = outcomes.filter((o) => !o.ok).map((o) => `${o.name} (${o.detail})`);
+  return failed.length
+    ? { error: `${sent.length ? `Enviadas: ${sent.join(", ")}. ` : ""}No se enviaron: ${failed.join("; ")}` }
+    : { ok: `Enviadas a revisión: ${sent.join(", ")}. Meta suele aprobar en minutos u horas.` };
 }

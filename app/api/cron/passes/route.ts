@@ -4,6 +4,7 @@ import { remindUnansweredRsvps } from "@/lib/guests/rsvp-reminder";
 import { remindUpcomingEvents } from "@/lib/events/remind";
 import { sendDailyReports } from "@/lib/organizers/report";
 import { sendDueBroadcasts } from "@/lib/broadcasts/send";
+import { checkServiceAlerts } from "@/lib/admin/alerts";
 
 /**
  * The daily run: "faltan tres días" for the events that are three days out,
@@ -54,5 +55,8 @@ export async function GET(request: Request) {
   // permite un cron diario; con uno propio se mueve a las 22:00, que es la
   // hora a la que un anfitrión quiere el resumen.
   const reports = await sendDailyReports();
-  return Response.json({ upcoming, reminded, sent, messaged, nudged, reports }, { status: 200 });
+  // Our own services: low Anthropic credit, WhatsApp near its budget, Meta
+  // refusing for payment — warned to the admins on WhatsApp, once each.
+  const alerts = await checkServiceAlerts();
+  return Response.json({ upcoming, reminded, sent, messaged, nudged, reports, alerts }, { status: 200 });
 }

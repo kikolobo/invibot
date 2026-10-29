@@ -13,6 +13,7 @@ import {
   users,
 } from "@/db/schema";
 import { auditLabels, type AuditAction } from "./audit";
+import { describeDetail } from "./describe";
 
 export type ActivityKind = "sign_in" | "event" | "message" | "team" | "staff";
 
@@ -293,7 +294,7 @@ export async function userActivity(userId: string): Promise<ActivityItem[]> {
         at: entry.createdAt,
         kind: "staff" as const,
         text: `${entry.actorName || entry.actorEmail || "Script"}: ${(auditLabels[entry.action as AuditAction] ?? entry.action).toLowerCase()}`,
-        detail: [eventName, reason].filter(Boolean).join(" · ") || undefined,
+        detail: [eventName, describeDetail(entry.detail)].filter(Boolean).join(" · ") || reason || undefined,
         href:
           entry.detail && typeof entry.detail.eventId === "string"
             ? `/admin/eventos/${entry.detail.eventId}`

@@ -103,6 +103,32 @@ export const siteSettings = pgTable("site_settings", {
    * someone chooses, which means live when its keys exist, else the sandbox.
    */
   stripeMode: text("stripe_mode").$type<"test" | "live">(),
+
+  /**
+   * Anthropic's prepaid balance as last read off its console, and when. No
+   * API reports it, so the console shows it minus what `ai_usage` has
+   * measured since — an estimate, labelled as one. In US cents.
+   */
+  anthropicBalanceCents: integer("anthropic_balance_cents"),
+  anthropicBalanceAt: timestamp("anthropic_balance_at", { withTimezone: true }),
+  /** Warn the admins on WhatsApp below this. */
+  anthropicAlertCents: integer("anthropic_alert_cents").notNull().default(2000),
+  /** Set when the warning went out; cleared when a new balance is entered. */
+  anthropicAlertedAt: timestamp("anthropic_alerted_at", { withTimezone: true }),
+
+  /**
+   * WhatsApp has no balance in Mexico — Meta bills a card — so this is a
+   * monthly budget to warn against, estimated from our own sends at Meta's
+   * rate per category (editable, in micro US dollars per message). Null is
+   * no budget.
+   */
+  whatsappBudgetCents: integer("whatsapp_budget_cents"),
+  whatsappMarketingMicroUsd: integer("whatsapp_marketing_micro_usd").notNull().default(30500),
+  whatsappUtilityMicroUsd: integer("whatsapp_utility_micro_usd").notNull().default(8500),
+  /** The month ("2026-10") the budget warning already went out for. */
+  whatsappAlertedMonth: text("whatsapp_alerted_month"),
+  /** When the "Meta is refusing for payment" warning last went out. */
+  whatsappPaymentAlertedAt: timestamp("whatsapp_payment_alerted_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: text("updated_by_user_id"),
 });

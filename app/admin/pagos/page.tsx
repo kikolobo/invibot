@@ -3,7 +3,8 @@ import { requireStaff } from "@/lib/auth/session";
 import { listPayments, salesStats, type PaymentFilter } from "@/lib/admin/payments";
 import { activeMode, configuredModes } from "@/lib/billing/stripe";
 import { formatDate } from "../format";
-import { Breakdown, Panel, Stat, StatGrid, formatMoney, formatNumber, paymentMethodLabels, paymentStatusLabels } from "../ui";
+import { ModeBadge, PaymentActions } from "../payment-actions";
+import { Panel, Stat, StatGrid, formatMoney, formatNumber, paymentMethodLabels, paymentStatusLabels } from "../ui";
 
 export const metadata = { title: "Pagos" };
 
@@ -21,7 +22,8 @@ export default async function Pagos({
 }: {
   searchParams: Promise<{ estado?: string; pagina?: string }>;
 }) {
-  await requireStaff();
+  const staff = await requireStaff();
+  const isAdmin = staff.role === "admin";
   const params = await searchParams;
   const filter = isFilter(params.estado) ? params.estado : "all";
   const page = Math.max(1, Number(params.pagina) || 1);
@@ -69,33 +71,38 @@ export default async function Pagos({
             </Link>
           ))}
         </nav>
-        <Breakdown
-          head={["Evento", "Lugares", "Monto", "Estado"]}
-          empty="Ningún pago todavía."
-          rows={rows.map((row) => [
-            <span key="e">
-              <Link href={`/admin/eventos/${row.eventId}`} className="hover:text-accent">
-                {row.eventName}
-              </Link>
-              <span className="block text-[0.8rem] text-ink-muted">
-                <Link href={`/admin/usuarios/${row.ownerId}`} className="hover:text-accent">
-                  {row.ownerName || row.ownerEmail}
-                </Link>{" "}
-                · {formatDate(row.paidAt ?? row.createdAt)}
-              </span>
-            </span>,
-            row.slots,
-            formatMoney(row.amountMinor, row.currency),
-            <span key="s">
-              {paymentStatusLabels[row.status] ?? row.status}
-              {row.method && (
-                <span className="block text-[0.8rem] text-ink-muted">
-                  {paymentMethodLabels[row.method] ?? row.method}
+        {rows.length === 0 ? (
+          <p className="text-[0.9rem] text-ink-muted">Ningún pago todavía.</p>
+        ) : (
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {rows.map((row) => (
+              <li key={row.id} className="flex items-center gap-4 px-4 py-3 text-[0.9rem]">
+                <span className="min-w-0 flex-1">
+                  <Link href={`/admin/eventos/${row.eventId}`} className="text-ink hover:text-accent">
+                    {row.eventName}
+                  </Link>
+                  <span className="block text-[0.8rem] text-ink-muted">
+                    <Link href={`/admin/usuarios/${row.ownerId}`} className="hover:text-accent">
+                      {row.ownerName || row.ownerEmail}
+                    </Link>{" "}
+                    · {formatDate(row.paidAt ?? row.createdAt)}
+                    {row.note && ` · ${row.note}`}
+                  </span>
                 </span>
-              )}
-            </span>,
-          ])}
-        />
+                <span className="hidden w-24 text-right tabular-nums text-ink-soft sm:block">{row.slots} lugares</span>
+                <span className="w-28 text-right tabular-nums text-ink">{formatMoney(row.amountMinor, row.currency)}</span>
+                <span className="w-36 text-right">
+                  <span className="text-ink-soft">{paymentStatusLabels[row.status] ?? row.status}</span>
+                  <span className="mt-0.5 flex items-center justify-end gap-1.5 text-[0.78rem] text-ink-muted">
+                    {row.method && row.method !== "manual" && (paymentMethodLabels[row.method] ?? row.method)}
+                    <ModeBadge payment={row} />
+                  </span>
+                </span>
+                <span className="w-8">{isAdmin && <PaymentActions payment={row} />}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <nav className="mt-6 flex justify-between text-[0.88rem] text-ink-soft">
           {page > 1 ? (
             <Link href={`/admin/pagos?${filter !== "all" ? `estado=${filter}&` : ""}pagina=${page - 1}`}>← Más recientes</Link>

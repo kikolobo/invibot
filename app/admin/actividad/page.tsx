@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/auth/session";
 import { listAudit } from "@/lib/admin/users";
 import { auditLabels, type AuditAction } from "@/lib/admin/audit";
 import { formatDateTime } from "../format";
+import { describeDetail } from "@/lib/admin/describe";
 
 export const metadata = { title: "Actividad" };
 
@@ -44,6 +45,9 @@ export default async function Actividad({
               <Link href={`/admin/usuarios/${entry.targetUserId}`} className="text-ink-soft hover:text-accent">
                 {entry.targetEmail}
               </Link>
+            )}
+            {describeDetail(entry.detail) && (
+              <span className="block text-[0.85rem] text-ink-soft">{describeDetail(entry.detail)}</span>
             )}
             <span className="block text-[0.82rem] text-ink-muted">
               {entry.actorName || entry.actorEmail || "script"} · {formatDateTime(entry.createdAt)}

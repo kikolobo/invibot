@@ -625,6 +625,25 @@ export const templates = {
     footer,
     buttons: [{ label: "Leer mensaje", payload: "READ_MESSAGE" }],
   },
+
+  /**
+   * To Invibot's own admins, not to anyone's guests: a service is running
+   * low or failing. Utility by any reading — it is about an account we hold.
+   * Free-form goes instead when the admin wrote to us in the last day.
+   */
+  aviso_admin: {
+    name: "aviso_admin",
+    language: "es_MX",
+    category: "UTILITY",
+    kind: "organizer_relay",
+    body: ["Aviso de Invibot: *{{1}}*", "", "{{2}}", "", "Revísalo en el admin: {{3}}"].join("\n"),
+    variables: [
+      { description: "Qué pasa", example: "Quedan pocos créditos de Anthropic" },
+      { description: "El detalle", example: "Saldo estimado: US$12.40, por debajo del aviso de US$20." },
+      { description: "Liga al admin", example: "invibot.com/admin/conectores?tab=anthropic" },
+    ],
+    footer,
+  },
 } as const satisfies Record<string, TemplateDefinition>;
 
 export type TemplateName = keyof typeof templates;
