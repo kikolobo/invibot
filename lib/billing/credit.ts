@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { events, payments } from "@/db/schema";
-import { stripeFromEnv } from "./stripe";
+import { modeOf, stripeFor } from "./stripe";
 
 const paymentFor = async (session: Stripe.Checkout.Session) =>
   db.query.payments.findFirst({ where: eq(payments.stripeSessionId, session.id) });
@@ -10,7 +10,7 @@ const paymentFor = async (session: Stripe.Checkout.Session) =>
 /** card, oxxo, customer_balance… — best effort, only for the record. */
 async function methodOf(session: Stripe.Checkout.Session): Promise<string | null> {
   const intent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
-  const stripe = stripeFromEnv();
+  const stripe = stripeFor(modeOf(session.livemode));
   if (!intent || !stripe) return null;
   try {
     const found = await stripe.paymentIntents.retrieve(intent, { expand: ["payment_method"] });
@@ -70,8 +70,6 @@ export async function closeSession(session: Stripe.Checkout.Session, status: "fa
  * payment the webhook already credited is left alone.
  */
 export async function reconcilePending(eventId: string): Promise<number> {
-  const stripe = stripeFromEnv();
-  if (!stripe) return 0;
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const pending = await db.query.payments.findMany({
     where: and(eq(payments.eventId, eventId), eq(payments.status, "pending"), gt(payments.createdAt, since)),
@@ -79,7 +77,9 @@ export async function reconcilePending(eventId: string): Promise<number> {
 
   let credited = 0;
   for (const payment of pending) {
-    if (!payment.stripeSessionId) continue;
+    // The keys that made it, whatever mode new payments use today.
+    const stripe = stripeFor(modeOf(payment.livemode));
+    if (!payment.stripeSessionId || !stripe) continue;
     try {
       const session = await stripe.checkout.sessions.retrieve(payment.stripeSessionId);
       if (session.payment_status === "paid") {

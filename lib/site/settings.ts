@@ -26,6 +26,9 @@ const DEFAULTS: SiteSettings = {
   freeSimulatorTurns: 20,
   stripeWebhookId: null,
   stripeWebhookSecret: null,
+  stripeTestWebhookId: null,
+  stripeTestWebhookSecret: null,
+  stripeMode: null,
   updatedAt: new Date(0),
   updatedByUserId: null,
 };

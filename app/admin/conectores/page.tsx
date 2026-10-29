@@ -200,9 +200,10 @@ export default async function Conectores() {
 
       {/* Stripe */}
       <Panel title="Stripe">
-        {stripe.mode === null ? (
+        {!stripe.configured[stripe.mode] ? (
           <p className="text-[0.9rem] text-ink-muted">
-            Falta STRIPE_SECRET_KEY en el entorno. Con eso, todo lo demás se configura desde aquí.
+            Faltan las llaves de Stripe para el modo {stripe.mode === "live" ? "Live" : "Sandbox"}, que es el que
+            está elegido en Configuración → Pagos.
           </p>
         ) : stripe.error ? (
           <p className="text-[0.9rem] text-danger">{stripe.error}</p>

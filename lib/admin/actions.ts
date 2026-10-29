@@ -7,9 +7,10 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { APIError } from "better-auth/api";
 import { db } from "@/db";
-import { events, organizations, promoCodes, users } from "@/db/schema";
+import { events, organizations, payments, promoCodes, users } from "@/db/schema";
+import { cancelPayment, recordManualPayment, refundPayment, type AdjustResult } from "@/lib/billing/adjust";
 import { generateCode, normalizeCode } from "@/lib/billing/promo";
-import { stripeFromEnv } from "@/lib/billing/stripe";
+import { activeStripe, configuredModes } from "@/lib/billing/stripe";
 import { STRIPE_EVENTS, STRIPE_METHODS, describe as describeStripe, webhookPath } from "@/lib/connectors/stripe";
 import { getSettings, saveSettings } from "@/lib/site/settings";
 import { auth } from "@/lib/auth";
@@ -554,60 +555,88 @@ export async function setEventLimit(_prev: AdminState, formData: FormData): Prom
   };
 }
 
-/** The settings page, all at once: one form, one save, one line in the log. */
+type SettingsChanges = Partial<Omit<Awaited<ReturnType<typeof getSettings>>, "id" | "updatedAt">>;
+
+/**
+ * One tab of the settings page at a time: each tab is its own form, and saves
+ * only the fields it shows — so saving prices cannot touch the signup code,
+ * and the log has one line per decision.
+ */
+async function readSection(
+  section: string,
+  formData: FormData,
+  before: Awaited<ReturnType<typeof getSettings>>,
+): Promise<SettingsChanges | { error: string }> {
+  if (section === "sitio") {
+    const signupMode = String(formData.get("signupMode") ?? "");
+    if (signupMode !== "passcode" && signupMode !== "open" && signupMode !== "closed") {
+      return { error: "Elige cómo se crean las cuentas." };
+    }
+    const passcode = String(formData.get("signupPasscode") ?? "").trim();
+    if (passcode && passcode.length < 6) {
+      return { error: "El código necesita al menos 6 caracteres: es lo único entre un extraño y una cuenta." };
+    }
+    const signupPasscode = passcode || before.signupPasscode;
+    if (signupMode === "passcode" && !(signupPasscode || process.env.SIGNUP_PASSCODE?.trim())) {
+      return { error: "Para registro con código, escribe un código." };
+    }
+    return {
+      signupMode,
+      signupPasscode,
+      maintenance: formData.get("maintenance") === "on",
+      maintenanceMessage: String(formData.get("maintenanceMessage") ?? "").trim() || null,
+    };
+  }
+
+  if (section === "pagos") {
+    const pesos = Number(String(formData.get("pricePerGuest") ?? "").trim());
+    if (!Number.isFinite(pesos) || pesos < 0 || pesos > 10_000) {
+      return { error: "El precio por invitado es un número en pesos, como 10 o 12.50." };
+    }
+    const minimumSlots = readLimit(formData, "minimumSlots");
+    const freeSimulatorTurns = readLimit(formData, "freeSimulatorTurns");
+    if (isError(minimumSlots)) return minimumSlots;
+    if (isError(freeSimulatorTurns)) return freeSimulatorTurns;
+    const stripeMode = String(formData.get("stripeMode") ?? "");
+    if (stripeMode !== "test" && stripeMode !== "live") return { error: "Elige el modo de cobro." };
+    if (!configuredModes()[stripeMode]) {
+      return {
+        error: `No hay llaves de Stripe para ${stripeMode === "live" ? "Live" : "Sandbox"} en este entorno. Agrégalas primero.`,
+      };
+    }
+    return {
+      pricePerGuestMinor: Math.round(pesos * 100),
+      minimumSlots: minimumSlots ?? 1,
+      freeSimulatorTurns: freeSimulatorTurns ?? 0,
+      stripeMode,
+    };
+  }
+
+  if (section === "limites") {
+    const defaultMaxEvents = readLimit(formData, "defaultMaxEvents");
+    const defaultMaxGuestsPerEvent = readLimit(formData, "defaultMaxGuestsPerEvent");
+    if (isError(defaultMaxEvents)) return defaultMaxEvents;
+    if (isError(defaultMaxGuestsPerEvent)) return defaultMaxGuestsPerEvent;
+    return { defaultMaxEvents, defaultMaxGuestsPerEvent };
+  }
+
+  return { error: "Esa sección no existe." };
+}
+
 export async function updateSettings(_prev: AdminState, formData: FormData): Promise<AdminState> {
   const staff = await requireAdmin();
   const before = await getSettings();
 
-  const signupMode = String(formData.get("signupMode") ?? "");
-  if (signupMode !== "passcode" && signupMode !== "open" && signupMode !== "closed") {
-    return { error: "Elige cómo se crean las cuentas." };
-  }
-  const passcode = String(formData.get("signupPasscode") ?? "").trim();
-  if (passcode && passcode.length < 6) {
-    return { error: "El código necesita al menos 6 caracteres: es lo único entre un extraño y una cuenta." };
-  }
-  const nextPasscode = passcode || before.signupPasscode;
-  if (signupMode === "passcode" && !(nextPasscode || process.env.SIGNUP_PASSCODE?.trim())) {
-    return { error: "Para registro con código, escribe un código." };
-  }
+  const after = await readSection(String(formData.get("section") ?? ""), formData, before);
+  if ("error" in after && typeof after.error === "string") return { error: after.error };
+  const changes = after as SettingsChanges;
 
-  const defaultMaxEvents = readLimit(formData, "defaultMaxEvents");
-  const defaultMaxGuestsPerEvent = readLimit(formData, "defaultMaxGuestsPerEvent");
-  if (isError(defaultMaxEvents)) return defaultMaxEvents;
-  if (isError(defaultMaxGuestsPerEvent)) return defaultMaxGuestsPerEvent;
-
-  const pesos = Number(String(formData.get("pricePerGuest") ?? "").trim());
-  if (!Number.isFinite(pesos) || pesos < 0 || pesos > 10_000) {
-    return { error: "El precio por invitado es un número en pesos, como 10 o 12.50." };
-  }
-  const pricePerGuestMinor = Math.round(pesos * 100);
-  const minimumSlots = readLimit(formData, "minimumSlots");
-  const freeSimulatorTurns = readLimit(formData, "freeSimulatorTurns");
-  if (isError(minimumSlots)) return minimumSlots;
-  if (isError(freeSimulatorTurns)) return freeSimulatorTurns;
-
-  const maintenance = formData.get("maintenance") === "on";
-  const maintenanceMessage = String(formData.get("maintenanceMessage") ?? "").trim() || null;
-
-  const after = {
-    signupMode,
-    signupPasscode: nextPasscode,
-    maintenance,
-    maintenanceMessage,
-    defaultMaxEvents,
-    defaultMaxGuestsPerEvent,
-    pricePerGuestMinor,
-    minimumSlots: minimumSlots ?? 1,
-    freeSimulatorTurns: freeSimulatorTurns ?? 0,
-  } as const;
-
-  const failed = await attempt(() => saveSettings(after, staff.userId));
+  const failed = await attempt(() => saveSettings(changes, staff.userId));
   if (failed) return { error: failed };
 
   // The log names what changed; the code itself is only ever "changed".
   const changed = Object.fromEntries(
-    Object.entries(after)
+    Object.entries(changes)
       .filter(([key, value]) => before[key as keyof typeof before] !== value)
       .map(([key, value]) => [key, key === "signupPasscode" ? "(cambió)" : value]),
   );
@@ -616,7 +645,8 @@ export async function updateSettings(_prev: AdminState, formData: FormData): Pro
   }
 
   revalidatePath("/admin", "layout");
-  return { ok: "Configuración guardada." };
+  revalidatePath("/");
+  return { ok: "Guardado." };
 }
 
 /** "Cortesía": every event this account owns sends without paying. */
@@ -738,8 +768,11 @@ export async function setPromoActive(_prev: AdminState, formData: FormData): Pro
  */
 export async function setupStripeWebhook(): Promise<AdminState> {
   const staff = await requireAdmin();
-  const stripe = stripeFromEnv();
-  if (!stripe) return { error: "Primero pon STRIPE_SECRET_KEY en el entorno." };
+  // For the mode in use: the sandbox and the live account each need their own
+  // endpoint, and each signs with its own secret.
+  const active = await activeStripe();
+  if (!active) return { error: "Faltan las llaves de Stripe para el modo de cobro elegido." };
+  const { stripe, mode } = active;
 
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
@@ -750,12 +783,14 @@ export async function setupStripeWebhook(): Promise<AdminState> {
   }
   const url = `https://${host}${webhookPath}`;
   const settings = await getSettings();
+  const storedId = mode === "live" ? settings.stripeWebhookId : settings.stripeTestWebhookId;
+  const storedSecret = mode === "live" ? settings.stripeWebhookSecret : settings.stripeTestWebhookSecret;
 
   try {
     const existing = (await stripe.webhookEndpoints.list({ limit: 100 })).data.find(
-      (endpoint) => endpoint.url === url || endpoint.id === settings.stripeWebhookId,
+      (endpoint) => endpoint.url === url || endpoint.id === storedId,
     );
-    if (existing && existing.id === settings.stripeWebhookId && settings.stripeWebhookSecret) {
+    if (existing && existing.id === storedId && storedSecret) {
       await stripe.webhookEndpoints.update(existing.id, { url, enabled_events: STRIPE_EVENTS, disabled: false });
       await audit({ actorUserId: staff.userId, target: null, action: "connector", detail: { stripe: "webhook_updated", url } });
       revalidatePath("/admin/conectores");
@@ -768,7 +803,12 @@ export async function setupStripeWebhook(): Promise<AdminState> {
       enabled_events: STRIPE_EVENTS,
       description: "Invibot: lugares pagados",
     });
-    await saveSettings({ stripeWebhookId: created.id, stripeWebhookSecret: created.secret ?? null }, staff.userId);
+    await saveSettings(
+      mode === "live"
+        ? { stripeWebhookId: created.id, stripeWebhookSecret: created.secret ?? null }
+        : { stripeTestWebhookId: created.id, stripeTestWebhookSecret: created.secret ?? null },
+      staff.userId,
+    );
     await audit({ actorUserId: staff.userId, target: null, action: "connector", detail: { stripe: "webhook_created", url } });
   } catch (error) {
     return { error: describeStripe(error) };
@@ -781,8 +821,9 @@ export async function setupStripeWebhook(): Promise<AdminState> {
 /** Turns one payment method on or off in the configuration Checkout uses. */
 export async function setStripeMethod(_prev: AdminState, formData: FormData): Promise<AdminState> {
   const staff = await requireAdmin();
-  const stripe = stripeFromEnv();
-  if (!stripe) return { error: "Stripe no está configurado." };
+  const active = await activeStripe();
+  if (!active) return { error: "Stripe no está configurado." };
+  const { stripe } = active;
 
   const method = String(formData.get("method") ?? "");
   if (!STRIPE_METHODS.some((m) => m.key === method)) return { error: "Ese método no existe." };
@@ -800,4 +841,90 @@ export async function setStripeMethod(_prev: AdminState, formData: FormData): Pr
   await audit({ actorUserId: staff.userId, target: null, action: "connector", detail: { stripe: "method", method, on } });
   revalidatePath("/admin/conectores");
   return { ok: on ? "Activado." : "Desactivado." };
+}
+
+/** A payment that came in outside Stripe — a direct transfer, cash — with its places. */
+export async function recordPayment(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const found = await eventTarget(formData);
+  if ("error" in found) return { error: found.error };
+  const { staff, event, ownerId, ownerEmail } = found;
+
+  const slots = Math.floor(Number(formData.get("slots")));
+  if (!Number.isFinite(slots) || slots < 1 || slots > 5000) return { error: "Los lugares van de 1 a 5,000." };
+  const pesos = Number(String(formData.get("amount") ?? "0").trim() || "0");
+  if (!Number.isFinite(pesos) || pesos < 0) return { error: "El monto es un número en pesos (0 si no hubo cobro)." };
+  const note = String(formData.get("note") ?? "").trim();
+  if (!note) return { error: "Escribe de dónde vino el pago. Queda en el historial." };
+
+  const settings = await getSettings();
+  let payment: Awaited<ReturnType<typeof recordManualPayment>> | null = null;
+  const failed = await attempt(async () => {
+    payment = await recordManualPayment({
+      eventId: event.id,
+      slots,
+      amountMinor: Math.round(pesos * 100),
+      currency: settings.currency,
+      note,
+      byUserId: staff.userId,
+    });
+  });
+  if (failed || !payment) return { error: failed ?? "No se pudo registrar." };
+
+  await audit({
+    actorUserId: staff.userId,
+    target: { id: ownerId, email: ownerEmail },
+    action: "payment_manual",
+    detail: { eventId: event.id, eventName: event.name, slots, amount: pesos, reason: note },
+  });
+  refreshEvent(event.id, ownerId);
+  return { ok: `Registrado: ${slots} lugares pagados.` };
+}
+
+/** Refunds through Stripe, or cancels without moving money — either way the places come off. */
+export async function adjustPayment(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const staff = await requireAdmin();
+  const paymentId = String(formData.get("paymentId") ?? "");
+  const mode = String(formData.get("mode") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { error: "Escribe el motivo. Queda en el historial." };
+  if (!confirmed(formData)) return { error: "Marca la casilla para confirmar." };
+
+  const [row] = await db
+    .select({ payment: payments, ownerId: users.id, ownerEmail: users.email, eventName: events.name })
+    .from(payments)
+    .innerJoin(events, eq(events.id, payments.eventId))
+    .innerJoin(organizations, eq(organizations.id, events.orgId))
+    .innerJoin(users, eq(users.id, organizations.ownerUserId))
+    .where(eq(payments.id, paymentId));
+  if (!row) return { error: "Ese pago ya no existe." };
+
+  // Held in an object: TypeScript does not follow assignments made inside the
+  // callback, and would otherwise narrow this to its initial value.
+  const outcome: { result?: AdjustResult } = {};
+  const failed = await attempt(async () => {
+    outcome.result =
+      mode === "refund"
+        ? await refundPayment(row.payment, reason, staff.userId)
+        : await cancelPayment(row.payment, reason, staff.userId);
+  });
+  if (failed) return { error: failed };
+  const result = outcome.result;
+  if (!result) return { error: "No se pudo." };
+  if (!result.ok) return { error: result.error };
+
+  await audit({
+    actorUserId: staff.userId,
+    target: { id: row.ownerId, email: row.ownerEmail },
+    action: mode === "refund" ? "payment_refund" : "payment_cancel",
+    detail: {
+      eventId: row.payment.eventId,
+      eventName: row.eventName,
+      slots: row.payment.slots,
+      amountMinor: row.payment.amountMinor,
+      reason,
+    },
+  });
+  refreshEvent(row.payment.eventId, row.ownerId);
+  revalidatePath("/admin/pagos");
+  return { ok: result.message };
 }

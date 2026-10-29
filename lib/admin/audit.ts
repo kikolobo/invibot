@@ -22,7 +22,10 @@ export type AuditAction =
   | "gift_slots"
   | "promo_create"
   | "promo_toggle"
-  | "connector";
+  | "connector"
+  | "payment_manual"
+  | "payment_refund"
+  | "payment_cancel";
 
 export const auditLabels: Record<AuditAction, string> = {
   create: "Creó la cuenta",
@@ -46,6 +49,9 @@ export const auditLabels: Record<AuditAction, string> = {
   promo_create: "Creó un código de cortesía",
   promo_toggle: "Cambió un código de cortesía",
   connector: "Cambió un conector",
+  payment_manual: "Registró un pago manual",
+  payment_refund: "Reembolsó un pago",
+  payment_cancel: "Canceló un pago",
 };
 
 /**

@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/auth/session";
 import { roleLabels } from "@/lib/auth/permissions";
 import { SignOutButton } from "@/app/eventos/sign-out-button";
 import { getSettings } from "@/lib/site/settings";
+import { activeMode } from "@/lib/billing/stripe";
 
 export const metadata = { title: { template: "%s · Admin Invibot", default: "Admin Invibot" } };
 
@@ -14,6 +15,10 @@ export const metadata = { title: { template: "%s · Admin Invibot", default: "Ad
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { email, name, role } = await requireStaff();
   const settings = await getSettings();
+  // On the real site, sandbox payments mean anyone with a test card gets
+  // real places for free — worth a banner nobody can miss.
+  const sandboxOnProduction =
+    process.env.VERCEL_ENV === "production" && (await activeMode()) === "test";
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-paper text-ink">
@@ -62,6 +67,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <SignOutButton />
         </div>
       </header>
+      {sandboxOnProduction && (
+        <Link
+          href="/admin/configuracion?tab=pagos"
+          className="block bg-danger px-6 py-2 text-center text-[0.88rem] text-paper"
+        >
+          Cobro en modo Sandbox en el sitio real: los pagos son de prueba y dan lugares gratis. Cámbialo a Live.
+        </Link>
+      )}
       {settings.maintenance && (
         <Link
           href="/admin/configuracion"

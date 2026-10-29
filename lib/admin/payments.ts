@@ -11,7 +11,7 @@ export async function listPayments({ filter, page }: { filter: PaymentFilter; pa
     all: undefined,
     paid: eq(payments.status, "paid"),
     pending: eq(payments.status, "pending"),
-    closed: sql`${payments.status} in ('failed', 'expired')`,
+    closed: sql`${payments.status} in ('failed', 'expired', 'refunded', 'canceled')`,
   }[filter];
 
   return db
@@ -53,7 +53,9 @@ export async function salesStats() {
       coalesce(sum(amount_minor) filter (where status = 'pending' and stripe_session_id is not null), 0)::bigint::float8 as "pendingAmount",
       count(distinct user_id) filter (where status = 'paid')::int as customers,
       max(currency) as currency
-    from payments
+    -- Real money only: sandbox payments are play money. Manual payments
+    -- recorded by staff count, since they are real money that came in another way.
+    from payments where livemode or method = 'manual'
   `)) as unknown as {
     revenue: number;
     revenue30: number;

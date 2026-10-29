@@ -9,7 +9,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { can, eventAccess } from "@/lib/events/access";
 import { getSettings } from "@/lib/site/settings";
 import { quote, slotStatus } from "./slots";
-import { stripeFromEnv } from "./stripe";
+import { activeStripe, modeOf, stripeFor } from "./stripe";
 import { redeemCode } from "./promo";
 import { creditSession, markAwaiting } from "./credit";
 import { revalidatePath } from "next/cache";
@@ -43,8 +43,9 @@ async function openCheckout(
 ): Promise<Opened> {
   const { userId, email } = await requireOrg();
 
-  const stripe = stripeFromEnv();
-  if (!stripe) return { error: "Los pagos todavía no están configurados. Escríbenos." };
+  const active = await activeStripe();
+  if (!active) return { error: "Los pagos todavía no están configurados. Escríbenos." };
+  const stripe = active.stripe;
   if (!Number.isFinite(requested) || requested < 1 || requested > 5000) {
     return { error: "Escribe cuántos lugares quieres, de 1 a 5,000." };
   }
@@ -75,6 +76,7 @@ async function openCheckout(
       unitAmountMinor: price.unitAmountMinor,
       amountMinor: price.amountMinor,
       currency: price.currency,
+      livemode: active.mode === "live",
     })
     .returning();
 
@@ -173,7 +175,7 @@ export async function settlePayment(
   if (!payment || payment.eventId !== eventId || !payment.stripeSessionId) return { paid: false, waiting: false };
   if (payment.status === "paid") return { paid: true, waiting: false };
 
-  const stripe = stripeFromEnv();
+  const stripe = stripeFor(modeOf(payment.livemode));
   if (!stripe) return { paid: false, waiting: false };
   try {
     const session = await stripe.checkout.sessions.retrieve(payment.stripeSessionId);

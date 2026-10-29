@@ -95,6 +95,14 @@ export const siteSettings = pgTable("site_settings", {
    */
   stripeWebhookId: text("stripe_webhook_id"),
   stripeWebhookSecret: text("stripe_webhook_secret"),
+  /** The same, for the sandbox. The two above are the live account's. */
+  stripeTestWebhookId: text("stripe_test_webhook_id"),
+  stripeTestWebhookSecret: text("stripe_test_webhook_secret"),
+  /**
+   * Which Stripe takes new payments: `test` (sandbox) or `live`. Null until
+   * someone chooses, which means live when its keys exist, else the sandbox.
+   */
+  stripeMode: text("stripe_mode").$type<"test" | "live">(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: text("updated_by_user_id"),
 });
@@ -117,12 +125,30 @@ export const payments = pgTable(
     unitAmountMinor: integer("unit_amount_minor").notNull(),
     amountMinor: integer("amount_minor").notNull(),
     currency: text("currency").notNull(),
-    /** `pending` until Stripe says otherwise; OXXO and SPEI stay here for days. */
-    status: text("status").$type<"pending" | "paid" | "failed" | "expired">().notNull().default("pending"),
+    /**
+     * `pending` until Stripe says otherwise; OXXO and SPEI stay here for days.
+     * `refunded` and `canceled` are staff decisions after the fact; both take
+     * the payment's places back off the event.
+     */
+    status: text("status")
+      .$type<"pending" | "paid" | "failed" | "expired" | "refunded" | "canceled">()
+      .notNull()
+      .default("pending"),
     stripeSessionId: text("stripe_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
-    /** card, oxxo, customer_balance… as Stripe reports it once paid. */
+    /**
+     * Which Stripe this went through. Test payments are play money: kept out
+     * of the sales figures, and refunded with the sandbox's keys.
+     */
+    livemode: boolean("livemode").notNull().default(false),
+    /** card, oxxo, customer_balance… as Stripe reports it once paid; `manual` for one staff recorded. */
     method: text("method"),
+    /** What staff wrote: why a manual payment exists, or why one was cancelled. */
+    note: text("note"),
+    stripeRefundId: text("stripe_refund_id"),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    canceledByUserId: text("canceled_by_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
   },

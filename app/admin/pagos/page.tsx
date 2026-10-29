@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth/session";
 import { listPayments, salesStats, type PaymentFilter } from "@/lib/admin/payments";
-import { stripeMode } from "@/lib/billing/stripe";
+import { activeMode, configuredModes } from "@/lib/billing/stripe";
 import { formatDate } from "../format";
 import { Breakdown, Panel, Stat, StatGrid, formatMoney, formatNumber, paymentMethodLabels, paymentStatusLabels } from "../ui";
 
@@ -11,7 +11,7 @@ const FILTERS: { value: PaymentFilter; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "paid", label: "Pagados" },
   { value: "pending", label: "Esperando" },
-  { value: "closed", label: "Fallidos o vencidos" },
+  { value: "closed", label: "Cancelados, reembolsados o vencidos" },
 ];
 
 const isFilter = (value: unknown): value is PaymentFilter => FILTERS.some((f) => f.value === value);
@@ -28,18 +28,19 @@ export default async function Pagos({
 
   const [{ sales }, rows] = await Promise.all([salesStats(), listPayments({ filter, page })]);
   const currency = sales.currency ?? "MXN";
-  const mode = stripeMode();
+  const mode = await activeMode();
+  const ready = configuredModes()[mode];
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-6 py-12 sm:px-10">
       <div>
         <h1 className="font-display text-4xl text-ink sm:text-5xl">Pagos</h1>
         <p className="mt-3 text-ink-soft">
-          {mode === null
-            ? "Stripe no está configurado en este entorno: falta STRIPE_SECRET_KEY."
+          {!ready
+            ? `Faltan las llaves de Stripe para el modo ${mode === "live" ? "Live" : "Sandbox"}. Ve a Configuración → Pagos.`
             : mode === "test"
-              ? "Stripe en modo de prueba: nada de esto es dinero real."
-              : "Stripe en modo real."}
+              ? "Cobrando en Sandbox: los pagos son de prueba y no cuentan en las ventas."
+              : "Cobrando en Live: dinero real."}
         </p>
       </div>
 

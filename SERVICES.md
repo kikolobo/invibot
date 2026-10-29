@@ -379,12 +379,15 @@ Organizers buy guest places per event (`/eventos/[id]/pago`); everything else
 is free. Checkout Sessions in `lib/billing/actions.ts`, credited only by the
 webhook in `app/api/stripe/webhook/route.ts`.
 
-- **Env:** `STRIPE_SECRET_KEY` (a restricted `rk_` key), `STRIPE_PUBLISHABLE_KEY`
-  (`pk_` of the same mode) and, locally only, `STRIPE_WEBHOOK_SECRET` from
-  `stripe listen`. In production the webhook secret is created from Admin →
-  Conectores and kept in `site_settings`. Without the secret key the pay button
-  says payments are not active; without the publishable key payment falls back
-  from the in-page window to Stripe's hosted page.
+- **Env, one set per mode:** `STRIPE_TEST_SECRET_KEY` / `STRIPE_TEST_PUBLISHABLE_KEY`
+  (sandbox) and `STRIPE_LIVE_SECRET_KEY` / `STRIPE_LIVE_PUBLISHABLE_KEY` (real).
+  Admin → Configuración → Pagos chooses which takes new payments; each payment
+  remembers its mode (`payments.livemode`) and is refunded with its own keys.
+  The older single `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` still work,
+  filed under the mode their prefix says. Locally, `STRIPE_TEST_WEBHOOK_SECRET`
+  (or `STRIPE_WEBHOOK_SECRET`) holds the `whsec_` from `stripe listen`; in
+  production each mode's webhook is created from Admin → Conectores and its
+  secret kept in `site_settings`.
 - **Webhook endpoint:** `https://www.invibot.com/api/stripe/webhook`, with the
   events `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
   `checkout.session.async_payment_failed` and `checkout.session.expired`.

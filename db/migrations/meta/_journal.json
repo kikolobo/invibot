@@ -351,6 +351,20 @@
       "when": 1793311717979,
       "tag": "0049_stripe_webhook",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793315770368,
+      "tag": "0050_payment_adjustments",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793315956402,
+      "tag": "0051_stripe_modes",
+      "breakpoints": true
     }
   ]
 }

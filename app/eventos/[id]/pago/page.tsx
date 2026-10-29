@@ -28,9 +28,12 @@ const statusText = {
   paid: "Pagado",
   failed: "No se completó",
   expired: "Venció",
+  refunded: "Reembolsado",
+  canceled: "Cancelado",
 } as const;
 
 const methodText: Record<string, string> = {
+  manual: "Registrado por Invibot",
   card: "Tarjeta",
   oxxo: "OXXO",
   customer_balance: "Transferencia SPEI",
@@ -66,7 +69,13 @@ export default async function Pago({
       .where(
         and(
           eq(payments.eventId, id),
-          or(eq(payments.status, "paid"), and(eq(payments.status, "pending"), isNotNull(payments.method))),
+          or(
+            eq(payments.status, "paid"),
+            // A refund or cancellation took places back; the organizer should see why.
+            eq(payments.status, "refunded"),
+            eq(payments.status, "canceled"),
+            and(eq(payments.status, "pending"), isNotNull(payments.method)),
+          ),
         ),
       )
       .orderBy(desc(payments.createdAt))

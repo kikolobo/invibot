@@ -1,6 +1,6 @@
 import { getSettings } from "@/lib/site/settings";
 import { slotStatus } from "./slots";
-import { stripeFromEnv, stripePublishableKey } from "./stripe";
+import { activePublishableKey, activeStripe } from "./stripe";
 
 /** Everything a pay control needs to draw itself, wherever it appears. */
 export type PaymentOffer = {
@@ -31,7 +31,7 @@ export async function paymentOffer(eventId: string, needed?: number): Promise<Pa
     unitAmountMinor: settings.pricePerGuestMinor,
     minimumSlots: settings.minimumSlots,
     currency: settings.currency,
-    publishableKey: stripePublishableKey(),
-    configured: stripeFromEnv() !== null,
+    publishableKey: await activePublishableKey(),
+    configured: (await activeStripe()) !== null,
   };
 }

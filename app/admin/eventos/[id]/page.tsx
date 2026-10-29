@@ -2,7 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaff } from "@/lib/auth/session";
 import { eventStateLabels, eventStateOf, getEventDetail } from "@/lib/admin/events";
-import { giftSlots, impersonateUser, setEventLimit, suspendEvent, unsuspendEvent } from "@/lib/admin/actions";
+import {
+  adjustPayment,
+  giftSlots,
+  impersonateUser,
+  recordPayment,
+  setEventLimit,
+  suspendEvent,
+  unsuspendEvent,
+} from "@/lib/admin/actions";
 import { statusLabels as broadcastStatusLabels, type BroadcastStatus } from "@/lib/broadcasts/labels";
 import { formatPhone } from "@/lib/phone";
 import { AdminForm, Field } from "../../admin-form";
@@ -130,33 +138,91 @@ export default async function Evento({ params }: { params: Promise<{ id: string 
           </StatGrid>
         )}
         {detail.purchases.length > 0 && (
-          <div className="mt-6">
-            <Breakdown
-              head={["Compra", "Lugares", "Monto", "Estado"]}
-              rows={detail.purchases.map((payment) => [
-                formatDate(payment.paidAt ?? payment.createdAt),
-                payment.slots,
-                formatMoney(payment.amountMinor, payment.currency),
-                `${paymentStatusLabels[payment.status] ?? payment.status}${
-                  payment.method ? ` · ${paymentMethodLabels[payment.method] ?? payment.method}` : ""
-                }`,
-              ])}
-            />
-          </div>
+          <ul className="mt-6 divide-y divide-line rounded-xl border border-line">
+            {detail.purchases.map((payment) => {
+              const fromStripe = payment.method !== "manual" && Boolean(payment.stripePaymentIntentId);
+              const active = payment.status === "paid" || payment.status === "pending";
+              return (
+                <li key={payment.id} className="px-4 py-3 text-[0.9rem]">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-ink">
+                      {payment.slots} lugares · {formatMoney(payment.amountMinor, payment.currency)}
+                      <span className="block text-[0.8rem] text-ink-muted">
+                        {formatDate(payment.paidAt ?? payment.createdAt)}
+                        {payment.method && ` · ${paymentMethodLabels[payment.method] ?? payment.method}`}
+                        {payment.note && ` · ${payment.note}`}
+                      </span>
+                    </span>
+                    <span className={payment.status === "paid" ? "text-ink-soft" : "text-ink-muted"}>
+                      {paymentStatusLabels[payment.status] ?? payment.status}
+                    </span>
+                  </div>
+                  {isAdmin && active && (
+                    // Folded away: these move money and places, and should take
+                    // a deliberate click to reach.
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-[0.82rem] text-ink-muted hover:text-accent">
+                        {payment.status === "paid" ? "Cancelar o reembolsar" : "Cancelar"}
+                      </summary>
+                      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        {payment.status === "paid" && fromStripe && (
+                          <AdminForm
+                            action={adjustPayment}
+                            submit="Reembolsar y cancelar"
+                            busy="Reembolsando…"
+                            tone="danger"
+                            confirm={`Devolver ${formatMoney(payment.amountMinor, payment.currency)} por Stripe y quitar ${payment.slots} lugares.`}
+                            className="space-y-3"
+                          >
+                            <input type="hidden" name="paymentId" value={payment.id} />
+                            <input type="hidden" name="mode" value="refund" />
+                            <Field label="Motivo" name="reason" required />
+                          </AdminForm>
+                        )}
+                        <AdminForm
+                          action={adjustPayment}
+                          submit={payment.status === "paid" ? "Cancelar sin reembolso" : "Cancelar pago pendiente"}
+                          busy="Cancelando…"
+                          tone="quiet"
+                          confirm={
+                            payment.status === "paid"
+                              ? `Quitar ${payment.slots} lugares sin devolver dinero${fromStripe ? "" : " (si hubo, devuélvelo por donde llegó)"}.`
+                              : "Su ficha de OXXO o liga de pago deja de servir."
+                          }
+                          className="space-y-3"
+                        >
+                          <input type="hidden" name="paymentId" value={payment.id} />
+                          <input type="hidden" name="mode" value="cancel" />
+                          <Field label="Motivo" name="reason" required />
+                        </AdminForm>
+                      </div>
+                    </details>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
         {isAdmin && (
-          <AdminForm action={giftSlots} submit="Regalar lugares" className="mt-6 max-w-sm space-y-4">
-            <input type="hidden" name="eventId" value={event.id} />
-            <Field
-              label="Lugares"
-              name="slots"
-              type="number"
-              inputMode="numeric"
-              required
-              hint="Un número negativo quita lugares de regalo que no se hayan usado."
-            />
-            <Field label="Motivo" name="reason" required hint="Queda en el historial." />
-          </AdminForm>
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <AdminForm action={recordPayment} submit="Registrar pago" className="space-y-3 rounded-xl border border-line p-5">
+              <p className="font-display text-lg text-ink">Pago fuera de Stripe</p>
+              <p className="text-[0.82rem] text-ink-muted">Una transferencia directa o efectivo: suma lugares pagados.</p>
+              <input type="hidden" name="eventId" value={event.id} />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Lugares" name="slots" type="number" min={1} inputMode="numeric" required />
+                <Field label="Monto (MXN)" name="amount" type="number" min={0} step="0.01" inputMode="decimal" required />
+              </div>
+              <Field label="De dónde vino" name="note" required placeholder="Transferencia BBVA del 30 de octubre" />
+            </AdminForm>
+            <AdminForm action={giftSlots} submit="Guardar" className="space-y-3 rounded-xl border border-line p-5">
+              <p className="font-display text-lg text-ink">Lugares de cortesía</p>
+              <p className="text-[0.82rem] text-ink-muted">Positivo para regalar, negativo para quitar los que no se hayan usado.</p>
+              <input type="hidden" name="eventId" value={event.id} />
+              <Field label="Lugares" name="slots" type="number" inputMode="numeric" required />
+              <Field label="Motivo" name="reason" required hint="Queda en el historial." />
+            </AdminForm>
+          </div>
         )}
       </Panel>
 

@@ -129,9 +129,12 @@ export const paymentStatusLabels: Record<string, string> = {
   paid: "Pagado",
   failed: "No se completó",
   expired: "Venció",
+  refunded: "Reembolsado",
+  canceled: "Cancelado",
 };
 
 export const paymentMethodLabels: Record<string, string> = {
+  manual: "Manual",
   card: "Tarjeta",
   oxxo: "OXXO",
   customer_balance: "SPEI",

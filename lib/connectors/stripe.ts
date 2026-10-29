@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { getSettings } from "@/lib/site/settings";
-import { stripeFromEnv, stripeMode } from "@/lib/billing/stripe";
+import { activeMode, configuredModes, stripeFor, stripeKeys, type StripeMode } from "@/lib/billing/stripe";
 
 /** What the webhook must hear about. Anything else is noise. */
 export const STRIPE_EVENTS: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = [
@@ -8,6 +8,8 @@ export const STRIPE_EVENTS: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = 
   "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed",
   "checkout.session.expired",
+  // A refund made from Stripe's dashboard takes the places back here too.
+  "charge.refunded",
 ];
 
 /** The payment methods a Mexican buyer looks for, in the order shown. */
@@ -21,7 +23,11 @@ export type StripeMethod = (typeof STRIPE_METHODS)[number]["key"];
 export const webhookPath = "/api/stripe/webhook";
 
 export type StripeConnector = {
-  mode: "live" | "test" | null;
+  /** The mode new payments use, and which modes have keys at all. */
+  mode: StripeMode;
+  configured: Record<StripeMode, boolean>;
+  /** Whether the active mode can open the in-page window. */
+  publishable: boolean;
   error?: string;
   account?: {
     id: string;
@@ -53,12 +59,16 @@ export type StripeConnector = {
  * its own: a key without balance permission still shows the account.
  */
 export async function stripeConnector(): Promise<StripeConnector> {
-  const stripe = stripeFromEnv();
-  const mode = stripeMode();
-  if (!stripe) return { mode };
+  const mode = await activeMode();
+  const configured = configuredModes();
+  const result: StripeConnector = { mode, configured, publishable: Boolean(stripeKeys(mode).publishable) };
+  // Everything below is about the active mode's account.
+  const stripe = stripeFor(mode);
+  if (!stripe) return result;
 
   const settings = await getSettings();
-  const result: StripeConnector = { mode };
+  const storedId = mode === "live" ? settings.stripeWebhookId : settings.stripeTestWebhookId;
+  const storedSecret = mode === "live" ? settings.stripeWebhookSecret : settings.stripeTestWebhookSecret;
 
   try {
     const account = await stripe.accounts.retrieveCurrent();
@@ -97,7 +107,7 @@ export async function stripeConnector(): Promise<StripeConnector> {
   if (webhooks.status === "fulfilled") {
     const all = webhooks.value.data;
     const ours =
-      all.find((endpoint) => endpoint.id === settings.stripeWebhookId) ??
+      all.find((endpoint) => endpoint.id === storedId) ??
       all.find((endpoint) => endpoint.url.endsWith(webhookPath));
     result.webhook = ours
       ? {
@@ -107,7 +117,7 @@ export async function stripeConnector(): Promise<StripeConnector> {
           missingEvents: ours.enabled_events.includes("*")
             ? []
             : STRIPE_EVENTS.filter((event) => !ours.enabled_events.includes(event)),
-          secretStored: Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim() || (settings.stripeWebhookId === ours.id && settings.stripeWebhookSecret)),
+          secretStored: Boolean(stripeKeys(mode).webhookSecret || (storedId === ours.id && storedSecret)),
         }
       : null;
     result.otherWebhooks = all.filter((endpoint) => endpoint.id !== ours?.id).map((endpoint) => endpoint.url);

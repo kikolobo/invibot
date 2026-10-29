@@ -1,8 +1,9 @@
 import type Stripe from "stripe";
 import { revalidatePath } from "next/cache";
-import { stripeFromEnv } from "@/lib/billing/stripe";
+import { stripeFor, stripeKeys, type StripeMode } from "@/lib/billing/stripe";
 import { closeSession, creditSession, markAwaiting } from "@/lib/billing/credit";
 import { getSettings } from "@/lib/site/settings";
+import { syncRefundFromStripe } from "@/lib/billing/adjust";
 
 /**
  * Stripe telling us how a payment went. The signature is checked against the
@@ -16,21 +17,34 @@ import { getSettings } from "@/lib/site/settings";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const stripe = stripeFromEnv();
-  // The variable wins; otherwise the secret Stripe returned when the admin
-  // created this endpoint from Conectores.
-  const secret =
-    process.env.STRIPE_WEBHOOK_SECRET?.trim() || (await getSettings()).stripeWebhookSecret || undefined;
-  if (!stripe || !secret) return new Response("Not configured", { status: 503 });
+  // The sandbox and the live account each sign with their own secret, and
+  // both may be pointed here at once. Each secret is tried until one checks
+  // out: an event is believed only if one of ours signed it.
+  const settings = await getSettings();
+  const candidates: { mode: StripeMode; secret: string }[] = [];
+  for (const mode of ["live", "test"] as const) {
+    const stored = mode === "live" ? settings.stripeWebhookSecret : settings.stripeTestWebhookSecret;
+    for (const secret of [stripeKeys(mode).webhookSecret, stored]) {
+      if (secret && stripeFor(mode)) candidates.push({ mode, secret });
+    }
+  }
+  if (!candidates.length) return new Response("Not configured", { status: 503 });
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) return new Response("Missing signature", { status: 400 });
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(await request.text(), signature, secret);
-  } catch (error) {
-    console.error("[stripe] bad signature", error);
+  const body = await request.text();
+  let event: Stripe.Event | null = null;
+  for (const { mode, secret } of candidates) {
+    try {
+      event = stripeFor(mode)!.webhooks.constructEvent(body, signature, secret);
+      break;
+    } catch {
+      // Not this one; try the next.
+    }
+  }
+  if (!event) {
+    console.error("[stripe] no secret matched the signature");
     return new Response("Bad signature", { status: 400 });
   }
 
@@ -53,6 +67,9 @@ export async function POST(request: Request) {
         break;
       case "checkout.session.expired":
         await closeSession(event.data.object, "expired");
+        break;
+      case "charge.refunded":
+        await syncRefundFromStripe(event.data.object);
         break;
     }
   } catch (error) {
