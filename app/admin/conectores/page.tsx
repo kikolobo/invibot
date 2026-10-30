@@ -36,8 +36,23 @@ const templateStatus: Record<string, string> = {
   PENDING: "En revisión",
   REJECTED: "Rechazada",
   PAUSED: "Pausada",
+  IN_APPEAL: "En apelación",
   DISABLED: "Desactivada",
 };
+
+/**
+ * Status as colour, in the order it matters: red is a template that cannot
+ * be sent, yellow one Meta is still deciding on, plain is fine.
+ */
+const templateTone: Record<string, string> = {
+  APPROVED: "text-ink-muted",
+  PENDING: "text-gold",
+  IN_APPEAL: "text-gold",
+  PAUSED: "text-gold",
+  REJECTED: "text-danger",
+  DISABLED: "text-danger",
+};
+
 const sources: Record<string, string> = {
   guest_reply: "Respuestas a invitados",
   simulator: "Simulador",
@@ -114,7 +129,7 @@ async function WhatsAppTab({ isAdmin }: { isAdmin: boolean }) {
       note="Meta cobra cada plantilla entregada a la tarjeta de tu Business Manager; en México no hay saldo que se acabe. Esto estima el mes con nuestros envíos y las tarifas de abajo. Las respuestas dentro de la ventana de 24 horas no se cobran."
     >
       {spend.paymentErrors > 0 && (
-        <p className="mb-6 rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-[0.9rem] text-ink">
+        <p className="mb-6 rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-[0.9rem] text-ink">
           Meta rechazó {spend.paymentErrors} envíos en el último día por un problema de pago. Revisa la tarjeta.
         </p>
       )}
@@ -198,7 +213,7 @@ async function WhatsAppTab({ isAdmin }: { isAdmin: boolean }) {
               <h3 className="font-display text-xl text-ink">
                 {number.profile === "production" ? "Número real" : "Número de prueba"}
               </h3>
-              {number.active && <Badge ok>Envía ahora</Badge>}
+              {number.active && <Badge ok>Activo · por aquí salen las invitaciones</Badge>}
               {!number.configured && <Badge ok={false}>Sin configurar</Badge>}
             </div>
             {number.error && <p className="mt-3 text-[0.88rem] text-danger">Meta: {number.error}</p>}
@@ -229,7 +244,7 @@ async function WhatsAppTab({ isAdmin }: { isAdmin: boolean }) {
             {number.templates && missingTemplates(number.templates.map((t) => t.name)).length > 0 && (
               // Templates the code uses that this number's account lacks —
               // a send that needs one fails until Meta has approved it.
-              <div className="mt-4 rounded-lg border border-danger/40 bg-danger-soft px-4 py-3">
+              <div className="mt-4 rounded-lg border border-danger/50 bg-danger/10 px-4 py-3">
                 <p className="text-[0.85rem] text-ink">
                   Faltan en Meta:{" "}
                   {missingTemplates(number.templates.map((t) => t.name))
@@ -252,7 +267,7 @@ async function WhatsAppTab({ isAdmin }: { isAdmin: boolean }) {
                   {number.templates.map((template) => (
                     <li key={template.name} className="flex justify-between gap-3">
                       <code className="text-ink">{template.name}</code>
-                      <span className={template.status === "APPROVED" ? "text-ink-muted" : "text-danger"}>
+                      <span className={templateTone[template.status] ?? "text-ink-muted"}>
                         {templateStatus[template.status] ?? template.status} · {template.category.toLowerCase()}
                       </span>
                     </li>

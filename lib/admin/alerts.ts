@@ -90,7 +90,7 @@ async function deliver(
   const windowOpen = Boolean(last && Date.now() - last.getTime() < 24 * 60 * 60 * 1000);
 
   const result = windowOpen
-    ? await sendText(config, phone, `Aviso de Invibot: *${title}*\n\n${detail}\n\nRevísalo en el admin: ${link}`)
+    ? await sendText(config, phone, `Aviso de Invibot: *${title}*\n\n${detail}\n\nRevísalo en ${link} cuando puedas.`)
     : await sendTemplate(config, phone, "aviso_admin", "es_MX", buildComponents("aviso_admin", [title, detail, link]));
   if (!result.ok) console.error("[alerts] could not warn", phone, title, result);
   return result.ok;

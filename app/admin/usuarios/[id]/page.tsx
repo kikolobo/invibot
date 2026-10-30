@@ -106,7 +106,7 @@ export default async function Cuenta({
           {org ? ` · Organización «${org.name}»` : " · Todavía no ha entrado"}
         </p>
         {user.banned && user.banReason && (
-          <p className="mt-4 max-w-lg rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-[0.9rem] text-ink">
+          <p className="mt-4 max-w-lg rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-[0.9rem] text-ink">
             Suspendida: {user.banReason}
             {user.deletedAt && ` · Eliminada el ${formatDate(user.deletedAt)}`}
           </p>

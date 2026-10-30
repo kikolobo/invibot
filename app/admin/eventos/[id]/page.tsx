@@ -112,7 +112,7 @@ export default async function Evento({
           {event.autoRegisterEnabled && " · auto-registro abierto"}
         </p>
         {event.suspendedAt && (
-          <p className="mt-4 max-w-xl rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-[0.9rem] text-ink">
+          <p className="mt-4 max-w-xl rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-[0.9rem] text-ink">
             Suspendido el {formatDate(event.suspendedAt)}: {event.suspendedReason}. No sale ningún mensaje a
             sus invitados y sus mensajes programados esperan.
           </p>

@@ -636,7 +636,9 @@ export const templates = {
     language: "es_MX",
     category: "UTILITY",
     kind: "organizer_relay",
-    body: ["Aviso de Invibot: *{{1}}*", "", "{{2}}", "", "Revísalo en el admin: {{3}}"].join("\n"),
+    // Meta refuses a body that starts or ends with a variable, so the link
+    // sits inside a sentence and the message closes on fixed text.
+    body: ["Aviso de Invibot: *{{1}}*", "", "{{2}}", "", "Revísalo en {{3}} cuando puedas."].join("\n"),
     variables: [
       { description: "Qué pasa", example: "Quedan pocos créditos de Anthropic" },
       { description: "El detalle", example: "Saldo estimado: US$12.40, por debajo del aviso de US$20." },
