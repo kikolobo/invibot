@@ -4,12 +4,10 @@ import { payments } from "@/db/schema";
 import { requireEventAccess } from "@/lib/events/access";
 import { slotStatus } from "@/lib/billing/slots";
 import { paymentOffer } from "@/lib/billing/offer";
-import { redeemPromo } from "@/lib/billing/actions";
 import { reconcilePending } from "@/lib/billing/credit";
 import { getSettings } from "@/lib/site/settings";
 import { included, methods, priceLabels } from "@/lib/billing/pricing";
 import { PayControl } from "./pay-control";
-import { CodeForm } from "./code-form";
 
 export const metadata = { title: "Pagos" };
 
@@ -182,14 +180,6 @@ export default async function Pago({
                 : `Tienes ${status.waiting} invitados por invitar: te faltan ${status.waiting - status.available} lugares.`}{" "}
             Un invitado ocupa su lugar la primera vez que le escribimos, y lo conserva aunque lo quites de la lista.
           </p>
-
-          <section className="mt-10 border-t border-line pt-8">
-            <h2 className="font-display text-2xl text-ink">¿Tienes un código de cortesía?</h2>
-            <p className="mt-2 max-w-md text-[0.9rem] text-ink-muted">
-              Se suma a este evento como lugares de regalo. Cada cuenta puede usar un código una sola vez.
-            </p>
-            <CodeForm action={redeemPromo.bind(null, id)} />
-          </section>
 
           <section className="mt-10 border-t border-line pt-8">
             <h2 className="font-display text-2xl text-ink">Comprar lugares</h2>

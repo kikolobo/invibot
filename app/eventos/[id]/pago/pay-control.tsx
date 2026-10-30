@@ -4,7 +4,14 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutForm, CheckoutFormProvider, useCheckoutForm } from "@stripe/react-stripe-js/checkout";
-import { settlePayment, startCheckout, startEmbeddedCheckout, type ReturnTo } from "@/lib/billing/actions";
+import {
+  redeemPromo,
+  settlePayment,
+  startCheckout,
+  startEmbeddedCheckout,
+  type ReturnTo,
+} from "@/lib/billing/actions";
+import { CodeForm } from "./code-form";
 import type { PaymentOffer } from "@/lib/billing/offer";
 
 const money = (minor: number, currency: string) =>
@@ -77,13 +84,82 @@ export function PayControl({
   // and expiring it from here once cut a payment off mid-confirmation.
   const abandoned = useRef(false);
 
+  // The open checkout survives the page being redrawn underneath it. The
+  // first server call after a load can renew the session cookie, and Next
+  // redraws the page when an action sets one — which used to drop the window
+  // the moment it opened. Per tab, forgotten on close, on payment, or after
+  // half an hour.
+  const storageKey = `invibot-checkout-${eventId}`;
+  useEffect(() => {
+    // Read after the first paint, never during render: the server drew this
+    // with the window shut, and the first client render must match it.
+    const frame = requestAnimationFrame(() => {
+      try {
+        if (new URLSearchParams(window.location.search).get("pago") === "listo") {
+          sessionStorage.removeItem(storageKey);
+          return;
+        }
+        const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null") as
+          | { clientSecret: string; paymentId: string; at: number }
+          | null;
+        if (saved && Date.now() - saved.at < 30 * 60 * 1000) {
+          setCheckout({ clientSecret: saved.clientSecret, paymentId: saved.paymentId });
+          setWindowOpen(true);
+        } else if (saved) {
+          sessionStorage.removeItem(storageKey);
+        }
+      } catch {
+        // Storage blocked or unreadable: the window simply does not come back.
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [storageKey]);
+
+  const remember = (value: { clientSecret: string; paymentId: string } | null) => {
+    try {
+      if (value) sessionStorage.setItem(storageKey, JSON.stringify({ ...value, at: Date.now() }));
+      else sessionStorage.removeItem(storageKey);
+    } catch {
+      // Not essential; see above.
+    }
+  };
+
+  // "Usar código", folded beside Pagar until somebody has one.
+  const [codeOpen, setCodeOpen] = useState(false);
+  const codeArea = codeOpen && (
+    <CodeForm
+      action={redeemPromo.bind(null, eventId)}
+      // Places added: sending carries on where there is a send waiting,
+      // otherwise the page redraws with the new count.
+      onRedeemed={() => (onPaid ? onPaid() : router.refresh())}
+    />
+  );
+  const codeButton = (
+    <button
+      type="button"
+      onClick={() => setCodeOpen((open) => !open)}
+      aria-expanded={codeOpen}
+      className="text-[0.9rem] text-ink-soft underline decoration-dotted underline-offset-4 hover:text-accent"
+    >
+      Usar código
+    </button>
+  );
+
   const billed = Math.max(slots || 0, offer.minimumSlots);
   const busy = pending || windowOpen || (settling && !gaveUp);
   // Loaded once per key, from js.stripe.com as Stripe requires.
   const stripe = useMemo(() => (offer.publishableKey ? loadStripe(offer.publishableKey) : null), [offer.publishableKey]);
 
   if (!offer.configured) {
-    return <p className="text-[0.9rem] text-ink-muted">Los pagos todavía no están activos. Escríbenos y te ayudamos.</p>;
+    // No payments yet, but a courtesy code still works.
+    return (
+      <div>
+        <p className="text-[0.9rem] text-ink-muted">
+          Los pagos todavía no están activos. Escríbenos y te ayudamos. {codeButton}
+        </p>
+        {codeArea}
+      </div>
+    );
   }
 
   function pay(event: React.FormEvent<HTMLFormElement>) {
@@ -109,13 +185,16 @@ export function PayControl({
         setWindowOpen(false);
         setError(result.error ?? "No pudimos abrir el pago.");
       } else {
-        setCheckout({ clientSecret: result.clientSecret, paymentId: result.paymentId });
+        const opened = { clientSecret: result.clientSecret, paymentId: result.paymentId };
+        setCheckout(opened);
+        remember(opened);
       }
     });
   }
 
   function close() {
     if (!checkout) abandoned.current = true;
+    remember(null);
     setCheckout(null);
     setWindowOpen(false);
   }
@@ -149,6 +228,7 @@ export function PayControl({
           >
             {busy ? "Procesando…" : "Pagar"}
           </button>
+          {codeButton}
         </div>
         <p className="mt-2 text-[0.8rem] text-ink-muted">Disponible con: tarjeta, OXXO o transferencia. IVA incluido.</p>
         {slots < offer.minimumSlots && (
@@ -171,6 +251,7 @@ export function PayControl({
         )}
         {error && <p className="mt-2 text-[0.88rem] text-danger">{error}</p>}
       </form>
+      {codeArea}
 
       {windowOpen && stripe && (
         <PaymentWindow onClose={close}>
@@ -181,6 +262,7 @@ export function PayControl({
                 onConfirmed={async () => {
                   const result = await settlePayment(eventId, checkout.paymentId);
                   if (result.paid) {
+                    remember(null);
                     setCheckout(null);
                     setWindowOpen(false);
                     onPaid?.();
@@ -273,8 +355,13 @@ function ConfirmingForm({
 
 /**
  * A window drawn over the page: dimmed backdrop, a panel that scrolls on its
- * own, Escape, the × or a click outside to close. Closing cancels nothing at
- * Stripe; an unpaid session expires there on its own.
+ * own, Escape or the × to close. Closing cancels nothing at Stripe; an unpaid
+ * session expires there on its own.
+ *
+ * Not a click on the backdrop. The backdrop appears under the cursor the
+ * moment Pagar is pressed, so the second click of a double-click — or a
+ * trackpad's double tap — landed on it and closed the window as it opened.
+ * A payment half filled in should not be one stray click from gone.
  */
 function PaymentWindow({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const closeRef = useRef(onClose);
@@ -298,7 +385,6 @@ function PaymentWindow({ onClose, children }: { onClose: () => void; children: R
       role="dialog"
       aria-modal="true"
       aria-label="Pago"
-      onClick={(event) => event.target === event.currentTarget && onClose()}
     >
       <div className="relative w-full max-w-xl rounded-2xl bg-white p-4 shadow-2xl sm:p-6">
         <div className="mb-3 flex items-center justify-between">
