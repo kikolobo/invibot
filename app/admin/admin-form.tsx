@@ -59,20 +59,24 @@ export function AdminForm({
   );
 }
 
-/** The input every admin form uses, labelled. */
+/**
+ * The input every admin form uses, labelled.
+ *
+ * Three rows — label, input, hint — laid on the parent grid's own rows when
+ * there is one (`subgrid`), so fields side by side line up row for row: a
+ * label that wraps to two lines, or a hint under one field only, no longer
+ * pushes its input below its neighbours'. Alone, it is an ordinary stack.
+ */
 export function Field({
   label,
   hint,
   ...input
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string }) {
   return (
-    <label className="block">
-      <span className="text-[0.9rem] text-ink-soft">{label}</span>
-      <input
-        {...input}
-        className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-ink"
-      />
-      {hint && <span className="mt-1 block text-[0.8rem] text-ink-muted">{hint}</span>}
+    <label className="row-span-3 grid grid-rows-subgrid content-start gap-y-2">
+      <span className="self-end text-[0.9rem] text-ink-soft">{label}</span>
+      <input {...input} className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-ink" />
+      <span className="-mt-1 block text-[0.8rem] text-ink-muted">{hint}</span>
     </label>
   );
 }

@@ -15,7 +15,7 @@ import { stripeConnector } from "@/lib/connectors/stripe";
 import { whatsappConnector } from "@/lib/connectors/whatsapp";
 import { AdminForm, Field } from "../admin-form";
 import { formatDateTime } from "../format";
-import { Breakdown, Panel, Stat, StatGrid, formatMoney, formatNumber, formatUsd, percent } from "../ui";
+import { Breakdown, Panel, Stat, StatGrid, tabBody, formatMoney, formatNumber, formatUsd, percent } from "../ui";
 
 export const metadata = { title: "Conectores" };
 
@@ -95,7 +95,7 @@ export default async function Conectores({ searchParams }: { searchParams: Promi
         ))}
       </nav>
 
-      <div className="mt-10">
+      <div className={`mt-10 ${tabBody}`}>
         {tab === "whatsapp" && <WhatsAppTab isAdmin={isAdmin} />}
         {tab === "anthropic" && <AnthropicTab isAdmin={isAdmin} />}
         {tab === "stripe" && <StripeTab isAdmin={isAdmin} />}
@@ -108,7 +108,7 @@ async function WhatsAppTab({ isAdmin }: { isAdmin: boolean }) {
   const [whatsapp, spend, settings] = await Promise.all([whatsappConnector(), whatsappSpend(), getSettings()]);
   const { traffic } = whatsapp;
   return (
-    <div className="space-y-12">
+    <div className={`space-y-12 ${tabBody}`}>
     <Panel
       title="Gasto del mes"
       note="Meta cobra cada plantilla entregada a la tarjeta de tu Business Manager; en México no hay saldo que se acabe. Esto estima el mes con nuestros envíos y las tarifas de abajo. Las respuestas dentro de la ventana de 24 horas no se cobran."
@@ -286,7 +286,7 @@ async function WhatsAppTab({ isAdmin }: { isAdmin: boolean }) {
 async function AnthropicTab({ isAdmin }: { isAdmin: boolean }) {
   const [anthropic, balance] = await Promise.all([anthropicConnector(), anthropicBalance()]);
   return (
-    <div className="space-y-12">
+    <div className={`space-y-12 ${tabBody}`}>
     <Panel
       title="Créditos"
       note="Anthropic no tiene una API que diga el saldo. Escribe el que ves en su consola y aquí se le resta lo que gaste el asistente, medido llamada por llamada. Si usas la misma cuenta para otras cosas, el saldo real será menor."

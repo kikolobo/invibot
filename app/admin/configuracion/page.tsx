@@ -12,7 +12,7 @@ import {
 } from "@/lib/billing/stripe";
 import { AdminForm, Field } from "../admin-form";
 import { formatDateTime } from "../format";
-import { Panel } from "../ui";
+import { Panel, tabBody } from "../ui";
 
 export const metadata = { title: "Configuración" };
 
@@ -102,7 +102,7 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
       </nav>
 
       {tab === "sitio" && (
-        <AdminForm key="sitio" action={updateSettings} submit="Guardar" className="mt-10 space-y-10">
+        <AdminForm key="sitio" action={updateSettings} submit="Guardar" className={`mt-10 space-y-10 ${tabBody}`}>
           <input type="hidden" name="section" value="sitio" />
           <Panel title="Registro de cuentas nuevas">
             <div className="space-y-3">
@@ -168,7 +168,7 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
       )}
 
       {tab === "pagos" && (
-        <AdminForm key="pagos" action={updateSettings} submit="Guardar" className="mt-10 space-y-10">
+        <AdminForm key="pagos" action={updateSettings} submit="Guardar" className={`mt-10 space-y-10 ${tabBody}`}>
           <input type="hidden" name="section" value="pagos" />
           <Panel
             title="Modo de cobro"
@@ -254,7 +254,7 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
       )}
 
       {tab === "limites" && (
-        <AdminForm key="limites" action={updateSettings} submit="Guardar" className="mt-10 space-y-10">
+        <AdminForm key="limites" action={updateSettings} submit="Guardar" className={`mt-10 space-y-10 ${tabBody}`}>
           <input type="hidden" name="section" value="limites" />
           <Panel
             title="Límites para cuentas nuevas"

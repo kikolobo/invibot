@@ -51,6 +51,13 @@ export function StatGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{children}</div>;
 }
 
+/**
+ * For whatever holds a tab's panels: the first panel drops its top rule and
+ * padding, because the tab bar right above already draws that line — two
+ * rules a few pixels apart read as a mistake.
+ */
+export const tabBody = "[&>section:first-of-type]:border-t-0 [&>section:first-of-type]:pt-0";
+
 export function Panel({
   title,
   note,

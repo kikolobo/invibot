@@ -743,7 +743,8 @@ export async function createPromoCode(_prev: AdminState, formData: FormData): Pr
     detail: { code, slotsPerUser, maxRedemptions, expiresAt: expiresAt?.toISOString() ?? null },
   });
   revalidatePath("/admin/codigos");
-  return { ok: `Código ${code} creado: ${maxRedemptions} usuarios, ${slotsPerUser} invitados cada uno.` };
+  // Back to the list, with the new code at the top and a note naming it.
+  redirect(`/admin/codigos?creado=${encodeURIComponent(code)}`);
 }
 
 export async function setPromoActive(_prev: AdminState, formData: FormData): Promise<AdminState> {
@@ -758,7 +759,7 @@ export async function setPromoActive(_prev: AdminState, formData: FormData): Pro
 
   await audit({ actorUserId: staff.userId, target: null, action: "promo_toggle", detail: { code: promo.code, active } });
   revalidatePath("/admin/codigos");
-  return { ok: active ? "Activado." : "Desactivado: ya nadie lo puede usar." };
+  return { ok: active ? "Reactivado." : "Suspendido: ya nadie lo puede usar." };
 }
 
 /**

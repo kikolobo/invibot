@@ -29,6 +29,7 @@ import {
   paymentStatusLabels,
   percent,
   sendKindLabels,
+  tabBody,
 } from "../../ui";
 
 export const metadata = { title: "Evento" };
@@ -134,7 +135,7 @@ export default async function Evento({
         ))}
       </nav>
 
-      <div className="mt-10 space-y-10">
+      <div className={`mt-10 space-y-10 ${tabBody}`}>
         {tab === "lugares" && (
           <>
             <Panel

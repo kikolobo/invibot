@@ -8,7 +8,7 @@ export const promoStateLabels: Record<PromoState, string> = {
   active: "Activo",
   used_up: "Agotado",
   expired: "Vencido",
-  inactive: "Desactivado",
+  inactive: "Suspendido",
 };
 
 export const promoStateOf = (promo: typeof promoCodes.$inferSelect): PromoState =>
