@@ -28,7 +28,8 @@ export async function anthropicBalance(settings?: SiteSettings): Promise<Anthrop
   }
   const [{ spent }] = (await db.execute(sql`
     select coalesce(sum(cost_micro_usd), 0)::bigint::float8 as spent
-    from ai_usage where created_at > ${s.anthropicBalanceAt}
+    -- As ISO text: postgres-js refuses a Date bound into a raw sql template.
+    from ai_usage where created_at > ${s.anthropicBalanceAt.toISOString()}::timestamptz
   `)) as unknown as { spent: number }[];
   const remainingCents = Math.round(s.anthropicBalanceCents - spent / 10_000);
   return {
