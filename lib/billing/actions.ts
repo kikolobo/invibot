@@ -1,5 +1,6 @@
 "use server";
 
+import type Stripe from "stripe";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -58,14 +59,19 @@ async function openCheckout(
     getSettings(),
     // One Stripe customer per account, so SPEI can hand out a reference that
     // stays theirs and receipts land in one place.
-    db.query.users.findFirst({ where: eq(users.id, userId), columns: { stripeCustomerId: true, name: true } }),
+    db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { stripeCustomerId: true, stripeTestCustomerId: true, name: true },
+    }),
   ]);
   if (!access || !can(access, "event")) return { error: "No encontramos ese evento." };
   if (access.event.suspendedAt) return { error: "Este evento está pausado. Escríbenos." };
   if (status?.exempt) return { error: "Tu cuenta es de cortesía: no necesitas pagar." };
 
   const price = quote(Math.floor(requested), settings);
-  let customer = account?.stripeCustomerId ?? null;
+  // Customers belong to one mode: the sandbox's own, or the live account's.
+  const customerColumn = active.mode === "live" ? "stripeCustomerId" : "stripeTestCustomerId";
+  let customer = account?.[customerColumn] ?? null;
 
   const [payment] = await db
     .insert(payments)
@@ -83,20 +89,21 @@ async function openCheckout(
   const base = await origin();
   const back = `${base}/eventos/${eventId}/${returnTo === "invitados" ? "invitados" : "pago"}`;
   try {
-    if (!customer) {
+    const newCustomer = async () => {
       const created = await stripe.customers.create({ email, name: account?.name || undefined, metadata: { userId } });
-      customer = created.id;
-      await db.update(users).set({ stripeCustomerId: customer }).where(eq(users.id, userId));
-    }
+      await db.update(users).set({ [customerColumn]: created.id }).where(eq(users.id, userId));
+      return created.id;
+    };
+    customer ??= await newCustomer();
 
     // No payment_method_types: the methods are the ones switched on in the
     // Stripe dashboard (card, OXXO, bank transfer), so enabling one is a
     // setting rather than a deploy.
-    const session = await stripe.checkout.sessions.create({
+    const sessionFor = (customerId: string) => stripe.checkout.sessions.create({
       mode: "payment",
       // Fixed per flow, so the dashboard can compare this checkout over time.
       integration_identifier: "invibot-lugares-qhxtmwrb",
-      customer,
+      customer: customerId,
       client_reference_id: payment.id,
       line_items: [
         {
@@ -117,6 +124,18 @@ async function openCheckout(
         ? { ui_mode: "form" as const, return_url: `${back}?pago=listo` }
         : { success_url: `${back}?pago=listo`, cancel_url: `${back}?pago=cancelado` }),
     });
+
+    // A saved customer Stripe no longer knows — deleted, or from the other
+    // mode — gets replaced once, rather than failing the purchase.
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await sessionFor(customer);
+    } catch (error) {
+      const e = error as { code?: string; param?: string };
+      if (e.code !== "resource_missing" || e.param !== "customer") throw error;
+      customer = await newCustomer();
+      session = await sessionFor(customer);
+    }
     await db.update(payments).set({ stripeSessionId: session.id }).where(eq(payments.id, payment.id));
 
     if (ui === "form") {

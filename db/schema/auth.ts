@@ -52,7 +52,12 @@ export const users = pgTable(
      * Set by staff, for us and for the people we have a deal with.
      */
     billingExempt: boolean("billing_exempt").notNull().default(false),
+    /**
+     * Stripe customers, one per mode: a sandbox customer does not exist in the
+     * live account, and handing it to live Checkout fails the payment.
+     */
     stripeCustomerId: text("stripe_customer_id"),
+    stripeTestCustomerId: text("stripe_test_customer_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()

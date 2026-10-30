@@ -372,6 +372,13 @@
       "when": 1793317851312,
       "tag": "0052_service_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793321380847,
+      "tag": "0053_stripe_customer_per_mode",
+      "breakpoints": true
     }
   ]
 }
