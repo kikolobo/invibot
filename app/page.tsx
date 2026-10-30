@@ -73,14 +73,21 @@ const features = [
 ];
 
 export default async function Home() {
-  const price = priceLabels(await getSettings());
+  const settings = await getSettings();
+  const price = priceLabels(settings);
+  // Straight to signup whenever anyone can get in — open, or with a code the
+  // signup page asks for. Only a closed site sends people to write to us.
+  const startHref =
+    settings.signupMode === "closed"
+      ? "mailto:hello@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
+      : "/registro";
 
   return (
     <SiteShell tone="night">
       <section className="px-6 pt-8 pb-20 sm:px-10 sm:pt-14">
         <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_auto]">
           <div className="max-w-xl">
-            <p className="eyebrow !text-gold">En desarrollo · México</p>
+            <p className="eyebrow !text-gold">Bienvenido</p>
             <h1 className="mt-6 text-night-text">
               {/* Italic serif over heavy sans, the way the reference sets its
                   own name. The serif carries the people, the sans carries the
@@ -107,13 +114,14 @@ export default async function Home() {
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
               <a
-                href="mailto:hello@invibot.com?subject=Quiero%20probar%20Invibot&body=Hola%2C%20me%20interesa%20probar%20Invibot.%0A%0ATipo%20de%20evento%3A%20%0AFecha%20aproximada%3A%20%0AN%C3%BAmero%20de%20invitados%3A%20"
+                href={startHref}
                 className="inline-flex items-center justify-center rounded-full border border-gold px-8 py-3.5 text-sm font-medium tracking-wide text-gold transition-colors hover:bg-gold hover:text-night"
               >
-                Quiero probarlo
+                Crea tu evento
               </a>
               <p className="text-sm text-night-soft">
-                Estamos tomando los primeros eventos.
+                {/* Only claims what is true: with a code or closed, it is not open to everyone. */}
+                {settings.signupMode === "open" ? "Ya abierto al público." : "Estamos tomando los primeros eventos."}
               </p>
             </div>
           </div>
@@ -172,13 +180,14 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="precio" className="scroll-mt-8 px-6 pb-24 sm:px-10">
+      <section id="costos" className="scroll-mt-8 px-6 pb-24 sm:px-10">
         <div className="mx-auto max-w-5xl">
-          <p className="eyebrow !text-gold">Precio</p>
+          <p className="eyebrow !text-gold">Costos</p>
           <h2 className="mt-6 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight text-night-text sm:text-6xl">
-            Armar tu evento es gratis. Pagas sólo por los invitados{" "}
-            <em className="italic">a los que les escribimos</em>.
+            Armar tu evento es gratis. Sólo pagas cuando mandas{" "}
+            <em className="italic">la invitación a tus invitados</em>.
           </h2>
+          <p className="mt-5 text-lg text-night-soft">Sin costos ocultos ni cargos adicionales.</p>
 
           <div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-night-line bg-night-line lg:grid-cols-[1.1fr_1fr]">
             <div className="bg-night-raised p-8 sm:p-10">

@@ -149,13 +149,15 @@ export default async function Codigos({
                           <Link href={`/admin/usuarios/${use.userId}`} className="text-ink hover:text-accent">
                             {use.userName || use.userEmail}
                           </Link>
-                          {use.eventId && (
+                          {use.eventId ? (
                             <>
                               {" en "}
                               <Link href={`/admin/eventos/${use.eventId}`} className="hover:text-accent">
                                 «{use.eventName}»
                               </Link>
                             </>
+                          ) : (
+                            <span className="text-ink-muted"> · al registrarse, para su primer evento</span>
                           )}{" "}
                           · {formatDate(use.createdAt)}
                         </li>

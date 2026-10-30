@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { events, promoCodes, promoRedemptions } from "@/db/schema";
 
@@ -28,7 +28,7 @@ const INVALID = "Este código ya no es válido.";
  * The message for a code that never existed is the same as for one that ran
  * out, so nobody can probe for valid codes by the difference.
  */
-export async function redeemCode(raw: string, userId: string, eventId: string): Promise<RedeemResult> {
+export async function redeemCode(raw: string, userId: string, eventId: string | null): Promise<RedeemResult> {
   const code = normalizeCode(raw);
   if (!code) return { ok: false, error: "Escribe el código." };
 
@@ -53,11 +53,52 @@ export async function redeemCode(raw: string, userId: string, eventId: string): 
       .update(promoCodes)
       .set({ redeemedCount: sql`${promoCodes.redeemedCount} + 1` })
       .where(eq(promoCodes.id, promo.id));
-    await tx
-      .update(events)
-      .set({ giftedSlots: sql`${events.giftedSlots} + ${promo.slotsPerUser}`, updatedAt: new Date() })
-      .where(eq(events.id, eventId));
+    // Without an event — a code given at signup — the places wait on the
+    // redemption until the first event is made (`applyPendingPromos`).
+    if (eventId) {
+      await tx
+        .update(events)
+        .set({ giftedSlots: sql`${events.giftedSlots} + ${promo.slotsPerUser}`, updatedAt: new Date() })
+        .where(eq(events.id, eventId));
+    }
 
     return { ok: true, slots: promo.slotsPerUser } as const;
+  });
+}
+
+/**
+ * Whether a code would work right now, without using it — for checking it as
+ * it is typed into the signup form. Same wording as a failed redemption, so
+ * this cannot be used to tell a code that never existed from a spent one.
+ */
+export async function checkCode(raw: string): Promise<RedeemResult> {
+  const code = normalizeCode(raw);
+  if (!code) return { ok: false, error: "Escribe el código." };
+  const promo = await db.query.promoCodes.findFirst({ where: eq(promoCodes.code, code) });
+  if (!promo || !promo.active) return { ok: false, error: INVALID };
+  if (promo.expiresAt && promo.expiresAt.getTime() <= Date.now()) return { ok: false, error: INVALID };
+  if (promo.redeemedCount >= promo.maxRedemptions) return { ok: false, error: INVALID };
+  return { ok: true, slots: promo.slotsPerUser };
+}
+
+/**
+ * A code claimed at signup has no event yet; its places land on the first
+ * event the account makes. Returns how many places that was.
+ */
+export async function applyPendingPromos(userId: string, eventId: string): Promise<number> {
+  return db.transaction(async (tx) => {
+    const claimed = await tx
+      .update(promoRedemptions)
+      .set({ eventId })
+      .where(and(eq(promoRedemptions.userId, userId), isNull(promoRedemptions.eventId)))
+      .returning({ slots: promoRedemptions.slots });
+    const total = claimed.reduce((sum, row) => sum + row.slots, 0);
+    if (total > 0) {
+      await tx
+        .update(events)
+        .set({ giftedSlots: sql`${events.giftedSlots} + ${total}`, updatedAt: new Date() })
+        .where(eq(events.id, eventId));
+    }
+    return total;
   });
 }

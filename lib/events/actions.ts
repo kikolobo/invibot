@@ -23,6 +23,7 @@ import { seedGroups } from "@/lib/guests/actions";
 import { ensureOwner } from "@/lib/organizers/owner";
 import { can, eventAccess } from "./access";
 import { eventLimitError } from "@/lib/limits";
+import { applyPendingPromos } from "@/lib/billing/promo";
 import { users } from "@/db/schema";
 
 const slugId = customAlphabet("abcdefghijkmnpqrstuvwxyz23456789", 6);
@@ -163,6 +164,9 @@ export async function createEvent(
 
   await seedGroups(created.id, v.kind);
   await ensureOwner(created.id);
+  // A courtesy code given at signup waits for this: the first event takes
+  // its places.
+  await applyPendingPromos(userId, created.id);
 
   redirect(`/eventos/${created.id}/detalles`);
 }
