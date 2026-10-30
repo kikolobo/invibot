@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth/session";
 import { setPromoActive } from "@/lib/admin/actions";
-import { listPromoCodes, promoStateLabels, promoStateOf } from "@/lib/admin/promo";
+import { listPromoCodes, promoStateLabels, promoStateOf, type PromoState } from "@/lib/admin/promo";
 import { AdminForm } from "../admin-form";
 import { formatDate } from "../format";
 import { formatNumber } from "../ui";
@@ -9,15 +9,36 @@ import { formatNumber } from "../ui";
 export const metadata = { title: "Códigos" };
 
 /**
+ * The list opens on the codes that still work; the rest are a click away,
+ * not in the way.
+ */
+const FILTERS: { value: PromoState | "all"; label: string }[] = [
+  { value: "active", label: "Activos" },
+  { value: "used_up", label: "Agotados" },
+  { value: "expired", label: "Vencidos" },
+  { value: "inactive", label: "Suspendidos" },
+  { value: "all", label: "Todos" },
+];
+type Filter = (typeof FILTERS)[number]["value"];
+
+/**
  * Courtesy codes: places for the first N accounts that type one in on an
  * event's payment page. The list first — what exists, how used, suspend one
  * in place — and making a new one on a page of its own.
  */
-export default async function Codigos({ searchParams }: { searchParams: Promise<{ creado?: string }> }) {
+export default async function Codigos({
+  searchParams,
+}: {
+  searchParams: Promise<{ creado?: string; ver?: string }>;
+}) {
   const staff = await requireStaff();
   const isAdmin = staff.role === "admin";
-  const { creado } = await searchParams;
-  const codes = await listPromoCodes();
+  const { creado, ver } = await searchParams;
+  const filter: Filter = FILTERS.some((f) => f.value === ver) ? (ver as Filter) : "active";
+  const all = await listPromoCodes();
+  const countOf = (value: Filter) =>
+    value === "all" ? all.length : all.filter((promo) => promoStateOf(promo) === value).length;
+  const codes = filter === "all" ? all : all.filter((promo) => promoStateOf(promo) === filter);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 sm:px-10">
@@ -25,8 +46,7 @@ export default async function Codigos({ searchParams }: { searchParams: Promise<
         <div>
           <h1 className="font-display text-4xl text-ink sm:text-5xl">Códigos de cortesía</h1>
           <p className="mt-3 max-w-xl text-ink-soft">
-            {codes.length === 1 ? "Un código" : `${formatNumber(codes.length)} códigos`}. Cada cuenta puede usar un
-            código una vez; los lugares se suman como regalo al evento donde lo usa.
+            Cada cuenta puede usar un código una vez; los lugares se suman como regalo al evento donde lo usa.
           </p>
         </div>
         {isAdmin && (
@@ -45,10 +65,31 @@ export default async function Codigos({ searchParams }: { searchParams: Promise<
         </p>
       )}
 
+      <nav className="mt-8 flex flex-wrap gap-2 text-[0.85rem]" aria-label="Filtrar códigos">
+        {FILTERS.map((option) => (
+          <Link
+            key={option.value}
+            href={option.value === "active" ? "/admin/codigos" : `/admin/codigos?ver=${option.value}`}
+            aria-current={option.value === filter ? "page" : undefined}
+            className={`rounded-full border px-3 py-1 ${
+              option.value === filter ? "border-accent text-accent" : "border-line text-ink-soft hover:border-accent"
+            }`}
+          >
+            {option.label} <span className="tabular-nums text-ink-muted">{countOf(option.value)}</span>
+          </Link>
+        ))}
+      </nav>
+
       {codes.length === 0 ? (
-        <p className="mt-10 text-[0.9rem] text-ink-muted">Todavía no hay ninguno.</p>
+        <p className="mt-8 text-[0.9rem] text-ink-muted">
+          {all.length === 0
+            ? "Todavía no hay ninguno."
+            : filter === "active"
+              ? "Ningún código activo. Crea uno con «Nuevo código»."
+              : "Ninguno en este filtro."}
+        </p>
       ) : (
-        <ul className="mt-10 divide-y divide-line rounded-xl border border-line">
+        <ul className="mt-6 divide-y divide-line rounded-xl border border-line">
           {codes.map((promo) => {
             const state = promoStateOf(promo);
             const usage = promo.maxRedemptions ? Math.min(1, promo.redeemedCount / promo.maxRedemptions) : 0;
