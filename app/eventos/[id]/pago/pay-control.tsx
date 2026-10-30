@@ -150,10 +150,15 @@ export function PayControl({
             {busy ? "Procesando…" : "Pagar"}
           </button>
         </div>
-        <p className="mt-2 text-[0.8rem] text-ink-muted">
-          Disponible con: tarjeta, OXXO o transferencia. IVA incluido.
-          {slots < offer.minimumSlots && ` La compra mínima es de ${offer.minimumSlots} lugares; los que sobren se quedan en el evento.`}
-        </p>
+        <p className="mt-2 text-[0.8rem] text-ink-muted">Disponible con: tarjeta, OXXO o transferencia. IVA incluido.</p>
+        {slots < offer.minimumSlots && (
+          // Its own line, in yellow: the total above already moved to the
+          // minimum, and the buyer should see why before pressing Pagar.
+          <p className="mt-2 text-[0.88rem] text-gold" role="status">
+            La compra mínima es de {offer.minimumSlots} lugares; se cobrarán {offer.minimumSlots} y los que sobren se
+            quedan en tu evento.
+          </p>
+        )}
         {settling && !gaveUp && (
           <p className="mt-2 text-[0.85rem] text-ink-soft" role="status">
             Estamos registrando tu pago; esto toma unos segundos.
