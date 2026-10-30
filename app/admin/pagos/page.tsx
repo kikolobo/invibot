@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth/session";
 import { listPayments, salesStats, type PaymentFilter } from "@/lib/admin/payments";
-import { activeMode, configuredModes } from "@/lib/billing/stripe";
+import { activeMode, configuredModes, stripeAccountIds } from "@/lib/billing/stripe";
 import { formatDate } from "../format";
-import { ModeBadge, PaymentActions } from "../payment-actions";
+import { ModeBadge, PaymentActions, PaymentStatus } from "../payment-actions";
 import { Panel, Stat, StatGrid, formatMoney, formatNumber, paymentMethodLabels, paymentStatusLabels } from "../ui";
 
 export const metadata = { title: "Pagos" };
@@ -28,7 +28,11 @@ export default async function Pagos({
   const filter = isFilter(params.estado) ? params.estado : "all";
   const page = Math.max(1, Number(params.pagina) || 1);
 
-  const [{ sales }, rows] = await Promise.all([salesStats(), listPayments({ filter, page })]);
+  const [{ sales }, rows, accounts] = await Promise.all([
+    salesStats(),
+    listPayments({ filter, page }),
+    stripeAccountIds(),
+  ]);
   const currency = sales.currency ?? "MXN";
   const mode = await activeMode();
   const ready = configuredModes()[mode];
@@ -92,7 +96,7 @@ export default async function Pagos({
                 <span className="hidden w-24 text-right tabular-nums text-ink-soft sm:block">{row.slots} lugares</span>
                 <span className="w-28 text-right tabular-nums text-ink">{formatMoney(row.amountMinor, row.currency)}</span>
                 <span className="w-36 text-right">
-                  <span className="text-ink-soft">{paymentStatusLabels[row.status] ?? row.status}</span>
+                  <PaymentStatus payment={row} label={paymentStatusLabels[row.status] ?? row.status} accounts={accounts} />
                   <span className="mt-0.5 flex items-center justify-end gap-1.5 text-[0.78rem] text-ink-muted">
                     {row.method && row.method !== "manual" && (paymentMethodLabels[row.method] ?? row.method)}
                     <ModeBadge payment={row} />

@@ -103,3 +103,28 @@ export async function activeStripe(): Promise<{ stripe: Stripe; mode: StripeMode
 export async function activePublishableKey(): Promise<string | null> {
   return stripeKeys(await activeMode()).publishable;
 }
+
+const accountIds: Partial<Record<StripeMode, Promise<string | null>>> = {};
+
+/**
+ * The Stripe account behind each mode — a sandbox is an account of its own —
+ * so a dashboard link opens the right one instead of whichever account the
+ * browser last had selected. Asked once per mode per server instance.
+ */
+export function stripeAccountId(mode: StripeMode): Promise<string | null> {
+  accountIds[mode] ??= (async () => {
+    const stripe = stripeFor(mode);
+    if (!stripe) return null;
+    try {
+      return (await stripe.accounts.retrieveCurrent()).id;
+    } catch {
+      return null;
+    }
+  })();
+  return accountIds[mode]!;
+}
+
+export async function stripeAccountIds(): Promise<Record<StripeMode, string | null>> {
+  const [test, live] = await Promise.all([stripeAccountId("test"), stripeAccountId("live")]);
+  return { test, live };
+}

@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gt, ilike, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { broadcasts, events, organizations, organizers, payments, users } from "@/db/schema";
+import { adminAudit, broadcasts, events, organizations, organizers, payments, users } from "@/db/schema";
 import { slotStatus } from "@/lib/billing/slots";
 import { guestLimit } from "@/lib/limits";
 import { PAGE_SIZE } from "./users";
@@ -126,9 +127,17 @@ export async function getEventDetail(eventId: string) {
   const rows = <T>(query: ReturnType<typeof sql>) =>
     db.execute(query) as unknown as Promise<T[]>;
 
+  const canceller = alias(users, "canceller");
   const [slots, purchases, [ai]] = await Promise.all([
     slotStatus(eventId),
-    db.select().from(payments).where(eq(payments.eventId, eventId)).orderBy(desc(payments.createdAt)),
+    // With who cancelled or refunded it, by name, for the status's detail.
+    db
+      .select({ payment: payments, canceledByName: canceller.name, canceledByEmail: canceller.email })
+      .from(payments)
+      .leftJoin(canceller, eq(canceller.id, payments.canceledByUserId))
+      .where(eq(payments.eventId, eventId))
+      .orderBy(desc(payments.createdAt))
+      .then((rows) => rows.map((row) => ({ ...row.payment, canceledByName: row.canceledByName ?? row.canceledByEmail }))),
     rows<{ cost: number; replies: number; simulator: number; guests: number }>(sql`
       select
         coalesce(sum(cost_micro_usd), 0)::bigint::float8 as cost,
@@ -284,4 +293,26 @@ export async function getEventDetail(eventId: string) {
     purchases,
     ai,
   };
+}
+
+/**
+ * What staff did to this event, newest first: payments recorded, refunded or
+ * cancelled, places given or taken, limits, suspensions. Every such action
+ * logs the event's id in its detail, which is what this reads.
+ */
+export async function eventLog(eventId: string) {
+  return db
+    .select({
+      id: adminAudit.id,
+      action: adminAudit.action,
+      detail: adminAudit.detail,
+      createdAt: adminAudit.createdAt,
+      actorName: users.name,
+      actorEmail: users.email,
+    })
+    .from(adminAudit)
+    .leftJoin(users, eq(users.id, adminAudit.actorUserId))
+    .where(sql`${adminAudit.detail}->>'eventId' = ${eventId}`)
+    .orderBy(desc(adminAudit.createdAt))
+    .limit(100);
 }
