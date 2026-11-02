@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import { and, eq, gt, ne } from "drizzle-orm";
-import { TZDate } from "@date-fns/tz";
 import { customAlphabet, nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -12,6 +11,8 @@ import { requireOrg } from "@/lib/auth/session";
 import { eventKinds } from "./kinds";
 import { newMapsCode } from "./maps";
 import { resolveCoords } from "./geo";
+import { zonedToInstant } from "./zones";
+import { deadlineError, deadlineFromDate } from "./rsvp-deadline";
 import { partySizeFor } from "./party";
 import { diffEvent } from "./changes";
 import { editableEvent } from "./guard";
@@ -43,66 +44,30 @@ function slugify(name: string): string {
 }
 
 /**
- * Turns a wall-clock date and time in the event's own timezone into the absolute
- * instant we store. "7 PM" means 7 PM where the event happens, regardless of
- * where the organizer is sitting when they type it.
+ * Step one of the wizard: what it is, what it is called and when. Enough to
+ * exist — every later step, and the editor, works on a saved event, so leaving
+ * halfway loses nothing.
  */
-function zonedToInstant(date: string, time: string, timezone: string): Date {
-  const [y, m, d] = date.split("-").map(Number);
-  const [hh, mm] = time.split(":").map(Number);
-  return new Date(new TZDate(y, m - 1, d, hh, mm, timezone).getTime());
-}
-
-const basicsSchema = z
-  .object({
-    name: z.string().trim().min(2, "Ponle un nombre al evento").max(120),
-    kind: z.enum(eventKinds),
-    hostNames: z.string().trim().max(120).optional(),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha"),
-    time: z.string().regex(/^\d{2}:\d{2}$/, "Elige una hora"),
-    timezone: z.string().min(1).default("America/Mexico_City"),
-    venueName: z.string().trim().max(160).optional(),
-    venueAddress: z.string().trim().max(300).optional(),
-    venueCity: z.string().trim().max(120).optional(),
-    venueState: z.string().trim().max(120).optional(),
-    venueCountry: z.string().trim().length(2).optional(),
-    venueMapsUrl: z
-      .string()
-      .trim()
-      .url("Pega el link completo, empezando con https://")
-      .max(500)
-      .optional(),
-    rsvpRequired: z.boolean().default(true),
-    allowPlusOnes: z.boolean().default(false),
-    qrEnabled: z.boolean().default(false),
-    autoRegisterEnabled: z.boolean().default(false),
-  });
+const startSchema = z.object({
+  name: z.string().trim().min(2, "Ponle un nombre al evento").max(120),
+  kind: z.enum(eventKinds, { message: "Elige qué tipo de evento es" }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha"),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Elige una hora"),
+});
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> };
 
-export async function createEvent(
+export async function startEvent(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const { orgId, userId } = await requireOrg();
 
-  const parsed = basicsSchema.safeParse({
+  const parsed = startSchema.safeParse({
     name: formData.get("name"),
     kind: formData.get("kind"),
-    hostNames: formData.get("hostNames") || undefined,
     date: formData.get("date"),
     time: formData.get("time"),
-    timezone: formData.get("timezone") || "America/Mexico_City",
-    venueName: formData.get("venueName") || undefined,
-    venueAddress: formData.get("venueAddress") || undefined,
-    venueCity: formData.get("venueCity") || undefined,
-    venueState: formData.get("venueState") || undefined,
-    venueCountry: formData.get("venueCountry") || undefined,
-    venueMapsUrl: formData.get("venueMapsUrl") || undefined,
-    rsvpRequired: formData.get("rsvpRequired") === "on",
-    allowPlusOnes: formData.get("allowPlusOnes") === "on",
-    qrEnabled: formData.get("qrEnabled") === "on",
-    autoRegisterEnabled: formData.get("autoRegisterEnabled") === "on",
   });
 
   if (!parsed.success) {
@@ -117,18 +82,10 @@ export async function createEvent(
   const v = parsed.data;
   const overLimit = await eventLimitError(orgId);
   if (overLimit) return { error: overLimit };
-  // Best-effort and never fatal: the pin is what lets the assistant send a
-  // native map card, and an event with no coordinates simply falls back to the
-  // link. Resolved on save so no guest ever waits on a geocoder.
-  const coords = await resolveCoords({
-    venueName: v.venueName ?? null,
-    venueAddress: v.venueAddress ?? null,
-    venueCity: v.venueCity ?? null,
-    venueState: v.venueState ?? null,
-    venueCountry: v.venueCountry ?? null,
-    venueMapsUrl: v.venueMapsUrl ?? null,
-  });
 
+  // Central Mexico until the venue says otherwise: the place step moves the
+  // zone and keeps the hour typed here.
+  const timezone = "America/Mexico_City";
   const [created] = await db
     .insert(events)
     .values({
@@ -137,23 +94,9 @@ export async function createEvent(
       slug: slugify(v.name),
       name: v.name,
       kind: v.kind,
-      hostNames: v.hostNames ?? null,
-      startsAt: zonedToInstant(v.date, v.time, v.timezone),
-      timezone: v.timezone,
-      venueName: v.venueName ?? null,
-      venueAddress: v.venueAddress ?? null,
-      venueCity: v.venueCity ?? null,
-      venueState: v.venueState ?? null,
-      venueCountry: v.venueCountry ?? null,
-      venueMapsUrl: v.venueMapsUrl ?? null,
-      venueLat: coords?.lat ?? null,
-      venueLng: coords?.lng ?? null,
+      startsAt: zonedToInstant(v.date, v.time, timezone),
+      timezone,
       mapsCode: newMapsCode(),
-      rsvpRequired: v.rsvpRequired,
-      allowPlusOnes: v.allowPlusOnes,
-      maxPartySize: partySizeFor(v.allowPlusOnes),
-      qrEnabled: v.qrEnabled,
-      autoRegisterEnabled: v.autoRegisterEnabled,
       // Minted whether or not the feature starts on: the code is the event's
       // for good, so a link shared today keeps working if the host toggles the
       // feature off and on again.
@@ -168,7 +111,11 @@ export async function createEvent(
   // its places.
   await applyPendingPromos(userId, created.id);
 
-  redirect(`/eventos/${created.id}/detalles`);
+  redirect(
+    formData.get("intent") === "later"
+      ? `/eventos/${created.id}/detalles`
+      : `/eventos/nuevo/${created.id}?paso=2`,
+  );
 }
 
 /**
@@ -445,6 +392,7 @@ export async function cloneEvent(
       locale: source.locale,
       venueName: source.venueName,
       venueAddress: source.venueAddress,
+      venuePostalCode: source.venuePostalCode,
       venueCity: source.venueCity,
       venueState: source.venueState,
       venueCountry: source.venueCountry,
@@ -625,6 +573,7 @@ const basicsEditSchema = z.object({
   venueAddress: z.string().trim().max(300).optional(),
   venueCity: z.string().trim().max(120).optional(),
   venueState: z.string().trim().max(120).optional(),
+  venuePostalCode: z.string().trim().max(12).optional(),
   venueCountry: z.string().trim().length(2).optional(),
   venueMapsUrl: z
     .string()
@@ -640,6 +589,7 @@ const basicsEditSchema = z.object({
    * already has its own message. Thirty days out it stops being a reminder.
    */
   reminderDaysBefore: z.coerce.number().int().min(0).max(30).default(3),
+  rsvpDeadline: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha")]),
 });
 
 /**
@@ -678,12 +628,14 @@ export async function updateEventBasics(
     venueAddress: formData.get("venueAddress") || undefined,
     venueCity: formData.get("venueCity") || undefined,
     venueState: formData.get("venueState") || undefined,
+    venuePostalCode: formData.get("venuePostalCode") || undefined,
     venueCountry: formData.get("venueCountry") || undefined,
     venueMapsUrl: formData.get("venueMapsUrl") || undefined,
     rsvpRequired: formData.get("rsvpRequired") === "on",
     allowPlusOnes: formData.get("allowPlusOnes") === "on",
     qrEnabled: formData.get("qrEnabled") === "on",
     reminderDaysBefore: formData.get("reminderDaysBefore") ?? 3,
+    rsvpDeadline: String(formData.get("rsvpDeadline") ?? ""),
   });
 
   if (!parsed.success) {
@@ -699,6 +651,8 @@ export async function updateEventBasics(
   // The event keeps its own timezone: "7 PM" means seven where the party is,
   // and editing the date should not quietly reinterpret it somewhere else.
   const startsAt = zonedToInstant(v.date, v.time, event.timezone);
+  const late = deadlineError(v.rsvpDeadline, { startsAt, timezone: event.timezone });
+  if (late) return { fieldErrors: { rsvpDeadline: late } };
 
   const maxPartySize = partySizeFor(v.allowPlusOnes);
 
@@ -710,6 +664,7 @@ export async function updateEventBasics(
     v.venueAddress !== (event.venueAddress ?? undefined) ||
     v.venueCity !== (event.venueCity ?? undefined) ||
     v.venueState !== (event.venueState ?? undefined) ||
+    v.venuePostalCode !== (event.venuePostalCode ?? undefined) ||
     v.venueCountry !== (event.venueCountry ?? undefined) ||
     v.venueMapsUrl !== (event.venueMapsUrl ?? undefined);
 
@@ -723,6 +678,7 @@ export async function updateEventBasics(
         venueAddress: v.venueAddress ?? null,
         venueCity: v.venueCity ?? null,
         venueState: v.venueState ?? null,
+        venuePostalCode: v.venuePostalCode ?? null,
         venueCountry: v.venueCountry ?? null,
         venueMapsUrl: v.venueMapsUrl ?? null,
       })
@@ -740,6 +696,7 @@ export async function updateEventBasics(
       venueAddress: v.venueAddress ?? null,
       venueCity: v.venueCity ?? null,
       venueState: v.venueState ?? null,
+      venuePostalCode: v.venuePostalCode ?? null,
       venueCountry: v.venueCountry ?? null,
       venueMapsUrl: v.venueMapsUrl ?? null,
       venueLat: coords?.lat ?? null,
@@ -749,6 +706,7 @@ export async function updateEventBasics(
       maxPartySize,
       qrEnabled: v.qrEnabled,
       reminderDaysBefore: v.reminderDaysBefore,
+      rsvpDeadline: v.rsvpDeadline ? deadlineFromDate(v.rsvpDeadline, event.timezone) : null,
       updatedAt: new Date(),
     })
     .where(eq(events.id, eventId))

@@ -29,6 +29,7 @@ export function EditForm({
     hostNames: string | null;
     venueName: string | null;
     venueAddress: string | null;
+    venuePostalCode: string | null;
     venueState: string | null;
     venueCountry: string | null;
     venueMapsUrl: string | null;
@@ -37,6 +38,8 @@ export function EditForm({
     allowPlusOnes: boolean;
     qrEnabled: boolean;
     reminderDaysBefore: number;
+    /** YYYY-MM-DD, or empty for none. */
+    rsvpDeadline: string;
   };
   date: string;
   time: string;
@@ -141,9 +144,20 @@ export function EditForm({
           <Input name="venueName" defaultValue={event.venueName ?? ""} placeholder="Hacienda San Pedro" />
         </Field>
 
+        <Field label="Dirección" error={err("venueAddress")}>
+          <Input name="venueAddress" defaultValue={event.venueAddress ?? ""} placeholder="Calle, número y colonia" />
+        </Field>
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Dirección" error={err("venueAddress")}>
-            <Input name="venueAddress" defaultValue={event.venueAddress ?? ""} placeholder="Calle y número" />
+          <Field label="Código postal (opcional)" error={err("venuePostalCode")}>
+            <Input
+              name="venuePostalCode"
+              defaultValue={event.venuePostalCode ?? ""}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              maxLength={12}
+              placeholder="62000"
+            />
           </Field>
           <Field label="Ciudad" error={err("venueCity")}>
             <Input name="venueCity" defaultValue={event.venueCity ?? ""} placeholder="Monterrey" />
@@ -201,6 +215,23 @@ export function EditForm({
               </span>
             </span>
           </label>
+
+          <div className="ml-7 space-y-1.5">
+            <label htmlFor="rsvpDeadline" className="block text-[0.9rem] text-ink">
+              Fecha límite para confirmar
+            </label>
+            <p className="text-[0.82rem] text-ink-muted">
+              Opcional. Después de ese día ya nadie puede confirmar; quien no va sí lo puede decir.
+            </p>
+            <Input
+              id="rsvpDeadline"
+              name="rsvpDeadline"
+              type="date"
+              defaultValue={event.rsvpDeadline}
+              className="max-w-52"
+            />
+            {err("rsvpDeadline") && <p className="text-[0.82rem] text-danger">{err("rsvpDeadline")}</p>}
+          </div>
 
           <label className="flex items-start gap-3">
             <input

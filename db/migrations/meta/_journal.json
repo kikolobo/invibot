@@ -386,6 +386,13 @@
       "when": 1793599216592,
       "tag": "0054_notify_signups",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793600910240,
+      "tag": "0055_venue_postal_code",
+      "breakpoints": true
     }
   ]
 }

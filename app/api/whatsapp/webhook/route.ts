@@ -45,6 +45,7 @@ import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify"
 import { organizerEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
 import { eventIsOver } from "@/lib/events/timing";
+import { rsvpClosedReply } from "@/lib/events/rsvp-deadline";
 import { broadcastIdFromPayload } from "@/lib/broadcasts/template";
 import { deliverPendingMessages } from "@/lib/broadcasts/send";
 import { fullMessage } from "@/lib/broadcasts/labels";
@@ -145,9 +146,10 @@ export async function POST(request: Request) {
 
   if (answerable.length > 0) {
     after(async () => {
-      for (const { guest, intent, at, wamid, config, buttonPayload, eventOver } of answerable) {
+      for (const { guest, intent, at, wamid, config, buttonPayload, eventOver, rsvpClosed } of answerable) {
         try {
           if (eventOver) await respondAfterEvent(guest, wamid, config);
+          else if (rsvpClosed) await respondRsvpClosed(guest, wamid, config);
           else await respond(guest, intent, at, wamid, config, buttonPayload);
         } catch (error) {
           console.error("[whatsapp] reply failed", guest.id, intent, error);
@@ -467,6 +469,8 @@ type Answerable = {
   buttonPayload: string | null;
   /** Their event has happened and this is not a BAJA or [Leer mensaje]; see `respondAfterEvent`. */
   eventOver: boolean;
+  /** A yes that came after the RSVP deadline, and was not recorded; see `respondRsvpClosed`. */
+  rsvpClosed: boolean;
 };
 
 async function recordInbound(message: InboundMessage): Promise<Answerable | null> {
@@ -603,7 +607,7 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
     eventIsOver(event, message.timestamp.getTime()) &&
     intent !== "opt_out" &&
     intent !== "message_request";
-  if (!eventOver) await applyIntent(guest, intent, message.timestamp);
+  const rsvpClosed = !eventOver && !(await applyIntent(guest, intent, message.timestamp));
 
   // Both of our numbers deliver here, so the reply follows the number the guest
   // wrote to rather than whichever profile the environment happens to prefer.
@@ -624,6 +628,7 @@ async function recordInbound(message: InboundMessage): Promise<Answerable | null
     config,
     buttonPayload: message.buttonPayload,
     eventOver,
+    rsvpClosed,
   };
 }
 
@@ -772,6 +777,18 @@ async function respondAfterEvent(guest: GuestRow, wamid: string, config: WhatsAp
   await markRead(config, wamid);
   const outcome = await sendTextToGuest(guest.id, afterEventReply(), "custom", config);
   if (!outcome.ok) console.error("[whatsapp] after-event reply failed", guest.id, outcome);
+}
+
+/**
+ * A yes past the RSVP deadline. Answered directly rather than by the
+ * assistant, which would only be asked to explain a refusal it did not make.
+ */
+async function respondRsvpClosed(guest: GuestRow, wamid: string, config: WhatsAppConfig): Promise<void> {
+  await markRead(config, wamid);
+  const event = await db.query.events.findFirst({ where: eq(events.id, guest.eventId) });
+  if (!event) return;
+  const outcome = await sendTextToGuest(guest.id, rsvpClosedReply(event), "custom", config);
+  if (!outcome.ok) console.error("[whatsapp] rsvp-closed reply failed", guest.id, outcome);
 }
 
 /**

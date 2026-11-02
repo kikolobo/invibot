@@ -54,6 +54,7 @@ function summarise(changes: string[]): string {
 const sameVenue = (a: EventRow, b: EventRow) =>
   a.venueName === b.venueName &&
   a.venueAddress === b.venueAddress &&
+  a.venuePostalCode === b.venuePostalCode &&
   a.venueCity === b.venueCity &&
   a.venueState === b.venueState &&
   a.venueCountry === b.venueCountry &&

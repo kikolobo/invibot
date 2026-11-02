@@ -95,6 +95,9 @@ export async function remindUnansweredRsvps(now = new Date(), limit = 50): Promi
         inArray(guests.inviteStatus, [...INVITED]),
         isNull(events.archivedAt),
         gt(events.startsAt, now),
+        // Asking somebody to confirm after confirmations closed is asking for
+        // a yes we would then refuse.
+        or(isNull(events.rsvpDeadline), gt(events.rsvpDeadline, now)),
         or(
           isNull(conversations.lastOutboundAt),
           lt(conversations.lastOutboundAt, new Date(now.getTime() - QUIET_AFTER_OUTBOUND_MS)),

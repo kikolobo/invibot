@@ -1,3 +1,4 @@
+import { formatDeadline, rsvpClosed } from "@/lib/events/rsvp-deadline";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, eventFacts, guests } from "@/db/schema";
@@ -93,6 +94,13 @@ export async function buildContext(
     "## El evento",
     `Nombre: ${event.name}`,
     `Cuándo: ${formatEventWhen(event)}`,
+    ...(event.rsvpDeadline
+      ? [
+          rsvpClosed(event)
+            ? `Confirmaciones: cerraron el ${formatDeadline(event)}. Ya no puedes registrar a nadie como que asiste; si alguien quiere confirmar, dile que las confirmaciones cerraron y que le escriba directamente a quien lo invitó. Que no pueda ir sí lo puedes registrar.`
+            : `Confirmar a más tardar el ${formatDeadline(event)}.`,
+        ]
+      : []),
     `Dónde: ${formatEventWhere(event) || "Sin definir"}`,
     ...(event.venueAddress?.trim() ? [`Dirección: ${event.venueAddress.trim()}`] : []),
     ...(maps ? [`Link de Google Maps: ${maps}`] : []),

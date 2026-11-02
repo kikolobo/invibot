@@ -15,6 +15,7 @@ import { asksCompanionName, confirmationDetails, confirmationReply, declineReply
 import type { InboundMessage } from "./webhook";
 import { assistantName } from "@/lib/agent/identity";
 import { READ_PAYLOAD } from "@/lib/broadcasts/template";
+import { rsvpClosed } from "@/lib/events/rsvp-deadline";
 
 /**
  * What a guest meant, and what we do about it.
@@ -129,12 +130,24 @@ type GuestRow = typeof guests.$inferSelect;
  * Records what the intent means about this guest. Runs inside the webhook
  * request rather than after it: these are facts, and if the write is lost
  * Meta's redelivery is the only thing that would bring them back.
+ *
+ * False when it refused: a yes after the event's RSVP deadline. Checked here,
+ * where the button path and the assistant's both pass, so neither can let one
+ * through.
  */
 export async function applyIntent(
   guest: GuestRow,
   intent: GuestIntent,
   at: Date,
-): Promise<void> {
+): Promise<boolean> {
+  if (isConfirmation(intent)) {
+    const event = await db.query.events.findFirst({
+      where: eq(events.id, guest.eventId),
+      columns: { rsvpDeadline: true },
+    });
+    if (event && rsvpClosed(event, at)) return false;
+  }
+
   if (isConfirmation(intent) || intent === "rsvp_no") {
     // Clamped to what the organizer actually offered: a guest who taps the
     // plus-one button on a seat meant for one does not get to bring someone.
@@ -168,7 +181,7 @@ export async function applyIntent(
       source: "guest",
       detail: seats === undefined ? {} : { seats },
     });
-    return;
+    return true;
   }
 
   if (intent === "opt_out") {
@@ -195,6 +208,7 @@ export async function applyIntent(
       source: "guest",
     });
   }
+  return true;
 }
 
 /**

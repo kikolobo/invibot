@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { TZDate } from "@date-fns/tz";
 import { requireEventAccess } from "@/lib/events/access";
 import { previewNotifyAudience } from "@/lib/events/notify";
+import { deadlineDate } from "@/lib/events/rsvp-deadline";
 import { EditForm } from "./edit-form";
 
 export const metadata = { title: "Editar evento" };
@@ -40,6 +41,7 @@ export default async function Editar({
             hostNames: event.hostNames,
             venueName: event.venueName,
             venueAddress: event.venueAddress,
+            venuePostalCode: event.venuePostalCode,
             venueState: event.venueState,
             venueCountry: event.venueCountry,
             venueMapsUrl: event.venueMapsUrl,
@@ -48,6 +50,7 @@ export default async function Editar({
             allowPlusOnes: event.allowPlusOnes,
             qrEnabled: event.qrEnabled,
             reminderDaysBefore: event.reminderDaysBefore,
+            rsvpDeadline: deadlineDate(event.rsvpDeadline, event.timezone),
           }}
           date={`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`}
           time={`${pad(local.getHours())}:${pad(local.getMinutes())}`}

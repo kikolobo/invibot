@@ -192,6 +192,7 @@ export async function resolveCoords(
     EventRow,
     | "venueName"
     | "venueAddress"
+    | "venuePostalCode"
     | "venueCity"
     | "venueState"
     | "venueCountry"

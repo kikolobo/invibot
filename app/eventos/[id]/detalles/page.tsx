@@ -20,7 +20,7 @@ export default async function Detalles({
   return (
     <>
       <div>
-        <p className="eyebrow">Paso 2 de 2 · {eventKindLabels[event.kind].es}</p>
+        <p className="eyebrow">Detalles · {eventKindLabels[event.kind].es}</p>
         <h1 className="mt-4 font-display text-4xl leading-tight text-ink sm:text-5xl">
           Lo que tus invitados van a preguntar
         </h1>

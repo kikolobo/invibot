@@ -1,3 +1,4 @@
+import { RSVP_CLOSED_TOOL_RESULT } from "@/lib/events/rsvp-deadline";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -135,7 +136,9 @@ async function perform(
       // dos quedan registrados", and someone arrives with a person who has no
       // place. The correction has to reach the sentence, not just the row.
       const companion = action.companion && guest.partySizeAllowed >= 2;
-      await applyIntent(guest, companion ? "rsvp_yes_plus_one" : "rsvp_yes_solo", at);
+      if (!(await applyIntent(guest, companion ? "rsvp_yes_plus_one" : "rsvp_yes_solo", at))) {
+        return RSVP_CLOSED_TOOL_RESULT;
+      }
       if (action.companion && !companion) {
         return [
           "Registrado, pero SOLO el invitado: su invitación no incluye acompañante.",

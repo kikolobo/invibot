@@ -12,6 +12,7 @@ import { simulatorAllowance } from "@/lib/billing/slots";
 import { describeAction, type AgentAction } from "./tools";
 import { PASSES_SENT } from "./passes";
 import { weatherReportFor } from "./weather";
+import { RSVP_CLOSED_TOOL_RESULT, rsvpClosed } from "@/lib/events/rsvp-deadline";
 
 /**
  * The assistant, rehearsing.
@@ -83,7 +84,7 @@ export async function simulateReply(
     // have, not one shaped by the rehearsal.
     switch (action.tool) {
       case "confirm_attendance":
-        return "Registrado. El invitado queda confirmado.";
+        return rsvpClosed(event) ? RSVP_CLOSED_TOOL_RESULT : "Registrado. El invitado queda confirmado.";
       case "decline_attendance":
         return "Registrado. El invitado queda como que no asistirá.";
       case "opt_out":

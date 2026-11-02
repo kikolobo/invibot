@@ -19,7 +19,13 @@ import { publicBase } from "@/lib/public-url";
 type EventRow = typeof events.$inferSelect;
 type VenueFields = Pick<
   EventRow,
-  "venueName" | "venueAddress" | "venueCity" | "venueState" | "venueCountry" | "venueMapsUrl"
+  | "venueName"
+  | "venueAddress"
+  | "venuePostalCode"
+  | "venueCity"
+  | "venueState"
+  | "venueCountry"
+  | "venueMapsUrl"
 >;
 type ShortFields = VenueFields & Pick<EventRow, "mapsCode">;
 
@@ -72,7 +78,9 @@ export function venueQuery(event: VenueFields): string | null {
   const street = event.venueAddress?.trim();
   if (!street) return null;
 
-  return [street, event.venueCity?.trim(), event.venueState?.trim(), countryLabel(event.venueCountry)]
+  // "62000 Cuernavaca", the way a Mexican address writes it.
+  const town = [event.venuePostalCode?.trim(), event.venueCity?.trim()].filter(Boolean).join(" ");
+  return [street, town, event.venueState?.trim(), countryLabel(event.venueCountry)]
     .filter((part): part is string => Boolean(part))
     .join(", ");
 }

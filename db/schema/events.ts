@@ -50,6 +50,8 @@ export const events = pgTable(
     venueCity: text("venue_city"),
     venueState: text("venue_state"),
     venueCountry: text("venue_country").default("MX"),
+    /** Optional. Narrows the address search, and fills city and state in Mexico. */
+    venuePostalCode: text("venue_postal_code"),
     venueLat: doublePrecision("venue_lat"),
     venueLng: doublePrecision("venue_lng"),
     venuePlaceId: text("venue_place_id"),

@@ -152,6 +152,7 @@ export function formatEventWhereForMessage(
     | "venueName"
     | "venueCity"
     | "venueAddress"
+    | "venuePostalCode"
     | "venueState"
     | "venueCountry"
     | "venueMapsUrl"
@@ -176,12 +177,12 @@ export function formatEventWhereForMessage(
 export function formatEventAddressLines(
   event: Pick<
     EventRow,
-    "venueName" | "venueAddress" | "venueCity" | "venueState" | "venueCountry"
+    "venueName" | "venueAddress" | "venuePostalCode" | "venueCity" | "venueState" | "venueCountry"
   >,
 ): string[] {
   const street = [
     event.venueAddress?.trim(),
-    event.venueCity?.trim(),
+    [event.venuePostalCode?.trim(), event.venueCity?.trim()].filter(Boolean).join(" "),
     event.venueState?.trim(),
   ]
     .filter(Boolean)
