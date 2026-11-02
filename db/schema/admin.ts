@@ -74,6 +74,8 @@ export const siteSettings = pgTable("site_settings", {
   /** Organizer app shut for everyone but staff. Guests and the bot keep working. */
   maintenance: boolean("maintenance").notNull().default(false),
   maintenanceMessage: text("maintenance_message"),
+  /** Tell the admins on WhatsApp each time somebody opens an account. */
+  notifySignups: boolean("notify_signups").notNull().default(true),
   /** Copied onto each new account; null is no limit. */
   defaultMaxEvents: integer("default_max_events"),
   defaultMaxGuestsPerEvent: integer("default_max_guests_per_event"),

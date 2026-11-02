@@ -18,6 +18,7 @@ const DEFAULTS: SiteSettings = {
   signupPasscode: null,
   maintenance: false,
   maintenanceMessage: null,
+  notifySignups: true,
   defaultMaxEvents: null,
   defaultMaxGuestsPerEvent: null,
   pricePerGuestMinor: 1000,

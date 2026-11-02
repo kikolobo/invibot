@@ -5,6 +5,7 @@ import { admin } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { APIError } from "better-auth/api";
 import { normalizePhone } from "@/lib/phone";
 import { INVITE_COOKIE, acceptInvitesForPhone, inviteOpensSignup } from "@/lib/organizers/invites";
@@ -14,6 +15,7 @@ import { ac, roles } from "./permissions";
 import { signIns, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getSettings } from "@/lib/site/settings";
+import { announceSignup } from "@/lib/admin/alerts";
 
 /**
  * Organizer authentication. Guests never authenticate — they reach their
@@ -143,6 +145,8 @@ const createAuth = () =>
             return { data: { ...user, phone: phone.e164 } };
           },
           after: async (user, context) => {
+            // Read before the cookie is cleared below.
+            const invited = Boolean(context?.getCookie(INVITE_COOKIE));
             // One code, one account. Left open, the cookie would let a second
             // signup through from the same browser for the rest of the hour.
             context?.setCookie(GATE_COOKIE, "", { path: "/", maxAge: 0 });
@@ -170,6 +174,20 @@ const createAuth = () =>
               email: user.email,
               phone: typeof user.phone === "string" ? user.phone : null,
             });
+
+            // Staff creating the account already know about it. After the
+            // response, so a slow WhatsApp send never holds up the signup.
+            if (context?.path !== "/admin/create-user") {
+              after(() =>
+                announceSignup({
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  phone: typeof user.phone === "string" ? user.phone : null,
+                  invited,
+                }).catch((error) => console.error("[auth] could not announce signup", error)),
+              );
+            }
           },
         },
       },

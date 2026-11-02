@@ -26,6 +26,7 @@ const TABS = [
   { key: "sitio", label: "Sitio" },
   { key: "pagos", label: "Pagos" },
   { key: "limites", label: "Límites" },
+  { key: "notificaciones", label: "Notificaciones" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
@@ -74,6 +75,8 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
           <dd>{limit(settings.defaultMaxEvents)}</dd>
           <dt className="text-ink-muted">Invitados por evento</dt>
           <dd>{limit(settings.defaultMaxGuestsPerEvent)}</dd>
+          <dt className="text-ink-muted">Aviso de cuentas nuevas</dt>
+          <dd>{settings.notifySignups ? "Activo" : "No"}</dd>
         </dl>
       </div>
     );
@@ -280,6 +283,31 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
                 placeholder="Sin límite"
               />
             </div>
+          </Panel>
+        </AdminForm>
+      )}
+
+      {tab === "notificaciones" && (
+        <AdminForm
+          key="notificaciones"
+          action={updateSettings}
+          submit="Guardar"
+          className={`mt-10 space-y-10 ${tabBody}`}
+        >
+          <input type="hidden" name="section" value="notificaciones" />
+          <Panel
+            title="Avisos por WhatsApp"
+            note="Llegan a cada admin con un número de WhatsApp en su cuenta. Las cuentas que crea el staff desde el admin no se avisan."
+          >
+            <label className="flex items-start gap-3">
+              <input type="checkbox" name="notifySignups" defaultChecked={settings.notifySignups} className="mt-1" />
+              <span>
+                <span className="text-ink">Cuando alguien crea una cuenta</span>
+                <span className="block text-[0.85rem] text-ink-muted">
+                  Con su nombre, correo y WhatsApp, y una liga a su página en el admin.
+                </span>
+              </span>
+            </label>
           </Panel>
         </AdminForm>
       )}

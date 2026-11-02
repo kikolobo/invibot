@@ -621,6 +621,10 @@ async function readSection(
     return { defaultMaxEvents, defaultMaxGuestsPerEvent };
   }
 
+  if (section === "notificaciones") {
+    return { notifySignups: formData.get("notifySignups") === "on" };
+  }
+
   return { error: "Esa sección no existe." };
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE "site_settings" ADD COLUMN "notify_signups" boolean DEFAULT true NOT NULL;

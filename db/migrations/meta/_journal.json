@@ -379,6 +379,13 @@
       "when": 1793321380847,
       "tag": "0053_stripe_customer_per_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793599216592,
+      "tag": "0054_notify_signups",
+      "breakpoints": true
     }
   ]
 }
