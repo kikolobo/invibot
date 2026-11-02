@@ -657,8 +657,8 @@ export function StepFour({
         <Toggle
           name="qrEnabled"
           defaultChecked={defaults.qrEnabled}
-          title="Enviar código de acceso (QR)"
-          note="Cada invitado que confirme recibe un código único para la entrada. Uno por persona, también para el acompañante."
+          title="Enviar código de acceso (QR) · Beta"
+          note="Cada invitado que confirme recibe un código único para la entrada, uno por persona, también para el acompañante. Está en beta: el control de acceso para escanearlos en la puerta todavía está en desarrollo."
         />
       </div>
 

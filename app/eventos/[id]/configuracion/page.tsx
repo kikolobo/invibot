@@ -44,17 +44,18 @@ export default async function Configuracion({ params }: { params: Promise<{ id: 
             rsvpDeadline: deadlineDate(event.rsvpDeadline, event.timezone),
           }}
           eventDate={wallClock(event.startsAt, event.timezone).date}
+          registration={
+            // Its own switch, saved the moment it flips: turning it off asks first.
+            <AutoRegister
+              eventId={event.id}
+              enabled={event.autoRegisterEnabled}
+              link={registrationLink(event)}
+              pendingCount={pendingCount}
+              className=""
+            />
+          }
         />
       </div>
-
-      {/* Its own switch, saved the moment it flips: turning it off asks first. */}
-      <AutoRegister
-        eventId={event.id}
-        enabled={event.autoRegisterEnabled}
-        link={registrationLink(event)}
-        pendingCount={pendingCount}
-        className="mt-10"
-      />
     </div>
   );
 }

@@ -13,8 +13,11 @@ export function SettingsForm({
   eventId,
   settings,
   eventDate,
+  registration,
 }: {
   eventId: string;
+  /** The registration switch, which saves on its own; shown before «Guardar» so that stays last. */
+  registration: ReactNode;
   settings: {
     rsvpRequired: boolean;
     allowPlusOnes: boolean;
@@ -99,14 +102,23 @@ export function SettingsForm({
         </div>
       </Group>
 
-      <Group title="Acceso">
+      <Group title="Acceso" badge="Beta">
         <Toggle
           name="qrEnabled"
           defaultChecked={settings.qrEnabled}
           title="Enviar código de acceso (QR)"
           note="Cada invitado que confirme recibe un código único para la entrada, uno por persona. Apagarlo no invalida los que ya se mandaron; sólo deja de mandar nuevos."
         />
+        <p className="ml-7 text-[0.82rem] leading-relaxed text-ink-muted">
+          Esta función está en beta: los códigos ya se envían, pero el control de acceso para
+          escanearlos en la entrada todavía está en desarrollo.
+        </p>
       </Group>
+
+      <div>
+        {registration}
+        <p className="mt-2 text-[0.8rem] text-ink-muted">El autorregistro se guarda en cuanto lo mueves.</p>
+      </div>
 
       {state.error && <p className="text-[0.9rem] text-danger">{state.error}</p>}
       {state.ok && !pending && <p className="text-[0.9rem] text-ink-soft">{state.ok}</p>}
@@ -115,10 +127,17 @@ export function SettingsForm({
   );
 }
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
+function Group({ title, badge, children }: { title: string; badge?: string; children: ReactNode }) {
   return (
     <section className="space-y-4 rounded-xl border border-line bg-paper-deep p-5">
-      <p className="font-display text-lg text-ink">{title}</p>
+      <p className="flex items-center gap-2 font-display text-lg text-ink">
+        {title}
+        {badge && (
+          <span className="rounded-full border border-accent/50 px-2 py-0.5 font-sans text-[0.68rem] uppercase tracking-wider text-accent">
+            {badge}
+          </span>
+        )}
+      </p>
       {children}
     </section>
   );
