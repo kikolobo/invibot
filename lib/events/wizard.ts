@@ -23,7 +23,7 @@ import type { ActionState } from "./actions";
  * completo después», straight to the questionnaire. Saving either way: what
  * somebody typed before deciding to stop is still worth keeping.
  */
-export type WizardStep = 1 | 2 | 3 | 4;
+export type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 const optional = (max: number) =>
   z
@@ -61,7 +61,6 @@ const stepSchemas = {
     rsvpRequired: z.boolean(),
     allowPlusOnes: z.boolean(),
     qrEnabled: z.boolean(),
-    autoRegisterEnabled: z.boolean(),
     reminderDaysBefore: z.coerce.number().int().min(0, "De 0 a 30").max(30, "De 0 a 30"),
     rsvpDeadline: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha")]),
   }),
@@ -186,7 +185,6 @@ export async function saveWizardStep(
       rsvpRequired: on("rsvpRequired"),
       allowPlusOnes: on("allowPlusOnes"),
       qrEnabled: on("qrEnabled"),
-      autoRegisterEnabled: on("autoRegisterEnabled"),
       reminderDaysBefore: text("reminderDaysBefore") || 3,
       rsvpDeadline: text("rsvpDeadline"),
     });
@@ -201,7 +199,6 @@ export async function saveWizardStep(
         allowPlusOnes: v.allowPlusOnes,
         maxPartySize: partySizeFor(v.allowPlusOnes),
         qrEnabled: v.qrEnabled,
-        autoRegisterEnabled: v.autoRegisterEnabled,
         reminderDaysBefore: v.reminderDaysBefore,
         rsvpDeadline: v.rsvpDeadline ? deadlineFromDate(v.rsvpDeadline, event.timezone) : null,
         updatedAt: new Date(),
@@ -212,7 +209,9 @@ export async function saveWizardStep(
   revalidatePath(`/eventos/${eventId}`, "layout");
   const later = formData.get("intent") === "later";
   redirect(
-    later || step === 4
+    // Step five saves nothing of its own: each way of adding guests acts the
+    // moment it is used.
+    later || step === 5
       ? `/eventos/${eventId}/detalles`
       : `/eventos/nuevo/${eventId}?paso=${step + 1}`,
   );

@@ -16,11 +16,13 @@ export function AutoRegister({
   enabled,
   link,
   pendingCount,
+  className = "mt-8",
 }: {
   eventId: string;
   enabled: boolean;
   link: string | null;
   pendingCount: number;
+  className?: string;
 }) {
   const [on, setOn] = useState(enabled);
   const [confirmingOff, setConfirmingOff] = useState(false);
@@ -54,7 +56,7 @@ export function AutoRegister({
   };
 
   return (
-    <div className="mt-8 rounded-xl border border-line bg-paper-deep p-5">
+    <div className={`${className} rounded-xl border border-line bg-paper-deep p-5`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-display text-lg text-ink">Autorregistro con liga de WhatsApp</p>

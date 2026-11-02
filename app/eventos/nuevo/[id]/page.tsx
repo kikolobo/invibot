@@ -2,17 +2,18 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { organizers, users } from "@/db/schema";
+import { waysToAdd } from "@/lib/guests/ways";
 import { requireOrg } from "@/lib/auth/session";
 import { requireEventAccess } from "@/lib/events/access";
 import { wallClock } from "@/lib/events/zones";
 import { deadlineDate } from "@/lib/events/rsvp-deadline";
 import { formatPhone } from "@/lib/phone";
-import { StepFour, StepOne, StepThree, StepTwo } from "../wizard";
+import { StepFive, StepFour, StepOne, StepThree, StepTwo } from "../wizard";
 
 export const metadata = { title: "Nuevo evento" };
 
 /**
- * Steps two to four of the wizard, on an event that already exists — and step
+ * Steps two to five of the wizard, on an event that already exists — and step
  * one again, when somebody goes back to it. Outside /eventos/[id] on purpose:
  * the event's menu would be a dozen ways out of a flow that wants one.
  */
@@ -69,13 +70,17 @@ export default async function PasoDelEvento({
           rsvpRequired: event.rsvpRequired,
           allowPlusOnes: event.allowPlusOnes,
           qrEnabled: event.qrEnabled,
-          autoRegisterEnabled: event.autoRegisterEnabled,
           reminderDaysBefore: event.reminderDaysBefore,
           rsvpDeadline: deadlineDate(event.rsvpDeadline, event.timezone),
           eventDate: wallClock(event.startsAt, event.timezone).date,
         }}
       />
     );
+  }
+
+  if (step === 5) {
+    const { userId } = await requireOrg();
+    return <StepFive eventId={event.id} ways={await waysToAdd(event, userId)} />;
   }
 
   // Whoever answers today; on a new event that is the owner, added from their

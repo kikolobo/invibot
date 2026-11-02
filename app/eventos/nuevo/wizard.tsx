@@ -10,13 +10,21 @@ import { timezoneFor, timezoneOptions } from "@/lib/events/zones";
 import { venueQuery } from "@/lib/events/maps";
 import { lookupPostalCode } from "@/lib/events/postal";
 import { Field, Input, Select } from "@/components/ui/field";
+import {
+  ContactsWay,
+  ImportWay,
+  NOTHING_SENT,
+  OneByOneWay,
+  RegistrationWay,
+} from "../[id]/invitados/ways";
+import type { WaysToAdd } from "@/lib/guests/ways";
 
 /**
  * The new-event wizard, one short screen at a time. Every step can be left
  * with «Lo completo después», which saves what is there and goes to the
  * questionnaire; everything here is in «Editar» afterwards too.
  */
-const TOTAL = 4;
+const TOTAL = 5;
 
 function Progress({ step }: { step: WizardStep }) {
   return (
@@ -89,14 +97,17 @@ function Frame({
   action,
   state,
   backHref,
+  aside,
 }: {
   step: WizardStep;
   title: ReactNode;
   intro: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   action: (formData: FormData) => void;
   state: ActionState;
   backHref?: string;
+  /** Above the form, for panels that act on their own — a form cannot hold another. */
+  aside?: ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
   const [intent, setIntent] = useState<string | null>(null);
@@ -119,6 +130,7 @@ function Frame({
       <Progress step={step} />
       <h1 className="mt-8 font-display text-4xl leading-tight text-ink sm:text-5xl">{title}</h1>
       <div className="mt-4 max-w-prose leading-relaxed text-ink-soft">{intro}</div>
+      {aside && <div className="mt-10 space-y-5">{aside}</div>}
       <form onSubmit={submit} noValidate className="mt-10 space-y-7">
         {children}
         {state.error && <p className="text-[0.9rem] text-danger">{state.error}</p>}
@@ -171,7 +183,7 @@ export function StepOne({
       intro={
         <>
           <p>
-            Vamos a armar tu evento en cuatro pasos cortos. Con lo que nos cuentes,{" "}
+            Vamos a armar tu evento en cinco pasos cortos. Con lo que nos cuentes,{" "}
             <span className="font-medium text-ink">Aura</span> manda tus invitaciones, confirma a tus
             invitados y les contesta sus dudas por ti.
           </p>
@@ -607,7 +619,6 @@ export function StepFour({
     rsvpRequired: boolean;
     allowPlusOnes: boolean;
     qrEnabled: boolean;
-    autoRegisterEnabled: boolean;
     reminderDaysBefore: number;
     /** YYYY-MM-DD, or empty for none. */
     rsvpDeadline: string;
@@ -649,12 +660,6 @@ export function StepFour({
           title="Enviar código de acceso (QR)"
           note="Cada invitado que confirme recibe un código único para la entrada. Uno por persona, también para el acompañante."
         />
-        <Toggle
-          name="autoRegisterEnabled"
-          defaultChecked={defaults.autoRegisterEnabled}
-          title="Autorregistro con liga de WhatsApp"
-          note="Compartes una liga en tus grupos y quien la abre se registra solo. Nadie recibe invitación hasta que tú lo apruebes."
-        />
       </div>
 
       <Field
@@ -687,5 +692,51 @@ export function StepFour({
         />
       </Field>
     </Frame>
+  );
+}
+
+export function StepFive({
+  eventId,
+  ways,
+}: {
+  eventId: string;
+  ways: WaysToAdd;
+}) {
+  const [state, action] = useActionState<ActionState, FormData>(
+    saveWizardStep.bind(null, eventId, 5),
+    {},
+  );
+
+  return (
+    <Frame
+      step={5}
+      action={action}
+      state={state}
+      backHref={back(eventId, 4)}
+      title="¿Cómo vas a agregar a tus invitados?"
+      intro={
+        <>
+          <p>
+            Hay varias formas y puedes combinarlas: unos por liga, otros de una lista, otros compartiendo su
+            contacto. Usa las que quieras ahora o después, desde <span className="text-ink">Invitados</span>.
+          </p>
+          <p className="mt-3 text-[0.9rem] text-ink-muted">{NOTHING_SENT}</p>
+        </>
+      }
+      aside={
+        <>
+          <RegistrationWay eventId={eventId} registration={ways.registration} canToggle />
+          <ImportWay eventId={eventId} />
+          <ContactsWay contacts={ways.contacts} />
+          <OneByOneWay
+            where={
+              <>
+                En <span className="text-ink">Invitados</span> → «Agregar invitado»,
+              </>
+            }
+          />
+        </>
+      }
+    />
   );
 }

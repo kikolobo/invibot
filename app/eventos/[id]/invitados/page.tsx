@@ -7,10 +7,21 @@ import { requireEventAccess } from "@/lib/events/access";
 import { reconcilePending } from "@/lib/billing/credit";
 import { listGroups } from "@/lib/guests/actions";
 import { invitationPlan, eventVariables, greetingName, templateForGuest } from "@/lib/campaigns/recipients";
-import { ImportGuests } from "./import-guests";
+import Link from "next/link";
+import { can } from "@/lib/events/access";
+import { requireOrg } from "@/lib/auth/session";
+import { waysToAdd } from "@/lib/guests/ways";
+import { ContactsWay, ImportWay, NOTHING_SENT, OneByOneWay, RegistrationWay } from "./ways";
 import { GuestTable } from "./guest-table";
 
 export const metadata = { title: "Invitados" };
+
+const TABS = [
+  { key: "lista", label: "Lista" },
+  { key: "importar", label: "Importar" },
+  { key: "otras", label: "Otras formas" },
+] as const;
+type Tab = (typeof TABS)[number]["key"];
 
 /**
  * Sending is sequential and paid per message, so the default action timeout is
@@ -24,11 +35,12 @@ export default async function Invitados({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ pago?: string }>;
+  searchParams: Promise<{ pago?: string; tab?: string }>;
 }) {
   const { id } = await params;
-  const { pago } = await searchParams;
-  const { event } = await requireEventAccess(id, "guests");
+  const { pago, tab: requested } = await searchParams;
+  const access = await requireEventAccess(id, "guests");
+  const { event } = access;
   // Back from paying inside "Enviar invitaciones": count the payment before
   // anything else reads the places.
   if (pago === "listo") await reconcilePending(id);
@@ -86,6 +98,10 @@ export default async function Invitados({
 
   const groups = await listGroups(id);
   const archived = event.archivedAt !== null;
+  // An archived list cannot grow, so only the list itself is offered.
+  const tabs = archived ? TABS.slice(0, 1) : TABS;
+  const tab: Tab = tabs.some((t) => t.key === requested) ? (requested as Tab) : "lista";
+  const ways = tab === "otras" ? await waysToAdd(event, (await requireOrg()).userId) : null;
 
   // Who could be invited right now, decided by the same module the send action
   // uses — so the panel cannot offer a recipient the action would refuse.
@@ -132,42 +148,97 @@ export default async function Invitados({
         Invitados
       </h1>
 
-
-
-      <div className="mt-3">
-        <GuestTable
-          eventId={event.id}
-          eventName={event.name}
-          rows={guestRows}
-          invite={invite}
-          groups={groups}
-          maxPartySize={event.maxPartySize}
-          archived={archived}
-          capacity={event.capacity}
-          autoRegister={event.autoRegisterEnabled}
-          recent={recent}
-        />
-      </div>
-
-      {archived && (
-        <p className="mt-8 rounded-xl border border-line bg-paper-deep p-5 text-[0.88rem] leading-relaxed text-ink-muted">
-          Este evento está archivado. Su lista se conserva completa, pero no puede
-          cambiarse ni recibir invitaciones.
-        </p>
+      {tabs.length > 1 && (
+        <nav className="mt-6 flex gap-1 border-b border-line" aria-label="Cómo agregar invitados">
+          {tabs.map((item) => (
+            <Link
+              key={item.key}
+              href={item.key === "lista" ? `/eventos/${event.id}/invitados` : `/eventos/${event.id}/invitados?tab=${item.key}`}
+              aria-current={item.key === tab ? "page" : undefined}
+              className={`-mb-px border-b-2 px-4 py-2.5 text-[0.92rem] transition-colors ${
+                item.key === tab ? "border-accent text-ink" : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       )}
 
-      {/* Adding one guest moved into a dialog over the list; importing many
-          stays here, where it is a deliberate trip rather than something you
-          scroll past forty names to reach. */}
-      <div className={`mt-10 ${archived ? "hidden" : ""}`}>
-        <ImportGuests eventId={event.id} />
-      </div>
+      {tab === "lista" && (
+        <>
+          {!archived && (
+            <p className="mt-4 text-[0.88rem] leading-relaxed text-ink-muted">
+              Agrega a alguien con «Agregar invitado», o trae a muchos desde{" "}
+              <Link href={`/eventos/${event.id}/invitados?tab=importar`} className="text-accent hover:underline">
+                Importar
+              </Link>{" "}
+              y{" "}
+              <Link href={`/eventos/${event.id}/invitados?tab=otras`} className="text-accent hover:underline">
+                Otras formas
+              </Link>
+              . {NOTHING_SENT}
+            </p>
+          )}
 
-      <p className="mt-8 text-[0.85rem] leading-relaxed text-ink-muted">
-        Los números se guardan en formato internacional. Reconocemos las formas
-        antiguas mexicanas (+52 1…, 044, 045) y detectamos repetidos aunque
-        estén escritos distinto.
-      </p>
+          <div className="mt-3">
+            <GuestTable
+              eventId={event.id}
+              eventName={event.name}
+              rows={guestRows}
+              invite={invite}
+              groups={groups}
+              maxPartySize={event.maxPartySize}
+              archived={archived}
+              capacity={event.capacity}
+              autoRegister={event.autoRegisterEnabled}
+              recent={recent}
+            />
+          </div>
+
+          {archived && (
+            <p className="mt-8 rounded-xl border border-line bg-paper-deep p-5 text-[0.88rem] leading-relaxed text-ink-muted">
+              Este evento está archivado. Su lista se conserva completa, pero no puede
+              cambiarse ni recibir invitaciones.
+            </p>
+          )}
+        </>
+      )}
+
+      {tab === "importar" && (
+        <div className="mt-8 max-w-3xl">
+          <ImportWay eventId={event.id} />
+        </div>
+      )}
+
+      {tab === "otras" && ways && (
+        <div className="mt-8 max-w-3xl space-y-5">
+          <p className="text-[0.88rem] leading-relaxed text-ink-muted">
+            Puedes combinarlas y cambiar de opinión cuando quieras. {NOTHING_SENT}
+          </p>
+          <RegistrationWay eventId={event.id} registration={ways.registration} canToggle={can(access, "event")} />
+          <ContactsWay contacts={ways.contacts} />
+          <OneByOneWay
+            where={
+              <>
+                En la pestaña{" "}
+                <Link href={`/eventos/${event.id}/invitados`} className="text-accent hover:underline">
+                  Lista
+                </Link>{" "}
+                → «Agregar invitado»,
+              </>
+            }
+          />
+        </div>
+      )}
+
+      {tab !== "otras" && (
+        <p className="mt-8 text-[0.85rem] leading-relaxed text-ink-muted">
+          Los números se guardan en formato internacional. Reconocemos las formas
+          antiguas mexicanas (+52 1…, 044, 045) y detectamos repetidos aunque
+          estén escritos distinto.
+        </p>
+      )}
     </div>
   );
 }
