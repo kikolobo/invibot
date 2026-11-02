@@ -222,7 +222,7 @@ export default async function EventoPage({
               field="card"
               endpoint={`/api/eventos/${event.id}/card`}
               title="La invitación"
-              intro="Sube la imagen de tu invitación. Se la mandamos a cada invitado justo después de que confirme, sin costo extra."
+              intro="Tu invitación completa, con todos los detalles. Se la mandamos por WhatsApp a cada invitado en cuanto confirma que va, sin costo extra."
               hasImage={Boolean(event.cardR2Key)}
               bytes={event.cardBytes}
               uploadedAt={event.cardUploadedAt}
@@ -236,13 +236,12 @@ export default async function EventoPage({
                 // it that says what is not.
                 <div className="mt-4 rounded-xl border border-line bg-paper-deep p-4">
                   <p key="n1" className="text-[0.88rem] font-medium text-ink">
-                    Esta imagen es privada. Aquí sí va todo.
+                    Privada: sólo la recibe quien confirmó.
                   </p>
                   <p key="n2" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-                    Le llega a cada invitado en el momento en que confirma, y a nadie más. No
-                    se publica en ningún lado, así que puede llevar la dirección, la hora y los
-                    nombres sin problema. El teaser, más abajo, es el que ve cualquiera que
-                    abra tu liga.
+                    Aquí sí va todo lo que tus invitados necesitan para llegar: el lugar, la
+                    dirección, la hora, la vestimenta. No se publica en ningún lado y nadie más
+                    la ve.
                   </p>
                 </div>
               }
@@ -262,7 +261,7 @@ export default async function EventoPage({
               field="teaser"
               endpoint={`/api/eventos/${event.id}/teaser`}
               title="El teaser «Save the Date»"
-              intro="Opcional, y sólo si usas el autorregistro: es la imagen que aparece en WhatsApp cuando compartes tu liga en un grupo."
+              intro="Opcional, y sólo si usas el autorregistro. Es la imagen que aparece cuando compartes tu liga en un grupo de WhatsApp, antes de que apruebes a nadie."
               hasImage={Boolean(event.teaserR2Key)}
               bytes={event.teaserBytes}
               uploadedAt={event.teaserUploadedAt}
@@ -272,18 +271,19 @@ export default async function EventoPage({
               notice={
                 <div className="mt-4 rounded-xl border border-accent/40 bg-paper-deep p-4">
                   <p key="n3" className="text-[0.88rem] font-medium text-ink">
-                    Esta imagen es pública. Trátala como un cartel en la calle.
+                    Pública: la ve cualquiera que reciba tu liga.
                   </p>
                   <p key="n4" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-                    Aparece al compartir la liga, y una liga se reenvía: la va a ver gente que
-                    no invitaste y gente a la que ellos se la pasen.
+                    Las ligas se reenvían, así que la puede ver gente que no conoces. Úsala como
+                    un «Save the Date»: el nombre del evento, la fecha y un diseño bonito.
                   </p>
                   <p key="n5" className="mt-1 text-[0.85rem] font-medium leading-relaxed text-ink-soft">
-                    No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
-                    que circule.
+                    No incluyas el lugar, la dirección, tu teléfono ni nada que no quieras que se
+                    sepa antes de aprobar a quien se registra.
                   </p>
                   <p key="n6" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-                    Para eso está la invitación de arriba, que sólo llega a quien ya confirmó.
+                    Esos datos van en la invitación de arriba: le llega sólo a quien aprobaste y
+                    confirmó.
                   </p>
                 </div>
               }
