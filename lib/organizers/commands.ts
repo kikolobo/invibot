@@ -23,6 +23,7 @@ export type OrganizerCommand =
   | "lista_cancelados"
   | "lista_sin_respuesta"
   | "reporte"
+  | "eventos"
   | "ayuda";
 
 const WORDS: Record<string, OrganizerCommand> = {
@@ -63,6 +64,11 @@ const WORDS: Record<string, OrganizerCommand> = {
   report: "reporte",
   corte: "reporte",
   resumen: "reporte",
+  // The events they run, numbered for /cambiar.
+  eventos: "eventos",
+  "mis-eventos": "eventos",
+  list: "eventos",
+  events: "eventos",
   ayuda: "ayuda",
   help: "ayuda",
   menu: "ayuda",
@@ -79,6 +85,23 @@ const fold = (value: string) =>
  * organizador who is also a guest down the ordinary path, still talking to the
  * assistant about the party they are attending.
  */
+/**
+ * /cambiar, the one command with an argument: which event to work on from
+ * now on. A number from /eventos, «todos» to go back to every event, or
+ * nothing at all — which shows the list. Null when the message is not this.
+ */
+export function parseSwitch(text: string | null): { target: number | "todos" | null } | null {
+  if (!text) return null;
+  const cleaned = fold(text).replace(/[¿?¡!.,;:#]/g, "").trim();
+  const match = cleaned.match(/^\/?(cambiar|cambia|switch)(?:\s+(?:(?:al|el|a)\s+)?(.*))?$/);
+  if (!match) return null;
+  const arg = (match[2] ?? "").trim();
+  if (!arg) return { target: null };
+  if (/^(todos|todo|all|ninguno)$/.test(arg)) return { target: "todos" };
+  const number = Number(arg);
+  return Number.isInteger(number) && number > 0 ? { target: number } : null;
+}
+
 export function parseCommand(text: string | null): OrganizerCommand | null {
   if (!text) return null;
 
@@ -145,6 +168,7 @@ export function formatCounts(command: OrganizerCommand, counts: Counts): string 
       // Built from names, not counts, so it never reaches here.
       return HELP;
     case "liga":
+    case "eventos":
       // Built from the event rather than counted, so it never reaches here.
       return HELP;
     case "ayuda":
@@ -174,6 +198,10 @@ export const HELP = [
   "/cancelados — cuántos no van",
   "/reporte — el corte de las últimas 24 horas",
   "/registerlink — la liga de autorregistro para compartir",
+  "",
+  "Si llevas varios eventos:",
+  "/eventos — tus eventos, numerados",
+  "/cambiar 2 — desde ahí todo es del evento 2 (/cambiar todos para volver a todos)",
   "",
   "Y por nombre:",
   "/lista-confirmados · /lista-cancelados · /lista-sin-respuesta",

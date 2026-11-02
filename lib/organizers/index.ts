@@ -1,11 +1,13 @@
 import { and, count, eq, gt, inArray, isNotNull, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
-import { escalations, events, guests, organizers } from "@/db/schema";
+import { escalations, events, guests, organizerFocus, organizers } from "@/db/schema";
+import { formatEventDate } from "@/lib/events/format";
 import { applyEscalationAnswer } from "@/lib/agent/escalations";
 import { eventIsOver } from "@/lib/events/timing";
-import { variantsOf } from "@/lib/phone";
+import { normalizePhone, variantsOf } from "@/lib/phone";
 import {
   parseCommand,
+  parseSwitch,
   formatCounts,
   formatLink,
   formatNames,
@@ -47,7 +49,83 @@ export async function organizerEvents(
     .where(inArray(organizers.phoneE164, candidates));
 
   const cutoff = Date.now() - AFTER_EVENT_MS;
-  return rows.filter((row) => row.event.archivedAt === null && !eventIsOver(row.event, cutoff));
+  return rows
+    .filter((row) => row.event.archivedAt === null && !eventIsOver(row.event, cutoff))
+    // By date, so /eventos numbers them the same way every time it is asked.
+    .sort((a, b) => a.event.startsAt.getTime() - b.event.startsAt.getTime());
+}
+
+/** The event this number chose with /cambiar, while it is still one of theirs. */
+async function focusOf(
+  phoneE164: string,
+  mine: { event: EventRow }[],
+): Promise<string | null> {
+  const [row] = await db
+    .select({ eventId: organizerFocus.eventId })
+    .from(organizerFocus)
+    .where(inArray(organizerFocus.phoneE164, variantsOf(phoneE164)))
+    .limit(1);
+  return row && mine.some(({ event }) => event.id === row.eventId) ? row.eventId : null;
+}
+
+/**
+ * The events a command or a shared contact means: the one chosen with
+ * /cambiar, or all of them when there is no choice — or it has ended, or
+ * they were taken off it, which quietly goes back to all.
+ */
+export async function scopedEvents(
+  phoneE164: string,
+): Promise<{ organizer: OrganizerRow; event: EventRow }[]> {
+  const mine = await organizerEvents(phoneE164);
+  if (mine.length <= 1) return mine;
+  const focus = await focusOf(phoneE164, mine);
+  return focus ? mine.filter(({ event }) => event.id === focus) : mine;
+}
+
+const eventLine = (event: EventRow) =>
+  `${event.name} · ${formatEventDate(event)}`;
+
+/** /eventos, and /cambiar without a number. */
+async function listEvents(phoneE164: string, mine: { event: EventRow }[]): Promise<string> {
+  const focus = await focusOf(phoneE164, mine);
+  const lines = mine.map(
+    ({ event }, index) => `${event.id === focus ? "▶" : " "} ${index + 1}) ${eventLine(event)}`,
+  );
+  if (mine.length === 1) return `Llevas un evento:
+
+${lines[0].trim()}`;
+  return [
+    "Tus eventos:",
+    "",
+    ...lines,
+    "",
+    focus
+      ? "▶ es el que estás viendo. /cambiar y el número para otro, o /cambiar todos."
+      : "Ahora te contesto por todos. Escríbeme /cambiar y el número para trabajar en uno.",
+  ].join("\n");
+}
+
+/** /cambiar: which event the following commands are about. */
+async function switchEvent(
+  phoneE164: string,
+  mine: { event: EventRow }[],
+  target: number | "todos" | null,
+): Promise<string> {
+  if (target === null || mine.length === 1) return listEvents(phoneE164, mine);
+
+  // Stored canonical; read back through every variant Meta might send.
+  const canonical = normalizePhone(phoneE164)?.e164 ?? phoneE164;
+  if (target === "todos") {
+    await db.delete(organizerFocus).where(inArray(organizerFocus.phoneE164, variantsOf(phoneE164)));
+    return "Listo, te contesto por todos tus eventos.";
+  }
+
+  const chosen = mine[target - 1]?.event;
+  if (!chosen) return `No tengo el evento ${target}.\n\n${await listEvents(phoneE164, mine)}`;
+
+  await db.delete(organizerFocus).where(inArray(organizerFocus.phoneE164, variantsOf(phoneE164)));
+  await db.insert(organizerFocus).values({ phoneE164: canonical, eventId: chosen.id, updatedAt: new Date() });
+  return `Listo, ahora estás en *${chosen.name}*. Lo que me pidas —reportes, listas, contactos— es de este evento.`;
 }
 
 /**
@@ -130,11 +208,18 @@ export async function organizerReply(
   phoneE164: string,
   text: string | null,
 ): Promise<string | null> {
-  const command = parseCommand(text);
-  if (!command) return null;
+  const switching = parseSwitch(text);
+  const command = switching ? null : parseCommand(text);
+  if (!switching && !command) return null;
 
-  const mine = await organizerEvents(phoneE164);
-  if (mine.length === 0) return null;
+  const all = await organizerEvents(phoneE164);
+  if (all.length === 0) return null;
+
+  if (switching) return switchEvent(phoneE164, all, switching.target);
+  if (!command) return null;
+  if (command === "eventos") return listEvents(phoneE164, all);
+
+  const mine = await scopedEvents(phoneE164);
 
   if (command === "ayuda") return formatCounts("ayuda", await countsFor(mine[0].event));
 

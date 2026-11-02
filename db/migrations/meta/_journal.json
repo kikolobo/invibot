@@ -393,6 +393,13 @@
       "when": 1793600910240,
       "tag": "0055_venue_postal_code",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793650340661,
+      "tag": "0056_organizer_focus",
+      "breakpoints": true
     }
   ]
 }

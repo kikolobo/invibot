@@ -5,7 +5,7 @@ import { events, guests, organizers, suppressions } from "@/db/schema";
 import { normalizePhone } from "@/lib/phone";
 import { cleanName, looksLikeAName } from "@/lib/guests/auto-register";
 import { recordGuestEvent } from "@/lib/guests/history";
-import { organizerEvents } from "./index";
+import { scopedEvents } from "./index";
 import { guestLimitError } from "@/lib/limits";
 import type { SharedContact } from "@/lib/whatsapp/webhook";
 
@@ -78,7 +78,8 @@ export async function handleSharedContacts(args: {
   const { fromPhoneE164, contacts } = args;
   if (contacts.length === 0) return null;
 
-  const mine = await organizerEvents(fromPhoneE164);
+  // The event chosen with /cambiar, when there is one: no need to ask.
+  const mine = await scopedEvents(fromPhoneE164);
   if (mine.length === 0) return null;
 
   // Un solo evento vivo: no hay nada que preguntar. Con varios, preguntar es

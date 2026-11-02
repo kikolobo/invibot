@@ -151,3 +151,20 @@ export const organizerInvites = pgTable(
 export const organizerInvitesRelations = relations(organizerInvites, ({ one }) => ({
   event: one(events, { fields: [organizerInvites.eventId], references: [events.id] }),
 }));
+
+/**
+ * Which event an organizador is working on, for whoever runs more than one.
+ *
+ * Per phone, not per organizer row: the rows are one per event, and this is a
+ * fact about the person choosing among them. Keyed by the canonical number,
+ * since WhatsApp-only organizadores have no account to hang it on. Set with
+ * /cambiar; while it points at one of their live events, commands and shared
+ * contacts mean that event alone.
+ */
+export const organizerFocus = pgTable("organizer_focus", {
+  phoneE164: text("phone_e164").primaryKey(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

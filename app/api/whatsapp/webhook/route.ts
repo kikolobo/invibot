@@ -42,7 +42,7 @@ import {
   remember,
 } from "@/lib/organizers/contacts";
 import { replyToOrganizer, noteOrganizerInbound } from "@/lib/organizers/notify";
-import { organizerEvents } from "@/lib/organizers";
+import { organizerEvents, scopedEvents } from "@/lib/organizers";
 import { formatEventWhen, formatEventWhereForMessage } from "@/lib/events/format";
 import { eventIsOver } from "@/lib/events/timing";
 import { rsvpClosedReply } from "@/lib/events/rsvp-deadline";
@@ -352,8 +352,11 @@ async function organizerContacts(
   message: InboundMessage,
   fromPhoneE164: string,
 ): Promise<boolean> {
-  const mine = await organizerEvents(fromPhoneE164);
+  // Scoped the same way `handleSharedContacts` is, so "more than one event"
+  // below means exactly what it meant there: nothing chosen, so it asked.
+  const mine = await scopedEvents(fromPhoneE164);
   if (mine.length === 0) return false;
+  const all = await organizerEvents(fromPhoneE164);
 
   const organizer = mine[0].organizer;
   const waiting = pendingOf(organizer);
@@ -391,7 +394,7 @@ async function organizerContacts(
   // Visto antes. Atendido de todos modos, para que no siga su camino.
   if (!row) return true;
 
-  for (const { organizer: each } of mine) {
+  for (const { organizer: each } of all) {
     await noteOrganizerInbound(each.id, message.timestamp);
   }
 
