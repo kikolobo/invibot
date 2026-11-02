@@ -123,6 +123,10 @@ export type InviteContext = {
   missing: MissingField[];
   eligible: Record<string, { greeting: string; template: TemplateName }>;
   skipped: Record<string, SkipReason>;
+  /** "viernes 20 de noviembre" when confirmations have already closed. */
+  closedDeadline: string | null;
+  /** The event's own day, the latest a deadline can move to. */
+  eventDate: string;
 };
 
 export function GuestTable({
@@ -704,6 +708,8 @@ export function GuestTable({
           missing={invite.missing}
           eligible={invite.eligible}
           skipped={invite.skipped}
+          closedDeadline={invite.closedDeadline}
+          eventDate={invite.eventDate}
           selected={rows
             .filter((row) => selected.has(row.id))
             .map((row) => ({ id: row.id, fullName: row.fullName }))}

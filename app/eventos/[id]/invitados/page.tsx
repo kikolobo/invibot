@@ -1,3 +1,5 @@
+import { formatDeadline, rsvpClosed } from "@/lib/events/rsvp-deadline";
+import { wallClock } from "@/lib/events/zones";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guests, guestGroups, sends } from "@/db/schema";
@@ -103,6 +105,10 @@ export default async function Invitados({
     skipped: Object.fromEntries(
       (plan?.skipped ?? []).map(({ guest, reason }) => [guest.id, reason]),
     ),
+    // Sending still works once confirmations close; the panel says so and
+    // offers to move the date.
+    closedDeadline: rsvpClosed(event) ? formatDeadline(event) : null,
+    eventDate: wallClock(event.startsAt, event.timezone).date,
   };
 
   const recent = {

@@ -6,6 +6,8 @@ import { skipLabels, missingLabels, type SkipReason, type MissingField } from "@
 import { renderTemplate, type TemplateName } from "@/lib/whatsapp/templates";
 import { Bubble, Phone } from "../chat-bubble";
 import { PayControl } from "../pago/pay-control";
+import { useRouter } from "next/navigation";
+import { setRsvpDeadline } from "@/lib/events/actions";
 
 /**
  * The confirmation step before the only paid thing this app does.
@@ -26,6 +28,9 @@ export type InvitePanelProps = {
   /** The name the message uses, and which invitation they get. */
   eligible: Record<string, { greeting: string; template: TemplateName }>;
   skipped: Record<string, SkipReason>;
+  /** Set when the RSVP deadline has passed: guests could not confirm. */
+  closedDeadline: string | null;
+  eventDate: string;
   selected: { id: string; fullName: string }[];
   onClose: () => void;
 };
@@ -37,6 +42,8 @@ export function SendInvitations({
   missing,
   eligible,
   skipped,
+  closedDeadline,
+  eventDate,
   selected,
   onClose,
 }: InvitePanelProps) {
@@ -125,6 +132,8 @@ export function SendInvitations({
             {plusOnes > 0 &&
               ` ${plusOnes} ${plusOnes === 1 ? "recibe" : "reciben"} la versión con acompañante.`}
           </p>
+
+          {closedDeadline && <ClosedDeadline eventId={eventId} label={closedDeadline} eventDate={eventDate} />}
 
           {preview && (
             <div className="mt-4">
@@ -236,6 +245,65 @@ export function SendInvitations({
           Cancelar
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Confirmations closed and invitations about to go out anyway. Sending is the
+ * host's call — a late invitation can still tell people about the party — but
+ * whoever gets one cannot say yes, so the panel says it plainly and offers to
+ * move the date or drop it right here.
+ */
+function ClosedDeadline({ eventId, label, eventDate }: { eventId: string; label: string; eventDate: string }) {
+  const router = useRouter();
+  const [date, setDate] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function save(next: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await setRsvpDeadline(eventId, next);
+      if (result.error) setError(result.error);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-accent/40 bg-paper p-4">
+      <p className="text-[0.92rem] text-ink">Las confirmaciones cerraron el {label}.</p>
+      <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+        Puedes enviar de todos modos, pero quien reciba esta invitación no podrá confirmar: Aura le dirá que ya
+        cerraron. Si quieres que confirmen, mueve la fecha límite.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          type="date"
+          value={date}
+          max={eventDate}
+          onChange={(e) => setDate(e.target.value)}
+          aria-label="Nueva fecha límite"
+          className="rounded-lg border border-line bg-paper-deep px-3 py-1.5 text-[0.85rem] text-ink"
+        />
+        <button
+          type="button"
+          onClick={() => save(date)}
+          disabled={pending || !date}
+          className="rounded-full bg-action px-4 py-1.5 text-[0.82rem] text-ink-onaction disabled:opacity-50"
+        >
+          Mover fecha
+        </button>
+        <button
+          type="button"
+          onClick={() => save("")}
+          disabled={pending}
+          className="text-[0.82rem] text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+        >
+          Quitar fecha límite
+        </button>
+      </div>
+      {error && <p className="mt-2 text-[0.82rem] text-danger">{error}</p>}
     </div>
   );
 }

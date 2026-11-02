@@ -258,8 +258,7 @@ async function makeResponder(
 
 /**
  * The pin a pasted Maps link points at, for the small map beside the form.
- * Only Google's own hosts: this opens the link from our server, and a form
- * field must not be a way to make it fetch anything else.
+ * `coordsFromShortLink` opens only Google's own links.
  */
 export async function previewPin(
   eventId: string,
@@ -267,12 +266,5 @@ export async function previewPin(
 ): Promise<{ lat: number; lng: number } | null> {
   const guard = await editableEvent(eventId, "event");
   if (!guard.ok) return null;
-  let url: URL;
-  try {
-    url = new URL(link.trim());
-  } catch {
-    return null;
-  }
-  if (url.protocol !== "https:" || !/(^|\.)(google\.[a-z.]+|goo\.gl)$/.test(url.hostname)) return null;
-  return coordsFromShortLink(url.toString());
+  return coordsFromShortLink(link.trim());
 }

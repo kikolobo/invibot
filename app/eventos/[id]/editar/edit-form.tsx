@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { updateEventBasics, type BasicsResult } from "@/lib/events/actions";
 import { notifyGuestsOfChange, type NotifyResult } from "@/lib/events/notify";
 import { changeLabels, type EventChange } from "@/lib/events/changes";
@@ -55,6 +55,14 @@ export function EditForm({
   const [dismissed, setDismissed] = useState(false);
 
   const err = (field: string) => state.fieldErrors?.[field];
+
+  // Sent by hand: `<form action>` clears every field when the action returns,
+  // and a correction refused for one typo would lose the rest of it.
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    startTransition(() => formAction(data));
+  }
   const changed = (state.changed ?? []) as EventChange[];
   const reachable = audience.updated + audience.informed;
 
@@ -122,7 +130,7 @@ export function EditForm({
         </section>
       )}
 
-      <form action={formAction} className="space-y-5">
+      <form onSubmit={submit} noValidate className="space-y-5">
         <Field label="Nombre del evento" error={err("name")} required>
           <Input name="name" defaultValue={event.name} maxLength={120} required />
         </Field>

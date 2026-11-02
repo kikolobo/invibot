@@ -30,6 +30,15 @@ const inRange = (lat: number, lng: number) =>
  * what a "copy coordinates" paste produces. The place marker wins where both
  * appear.
  */
+export function isGoogleMapsLink(url: string): boolean {
+  try {
+    const parsed = new URL(url.trim());
+    return parsed.protocol === "https:" && /(^|\.)(google\.(com|[a-z]{2}|com?\.[a-z]{2})|goo\.gl)$/.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function coordsFromMapsUrl(url: string): Coords | null {
   const patterns = [
     /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
@@ -52,10 +61,15 @@ export function coordsFromMapsUrl(url: string): Coords | null {
  *
  * `maps.app.goo.gl/xxxx` is what the Share button produces and it carries
  * nothing but an id — the coordinates only appear in what it redirects to.
+ *
+ * Opened only when it is Google's: the link is whatever an organizer pasted,
+ * and our server must not become a way to fetch any address they like —
+ * including ones inside our own network.
  */
 export async function coordsFromShortLink(url: string): Promise<Coords | null> {
   const direct = coordsFromMapsUrl(url);
   if (direct) return direct;
+  if (!isGoogleMapsLink(url)) return null;
 
   try {
     const response = await fetch(url, {

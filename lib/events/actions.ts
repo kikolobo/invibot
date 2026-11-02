@@ -735,3 +735,26 @@ export async function updateEventBasics(
   const diff = diffEvent(event, after);
   return { ok: "Guardado.", changed: diff.all, summary: diff.summary ?? undefined };
 }
+
+/**
+ * Moving or clearing the RSVP deadline on its own, from the invitation panel:
+ * a host sending invitations after confirmations closed decides there whether
+ * to reopen them. An empty date clears it.
+ */
+export async function setRsvpDeadline(eventId: string, date: string): Promise<{ error?: string }> {
+  const guard = await editableEvent(eventId, "event");
+  if (!guard.ok) return { error: guard.error };
+  const event = guard.event;
+
+  const day = date.trim();
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { error: "Elige una fecha." };
+  const late = deadlineError(day, event);
+  if (late) return { error: late };
+
+  await db
+    .update(events)
+    .set({ rsvpDeadline: day ? deadlineFromDate(day, event.timezone) : null, updatedAt: new Date() })
+    .where(eq(events.id, eventId));
+  revalidatePath(`/eventos/${eventId}`, "layout");
+  return {};
+}
