@@ -2,6 +2,7 @@ import { and, count, eq, gt, inArray, isNotNull, sql as raw } from "drizzle-orm"
 import { db } from "@/db";
 import { escalations, events, guests, organizers } from "@/db/schema";
 import { applyEscalationAnswer } from "@/lib/agent/escalations";
+import { eventIsOver } from "@/lib/events/timing";
 import { variantsOf } from "@/lib/phone";
 import {
   parseCommand,
@@ -18,11 +19,18 @@ type OrganizerRow = typeof organizers.$inferSelect;
 type EventRow = typeof events.$inferSelect;
 
 /**
+ * How long after an event ends it still answers to its organizadores: the
+ * morning-after "¿cómo nos fue?" and the last guest questions still in flight.
+ */
+const AFTER_EVENT_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
  * The events this number helps run.
  *
  * Archived ones are left out: an organizador asking for counts means the party
  * that is still happening, and an archived event answering alongside a live one
- * is noise at best.
+ * is noise at best. So are events long over and never archived — a /reporte in
+ * November has no business carrying an October party's numbers.
  */
 export async function organizerEvents(
   phoneE164: string,
@@ -38,7 +46,8 @@ export async function organizerEvents(
     .innerJoin(events, eq(events.id, organizers.eventId))
     .where(inArray(organizers.phoneE164, candidates));
 
-  return rows.filter((row) => row.event.archivedAt === null);
+  const cutoff = Date.now() - AFTER_EVENT_MS;
+  return rows.filter((row) => row.event.archivedAt === null && !eventIsOver(row.event, cutoff));
 }
 
 /**
