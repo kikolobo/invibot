@@ -25,8 +25,13 @@ export default async function Detalles({
           Lo que tus invitados van a preguntar
         </h1>
         <p className="mt-4 leading-relaxed text-ink-soft">
-          Cada respuesta se vuelve algo que el asistente sabrá contestar por ti.
-          No tienes que contestar todo de una vez.
+          Todo lo que contestes aquí es lo que <span className="font-medium text-ink">Aura</span> usa
+          para responder a tus invitados por WhatsApp: estacionamiento, vestimenta, si pueden ir
+          niños, regalos… Lo que no contestes, Aura no lo inventa: te lo pregunta a ti (o a quien
+          contesta las dudas) y le pasa tu respuesta al invitado.
+        </p>
+        <p className="mt-2 text-[0.9rem] text-ink-muted">
+          No tienes que contestar todo de una vez. Puedes volver cuando quieras.
         </p>
 
         <DetallesForm

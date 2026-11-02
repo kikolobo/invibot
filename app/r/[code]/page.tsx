@@ -1,10 +1,16 @@
+import {
+  CALL_TO_ACTION,
+  REGISTRATION_CARD_DESCRIPTION,
+  describe,
+  registrationCardTitle,
+  sentence,
+} from "@/lib/guests/registration-card";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/db";
 import { events } from "@/db/schema";
 import { whatsappRegistrationUrl } from "@/lib/guests/auto-register";
-import { eventKindLabels } from "@/lib/events/kinds";
 import { formatEventDate } from "@/lib/events/format";
 import { publicBase } from "@/lib/public-url";
 import { OpenWhatsApp } from "./open-whatsapp";
@@ -36,32 +42,6 @@ async function openEvent(code: string): Promise<EventRow | null> {
   return event;
 }
 
-/**
- * The same words on the card and on the button.
- *
- * It says nothing about WhatsApp: this is read inside WhatsApp, by someone who
- * got here from a WhatsApp message, and the line is too short to spend on where
- * they already are.
- */
-const CALL_TO_ACTION = "Toca aquí para registrarte y confirmar";
-
-/** "el cumpleaños de Ana" → "El cumpleaños de Ana". */
-const sentence = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
-
-/**
- * What the event is called in public.
- *
- * The kind, whose it is, and the date — and deliberately nothing else. This is
- * the same set of facts the prefilled message already carries, so the preview
- * discloses nothing new to whoever the link is forwarded to. The venue is not
- * here and must never be: that is what the private invitation card is for.
- */
-function describe(event: EventRow) {
-  const kind = eventKindLabels[event.kind].esInline;
-  const host = event.hostNames?.trim();
-  return sentence(`${kind} ${host ? `de ${host}` : event.name.trim()}`);
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -82,11 +62,11 @@ export async function generateMetadata({
   // Careful not to promise an invitation here. Tapping this registers you; the
   // host still has to approve. "Estás invitado" on the card followed by "tu
   // registro aún no está procesado" in the chat would read as a bait and switch.
-  const title = `${describe(event)} · ${formatEventDate(event)}`;
+  const title = registrationCardTitle(event);
   // Prefixed only on the card: "RSVP" tells someone scrolling a group chat what
   // this link is before they read the rest. On the button it would be noise —
   // by then they are on the page and the heading has already said it.
-  const description = `RSVP: ${CALL_TO_ACTION}`;
+  const description = REGISTRATION_CARD_DESCRIPTION;
 
   // `v` is the upload time, so replacing the teaser cannot be served from a
   // cache holding the old picture.

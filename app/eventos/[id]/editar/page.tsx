@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TZDate } from "@date-fns/tz";
 import { requireEventAccess } from "@/lib/events/access";
 import { previewNotifyAudience } from "@/lib/events/notify";
-import { deadlineDate } from "@/lib/events/rsvp-deadline";
 import { EditForm } from "./edit-form";
 
 export const metadata = { title: "Editar evento" };
@@ -29,8 +29,15 @@ export default async function Editar({
         Editar evento
       </h1>
       <p className="mt-3 max-w-prose leading-relaxed text-ink-soft">
-        Si cambias algo que tus invitados necesitan saber, te preguntamos si quieres
-        avisarles.
+        Lo que dice tu invitación: nombre, quién invita, fecha y lugar. Si cambias algo que
+        tus invitados necesitan saber, te preguntamos si quieres avisarles.
+      </p>
+      <p className="mt-2 max-w-prose text-[0.88rem] leading-relaxed text-ink-muted">
+        Confirmaciones, acompañantes, recordatorios, QR y autorregistro están en{" "}
+        <Link href={`/eventos/${event.id}/configuracion`} className="text-accent hover:underline">
+          Configuración
+        </Link>
+        .
       </p>
 
       <div className="mt-8">
@@ -46,11 +53,6 @@ export default async function Editar({
             venueCountry: event.venueCountry,
             venueMapsUrl: event.venueMapsUrl,
             venueCity: event.venueCity,
-            rsvpRequired: event.rsvpRequired,
-            allowPlusOnes: event.allowPlusOnes,
-            qrEnabled: event.qrEnabled,
-            reminderDaysBefore: event.reminderDaysBefore,
-            rsvpDeadline: deadlineDate(event.rsvpDeadline, event.timezone),
           }}
           date={`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`}
           time={`${pad(local.getHours())}:${pad(local.getMinutes())}`}

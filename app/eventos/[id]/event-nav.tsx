@@ -45,6 +45,7 @@ export function EventNav({
     ...(can.event ? [{ href: base, label: "Generales" }] : []),
     // The questionnaire is an editor; an archived event has nothing to do there.
     ...(archived || !can.event ? [] : [{ href: `${base}/detalles`, label: "Detalles" }]),
+    ...(archived || !can.event ? [] : [{ href: `${base}/configuracion`, label: "Configuración" }]),
     { href: `${base}/invitados`, label: "Invitados", badge: guestCount },
     // Only when there is something to decide: a permanently visible zero is a
     // tab nobody ever needs to open.

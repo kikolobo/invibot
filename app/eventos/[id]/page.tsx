@@ -7,10 +7,8 @@ import { guests } from "@/db/schema";
 import { requireEventAccess } from "@/lib/events/access";
 import { eventKindLabels } from "@/lib/events/kinds";
 import { r2FromEnv } from "@/lib/storage/r2";
-import { registrationLink } from "@/lib/guests/auto-register";
 import { uploadCard, removeCard, uploadTeaser, removeTeaser } from "@/lib/events/card";
 import { EventImage } from "./event-image";
-import { AutoRegister } from "./auto-register";
 import { ArchiveEvent } from "./archive-event";
 
 export const metadata = { title: "Evento" };
@@ -44,12 +42,21 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
+const TABS = [
+  { key: "datos", label: "Datos" },
+  { key: "imagenes", label: "Imágenes" },
+] as const;
+type Tab = (typeof TABS)[number]["key"];
+
 export default async function EventoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab: requested } = await searchParams;
   const { event } = await requireEventAccess(id, "event");
 
   const [{ guestCount }] = await db
@@ -63,13 +70,9 @@ export default async function EventoPage({
     .from(guests)
     .where(and(eq(guests.eventId, id), ne(guests.inviteStatus, "pending")));
 
-  // Only for the badge on the panel; the list itself lives in Invitados.
-  const [{ pendingCount }] = await db
-    .select({ pendingCount: count() })
-    .from(guests)
-    .where(and(eq(guests.eventId, id), eq(guests.approvalStatus, "pending")));
-
   const archived = event.archivedAt !== null;
+  // An archived event's images cannot change, so it shows its data alone.
+  const tab: Tab = !archived && requested === "imagenes" ? "imagenes" : "datos";
   const storageReady = r2FromEnv() !== null;
 
   const mapsEmbed = eventMapsEmbedUrl(event);
@@ -98,7 +101,31 @@ export default async function EventoPage({
           <ArchiveEvent eventId={event.id} archived guestCount={guestCount} />
         )}
 
-        <dl className="mt-8 grid gap-x-8 gap-y-4 border-y border-line py-6 sm:grid-cols-2">
+        {!archived && (
+          <nav className="mt-8 flex gap-1 border-b border-line" aria-label="Secciones">
+            {TABS.map((item) => (
+              <Link
+                key={item.key}
+                href={item.key === "datos" ? `/eventos/${event.id}` : `/eventos/${event.id}?tab=${item.key}`}
+                aria-current={item.key === tab ? "page" : undefined}
+                className={`-mb-px border-b-2 px-4 py-2.5 text-[0.92rem] transition-colors ${
+                  item.key === tab ? "border-accent text-ink" : "border-transparent text-ink-muted hover:text-ink"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
+
+        {tab === "datos" && (
+        <>
+        {/* Under the tabs their own rule is the top edge; archived, there are no tabs. */}
+        <dl
+          className={`grid gap-x-8 gap-y-4 border-b border-line py-6 sm:grid-cols-2 ${
+            archived ? "mt-8 border-t" : "mt-2"
+          }`}
+        >
           <div>
             <dt className="eyebrow">Cuándo</dt>
             <dd className="mt-1 text-ink first-letter:uppercase">
@@ -167,98 +194,107 @@ export default async function EventoPage({
         )}
 
 
-        {!archived && (
-          <AutoRegister
-            eventId={event.id}
-            enabled={event.autoRegisterEnabled}
-            link={registrationLink(event)}
-            pendingCount={pendingCount}
-          />
+        <p className="mt-6 text-[0.88rem] leading-relaxed text-ink-muted">
+          Las imágenes de tu invitación están en{" "}
+          <Link href={`/eventos/${event.id}?tab=imagenes`} className="text-accent hover:underline">
+            Imágenes
+          </Link>
+          ; cómo recibes a tus invitados (confirmaciones, QR, autorregistro), en{" "}
+          <Link href={`/eventos/${event.id}/configuracion`} className="text-accent hover:underline">
+            Configuración
+          </Link>
+          .
+        </p>
+        </>
         )}
 
-        {/* Side by side because they are a pair and read as a choice: the one
-            that stays private on the left, the one that goes out in public on
-            the right. Stacked below lg, where two of these would be cramped. */}
-        {!archived && (
-        <div className="mt-12 grid items-start gap-10 lg:grid-cols-2 lg:gap-8 lg:[grid-template-rows:auto_auto_auto]">
-          <EventImage
-            eventId={event.id}
-            field="card"
-            endpoint={`/api/eventos/${event.id}/card`}
-            title="La invitación"
-            intro="Sube la imagen de tu invitación. Se la mandamos a cada invitado justo después de que confirme, sin costo extra."
-            hasImage={Boolean(event.cardR2Key)}
-            bytes={event.cardBytes}
-            uploadedAt={event.cardUploadedAt}
-            storageReady={storageReady}
-            upload={uploadCard}
-            remove={removeCard}
-            notice={
-              // Deliberately a quieter border than the teaser's. The pair reads
-              // as one comparison, but only one of them is a warning: this card
-              // says what is safe, and shouting it would dull the one next to
-              // it that says what is not.
-              <div className="mt-4 rounded-xl border border-line bg-paper-deep p-4">
-                <p key="n1" className="text-[0.88rem] font-medium text-ink">
-                  Esta imagen es privada. Aquí sí va todo.
-                </p>
-                <p key="n2" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-                  Le llega a cada invitado en el momento en que confirma, y a nadie más. No
-                  se publica en ningún lado, así que puede llevar la dirección, la hora y los
-                  nombres sin problema. La de al lado es la que ve cualquiera que abra tu
-                  liga.
-                </p>
-              </div>
-            }
-            footnote={
-              invitedCount > 0 && !event.cardR2Key ? (
-                <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-muted">
-                  {`Ya enviaste ${invitedCount} ${
-                    invitedCount === 1 ? "invitación" : "invitaciones"
-                  }. Quien haya confirmado hace más de un día ya no puede recibir la imagen — WhatsApp solo nos deja mandarla dentro de las 24 horas siguientes a su mensaje.`}
-                </p>
-              ) : null
-            }
-          />
+        {tab === "imagenes" && (
+          <div className="mt-8 space-y-12">
+            <p className="text-[0.9rem] leading-relaxed text-ink-soft">
+              ¿Quieres ver cómo le llega todo a tu invitado?{" "}
+              <Link href={`/eventos/${event.id}/simulador`} className="text-accent hover:underline">
+                Pruébalo en el Simulador WhatsApp →
+              </Link>
+            </p>
 
-          <EventImage
-            eventId={event.id}
-            field="teaser"
-            endpoint={`/api/eventos/${event.id}/teaser`}
-            title="El teaser «Save the Date»"
-            intro="Una segunda imagen, aparte de la invitación. Es la que aparece en WhatsApp cuando alguien comparte tu liga de autorregistro."
-            hasImage={Boolean(event.teaserR2Key)}
-            bytes={event.teaserBytes}
-            uploadedAt={event.teaserUploadedAt}
-            storageReady={storageReady}
-            upload={uploadTeaser}
-            remove={removeTeaser}
-            notice={
-              <div className="mt-4 rounded-xl border border-accent/40 bg-paper-deep p-4">
-                <p key="n3" className="text-[0.88rem] font-medium text-ink">
-                  Esta imagen es pública. Trátala como un cartel en la calle.
+            <EventImage
+              eventId={event.id}
+              field="card"
+              endpoint={`/api/eventos/${event.id}/card`}
+              title="La invitación"
+              intro="Sube la imagen de tu invitación. Se la mandamos a cada invitado justo después de que confirme, sin costo extra."
+              hasImage={Boolean(event.cardR2Key)}
+              bytes={event.cardBytes}
+              uploadedAt={event.cardUploadedAt}
+              storageReady={storageReady}
+              upload={uploadCard}
+              remove={removeCard}
+              notice={
+                // Deliberately a quieter border than the teaser's. The pair reads
+                // as one comparison, but only one of them is a warning: this card
+                // says what is safe, and shouting it would dull the one next to
+                // it that says what is not.
+                <div className="mt-4 rounded-xl border border-line bg-paper-deep p-4">
+                  <p key="n1" className="text-[0.88rem] font-medium text-ink">
+                    Esta imagen es privada. Aquí sí va todo.
+                  </p>
+                  <p key="n2" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                    Le llega a cada invitado en el momento en que confirma, y a nadie más. No
+                    se publica en ningún lado, así que puede llevar la dirección, la hora y los
+                    nombres sin problema. El teaser, más abajo, es el que ve cualquiera que
+                    abra tu liga.
+                  </p>
+                </div>
+              }
+              footnote={
+                invitedCount > 0 && !event.cardR2Key ? (
+                  <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-muted">
+                    {`Ya enviaste ${invitedCount} ${
+                      invitedCount === 1 ? "invitación" : "invitaciones"
+                    }. Quien haya confirmado hace más de un día ya no puede recibir la imagen — WhatsApp solo nos deja mandarla dentro de las 24 horas siguientes a su mensaje.`}
+                  </p>
+                ) : null
+              }
+            />
+
+            <EventImage
+              eventId={event.id}
+              field="teaser"
+              endpoint={`/api/eventos/${event.id}/teaser`}
+              title="El teaser «Save the Date»"
+              intro="Opcional, y sólo si usas el autorregistro: es la imagen que aparece en WhatsApp cuando compartes tu liga en un grupo."
+              hasImage={Boolean(event.teaserR2Key)}
+              bytes={event.teaserBytes}
+              uploadedAt={event.teaserUploadedAt}
+              storageReady={storageReady}
+              upload={uploadTeaser}
+              remove={removeTeaser}
+              notice={
+                <div className="mt-4 rounded-xl border border-accent/40 bg-paper-deep p-4">
+                  <p key="n3" className="text-[0.88rem] font-medium text-ink">
+                    Esta imagen es pública. Trátala como un cartel en la calle.
+                  </p>
+                  <p key="n4" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                    Aparece al compartir la liga, y una liga se reenvía: la va a ver gente que
+                    no invitaste y gente a la que ellos se la pasen.
+                  </p>
+                  <p key="n5" className="mt-1 text-[0.85rem] font-medium leading-relaxed text-ink-soft">
+                    No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
+                    que circule.
+                  </p>
+                  <p key="n6" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
+                    Para eso está la invitación de arriba, que sólo llega a quien ya confirmó.
+                  </p>
+                </div>
+              }
+              footnote={
+                <p className="mt-2 text-[0.82rem] leading-relaxed text-ink-muted">
+                  La achicamos al subirla: WhatsApp no muestra la vista previa si la imagen
+                  pesa demasiado, y no avisa cuando decide no mostrarla.
                 </p>
-                <p key="n4" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-                  Aparece al compartir la liga, y una liga se reenvía: la va a ver gente que
-                  no invitaste y gente a la que ellos se la pasen.
-                </p>
-                <p key="n5" className="mt-1 text-[0.85rem] font-medium leading-relaxed text-ink-soft">
-                  No pongas aquí la dirección, el mapa, tu teléfono ni nada que no quieras
-                  que circule.
-                </p>
-                <p key="n6" className="mt-1 text-[0.85rem] leading-relaxed text-ink-muted">
-                  Para eso está la invitación de al lado, que sólo llega a quien ya confirmó.
-                </p>
-              </div>
-            }
-            footnote={
-              <p className="mt-2 text-[0.82rem] leading-relaxed text-ink-muted">
-                La achicamos al subirla: WhatsApp no muestra la vista previa si la imagen
-                pesa demasiado, y no avisa cuando decide no mostrarla.
-              </p>
-            }
-          />
-        </div>
+              }
+            />
+          </div>
         )}
       </div>
     </>

@@ -12,7 +12,7 @@ import { eventKinds } from "./kinds";
 import { newMapsCode } from "./maps";
 import { resolveCoords } from "./geo";
 import { zonedToInstant } from "./zones";
-import { deadlineError, deadlineFromDate } from "./rsvp-deadline";
+import { deadlineDate, deadlineError, deadlineFromDate, formatDeadline } from "./rsvp-deadline";
 import { partySizeFor } from "./party";
 import { diffEvent } from "./changes";
 import { editableEvent } from "./guard";
@@ -581,14 +581,18 @@ const basicsEditSchema = z.object({
     .url("Pega el link completo, empezando con https://")
     .max(500)
     .optional(),
-  rsvpRequired: z.boolean().default(true),
-  allowPlusOnes: z.boolean().default(false),
-  qrEnabled: z.boolean().default(false),
+});
+
+/** How guests are received — Configuración. Nothing here is announced to them. */
+const settingsSchema = z.object({
+  rsvpRequired: z.boolean(),
+  allowPlusOnes: z.boolean(),
+  qrEnabled: z.boolean(),
   /**
    * 0 turns the reminder off; 1 is treated as off too, because the day before
    * already has its own message. Thirty days out it stops being a reminder.
    */
-  reminderDaysBefore: z.coerce.number().int().min(0).max(30).default(3),
+  reminderDaysBefore: z.coerce.number().int().min(0, "De 0 a 30").max(30, "De 0 a 30"),
   rsvpDeadline: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Elige una fecha")]),
 });
 
@@ -631,11 +635,6 @@ export async function updateEventBasics(
     venuePostalCode: formData.get("venuePostalCode") || undefined,
     venueCountry: formData.get("venueCountry") || undefined,
     venueMapsUrl: formData.get("venueMapsUrl") || undefined,
-    rsvpRequired: formData.get("rsvpRequired") === "on",
-    allowPlusOnes: formData.get("allowPlusOnes") === "on",
-    qrEnabled: formData.get("qrEnabled") === "on",
-    reminderDaysBefore: formData.get("reminderDaysBefore") ?? 3,
-    rsvpDeadline: String(formData.get("rsvpDeadline") ?? ""),
   });
 
   if (!parsed.success) {
@@ -651,10 +650,15 @@ export async function updateEventBasics(
   // The event keeps its own timezone: "7 PM" means seven where the party is,
   // and editing the date should not quietly reinterpret it somewhere else.
   const startsAt = zonedToInstant(v.date, v.time, event.timezone);
-  const late = deadlineError(v.rsvpDeadline, { startsAt, timezone: event.timezone });
-  if (late) return { fieldErrors: { rsvpDeadline: late } };
-
-  const maxPartySize = partySizeFor(v.allowPlusOnes);
+  // Moving the party earlier than its own RSVP deadline would leave a
+  // deadline after the event; the date is what is wrong from here.
+  if (deadlineError(deadlineDate(event.rsvpDeadline, event.timezone), { startsAt, timezone: event.timezone })) {
+    return {
+      fieldErrors: {
+        date: `La fecha límite para confirmar (${formatDeadline(event)}) quedaría después del evento. Muévela primero en Configuración.`,
+      },
+    };
+  }
 
   // Only when the address actually moved: geocoding is a network call, and an
   // organizer fixing a typo in the event name should not wait on it — nor risk
@@ -701,30 +705,10 @@ export async function updateEventBasics(
       venueMapsUrl: v.venueMapsUrl ?? null,
       venueLat: coords?.lat ?? null,
       venueLng: coords?.lng ?? null,
-      rsvpRequired: v.rsvpRequired,
-      allowPlusOnes: v.allowPlusOnes,
-      maxPartySize,
-      qrEnabled: v.qrEnabled,
-      reminderDaysBefore: v.reminderDaysBefore,
-      rsvpDeadline: v.rsvpDeadline ? deadlineFromDate(v.rsvpDeadline, event.timezone) : null,
       updatedAt: new Date(),
     })
     .where(eq(events.id, eventId))
     .returning();
-
-  // The companion rule applies to invitations not yet sent. People already
-  // holding one keep what they were given — including a confirmed +1, which is
-  // a seat somebody is counting on.
-  await db
-    .update(guests)
-    .set({ partySizeAllowed: maxPartySize, updatedAt: new Date() })
-    .where(
-      and(
-        eq(guests.eventId, eventId),
-        ne(guests.partySizeAllowed, maxPartySize),
-        eq(guests.inviteStatus, "pending"),
-      ),
-    );
 
   revalidatePath(`/eventos/${eventId}`);
   revalidatePath(`/eventos/${eventId}/simulador`);
@@ -757,4 +741,65 @@ export async function setRsvpDeadline(eventId: string, date: string): Promise<{ 
     .where(eq(events.id, eventId));
   revalidatePath(`/eventos/${eventId}`, "layout");
   return {};
+}
+
+/**
+ * Configuración: how guests are received. Saved without asking whether to
+ * tell anyone — none of it changes what an invitation already said.
+ */
+export async function updateEventSettings(
+  eventId: string,
+  _prev: ActionState & { ok?: string },
+  formData: FormData,
+): Promise<ActionState & { ok?: string }> {
+  const guard = await editableEvent(eventId, "event");
+  if (!guard.ok) return { error: guard.error };
+  const event = guard.event;
+
+  const parsed = settingsSchema.safeParse({
+    rsvpRequired: formData.get("rsvpRequired") === "on",
+    allowPlusOnes: formData.get("allowPlusOnes") === "on",
+    qrEnabled: formData.get("qrEnabled") === "on",
+    reminderDaysBefore: formData.get("reminderDaysBefore") || 3,
+    rsvpDeadline: String(formData.get("rsvpDeadline") ?? ""),
+  });
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0] ?? "form")] ??= issue.message;
+    return { fieldErrors };
+  }
+  const v = parsed.data;
+  const late = deadlineError(v.rsvpDeadline, event);
+  if (late) return { fieldErrors: { rsvpDeadline: late } };
+
+  const maxPartySize = partySizeFor(v.allowPlusOnes);
+  await db
+    .update(events)
+    .set({
+      rsvpRequired: v.rsvpRequired,
+      allowPlusOnes: v.allowPlusOnes,
+      maxPartySize,
+      qrEnabled: v.qrEnabled,
+      reminderDaysBefore: v.reminderDaysBefore,
+      rsvpDeadline: v.rsvpDeadline ? deadlineFromDate(v.rsvpDeadline, event.timezone) : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(events.id, eventId));
+
+  // The companion rule applies to invitations not yet sent. People already
+  // holding one keep what they were given — including a confirmed +1, which is
+  // a seat somebody is counting on.
+  await db
+    .update(guests)
+    .set({ partySizeAllowed: maxPartySize, updatedAt: new Date() })
+    .where(
+      and(
+        eq(guests.eventId, eventId),
+        ne(guests.partySizeAllowed, maxPartySize),
+        eq(guests.inviteStatus, "pending"),
+      ),
+    );
+
+  revalidatePath(`/eventos/${eventId}`, "layout");
+  return { ok: "Guardado." };
 }

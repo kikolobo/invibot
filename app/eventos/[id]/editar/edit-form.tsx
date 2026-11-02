@@ -34,12 +34,6 @@ export function EditForm({
     venueCountry: string | null;
     venueMapsUrl: string | null;
     venueCity: string | null;
-    rsvpRequired: boolean;
-    allowPlusOnes: boolean;
-    qrEnabled: boolean;
-    reminderDaysBefore: number;
-    /** YYYY-MM-DD, or empty for none. */
-    rsvpDeadline: string;
   };
   date: string;
   time: string;
@@ -124,7 +118,7 @@ export function EditForm({
             <p className="mt-2 max-w-prose text-[0.88rem] leading-relaxed text-ink-muted">
               {state.summary
                 ? "Todavía no hay invitados a quienes avisar."
-                : "Nada de esto cambia lo que ya recibieron tus invitados, así que no hay nada que avisar. La regla de acompañantes aplica a las invitaciones que falten por enviar."}
+                : "Nada de esto cambia lo que ya recibieron tus invitados, así que no hay nada que avisar."}
             </p>
           )}
         </section>
@@ -207,95 +201,6 @@ export function EditForm({
           />
         </Field>
 
-
-        <div className="space-y-3 border-t border-line pt-5">
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              name="rsvpRequired"
-              defaultChecked={event.rsvpRequired}
-              className="mt-1 size-4 accent-[var(--accent)]"
-            />
-            <span>
-              <span className="text-[0.95rem] font-medium text-ink">Pedir confirmación</span>
-              <span className="block text-[0.82rem] text-ink-muted">
-                El asistente le pregunta a cada invitado si podrá acompañarte.
-              </span>
-            </span>
-          </label>
-
-          <div className="ml-7 space-y-1.5">
-            <label htmlFor="rsvpDeadline" className="block text-[0.9rem] text-ink">
-              Fecha límite para confirmar
-            </label>
-            <p className="text-[0.82rem] text-ink-muted">
-              Opcional. Después de ese día ya nadie puede confirmar; quien no va sí lo puede decir.
-            </p>
-            <Input
-              id="rsvpDeadline"
-              name="rsvpDeadline"
-              type="date"
-              defaultValue={event.rsvpDeadline}
-              className="max-w-52"
-            />
-            {err("rsvpDeadline") && <p className="text-[0.82rem] text-danger">{err("rsvpDeadline")}</p>}
-          </div>
-
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              name="allowPlusOnes"
-              defaultChecked={event.allowPlusOnes}
-              className="mt-1 size-4 accent-[var(--accent)]"
-            />
-            <span>
-              <span className="text-[0.95rem] font-medium text-ink">Permitir acompañantes</span>
-              <span className="block text-[0.82rem] text-ink-muted">
-                Aplica a las invitaciones que falten por enviar. Quien ya tiene la suya se
-                queda como está.
-              </span>
-            </span>
-          </label>
-
-          <label className="flex items-start gap-3">
-            <span className="mt-0.5">
-              <input
-                type="number"
-                name="reminderDaysBefore"
-                min={0}
-                max={30}
-                defaultValue={event.reminderDaysBefore}
-                className="w-16 rounded-lg border border-line bg-paper-deep px-2 py-1 text-[0.9rem] text-ink outline-none focus:border-accent"
-              />
-            </span>
-            <span>
-              <span className="text-[0.95rem] font-medium text-ink">
-                Días antes para recordarles
-              </span>
-              <span className="block text-[0.82rem] text-ink-muted">
-                A todos los confirmados, una sola vez. El día anterior ya tiene su propio
-                mensaje, así que 0 o 1 lo apagan.
-              </span>
-            </span>
-          </label>
-
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              name="qrEnabled"
-              defaultChecked={event.qrEnabled}
-              className="mt-1 size-4 accent-[var(--accent)]"
-            />
-            <span>
-              <span className="text-[0.95rem] font-medium text-ink">
-                Enviar código de acceso (QR)
-              </span>
-              <span className="block text-[0.82rem] text-ink-muted">
-                Cada invitado que confirme recibe un código único para la entrada.
-              </span>
-            </span>
-          </label>
-        </div>
 
         {state.error && <p className="text-[0.9rem] text-danger">{state.error}</p>}
 
