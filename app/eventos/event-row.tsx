@@ -4,6 +4,8 @@ import { eventKindLabels } from "@/lib/events/kinds";
 import { roleLabels, type EventRole } from "@/lib/events/access";
 import { CloneEvent } from "./clone-event";
 import { UnarchiveButton } from "./unarchive-button";
+import { ArchiveButton } from "./archive-button";
+import { DeleteEventButton } from "./delete-event-button";
 
 // Built per render with the event's own timeZone. Without that option Intl
 // formats in the runtime's zone, which on Vercel is UTC — the same bug that
@@ -13,8 +15,8 @@ const dateFmtFor = (timeZone: string) =>
 
 /**
  * One event in a list. Shared by "Mis eventos" and the archive, which differ
- * only in what the row offers — an archived one can be restored or duplicated,
- * never opened for editing.
+ * only in what the row offers: an active one can be duplicated or archived; an
+ * archived one restored, duplicated or (by its owner) deleted for good.
  */
 export function EventRow({
   event,
@@ -61,6 +63,11 @@ export function EventRow({
         <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-line pt-3">
           {archived && <UnarchiveButton eventId={event.id} />}
           <CloneEvent eventId={event.id} name={event.name} guestCount={guestCount} />
+          {!archived && <ArchiveButton eventId={event.id} />}
+          {/* Only from the archive, and only the owner: delete always comes after archive. */}
+          {archived && role === "owner" && (
+            <DeleteEventButton eventId={event.id} name={event.name} guestCount={guestCount} />
+          )}
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, gt, ne } from "drizzle-orm";
+import { and, eq, gt, inArray, ne } from "drizzle-orm";
 import { customAlphabet, nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -25,7 +25,8 @@ import { ensureOwner } from "@/lib/organizers/owner";
 import { can, eventAccess } from "./access";
 import { eventLimitError } from "@/lib/limits";
 import { applyPendingPromos } from "@/lib/billing/promo";
-import { users } from "@/db/schema";
+import { payments, users } from "@/db/schema";
+import { deleteObject, r2FromEnv } from "@/lib/storage/r2";
 
 const slugId = customAlphabet("abcdefghijkmnpqrstuvwxyz23456789", 6);
 
@@ -494,12 +495,12 @@ export async function cloneEvent(
 
 
 /**
- * Archiving, which is this app's delete.
+ * Archiving, the first step out.
  *
  * Nothing is removed. An event carries the message ledger for every invitation
- * it sent and the RSVPs people gave it — a real delete would destroy the record
- * of messages that actually reached real phones, which is not ours to destroy.
- * Archiving takes the event out of the way and locks it instead.
+ * it sent and the RSVPs people gave it, so the everyday way out is to take it
+ * out of the way and lock it. Deleting for good is only offered from the
+ * archive (`deleteEvent`), so nobody destroys a live event in one click.
  */
 export async function archiveEvent(eventId: string): Promise<ActionState & { ok?: string }> {
   const access = await eventAccess(eventId);
@@ -533,6 +534,56 @@ export async function unarchiveEvent(eventId: string): Promise<ActionState & { o
   revalidatePath("/eventos");
   revalidatePath(`/eventos/${eventId}`);
   return { ok: "Evento restaurado." };
+}
+
+/**
+ * Deleting an event for good.
+ *
+ * Three rules, all enforced here, not just by which buttons are shown:
+ * - only an archived event, so a delete always comes after an archive;
+ * - only the owner, since an invited admin did not create it and cannot undo this;
+ * - never an event with money attached. Payments cascade with the event, and a
+ *   paid, refunded or still-pending charge is a financial record, and a pending
+ *   OXXO or SPEI payment can still settle days later and would land on nothing.
+ *
+ * Every other row (guests, messages, RSVPs, facts, links, the team) goes with
+ * it through the foreign keys' `on delete cascade`. The card and teaser images
+ * are removed from R2 afterwards, best effort: a leftover object is private
+ * and harmless, and failing to delete it must not leave the event half-gone.
+ */
+export async function deleteEvent(eventId: string): Promise<ActionState & { ok?: string }> {
+  const access = await eventAccess(eventId);
+  if (!access) return { error: "No encontramos ese evento." };
+  if (access.role !== "owner") return { error: "Solo quien creó el evento puede eliminarlo." };
+  const event = access.event;
+  if (!event.archivedAt) return { error: "Archiva el evento antes de eliminarlo." };
+
+  const withMoney = await db.$count(
+    payments,
+    and(eq(payments.eventId, eventId), inArray(payments.status, ["pending", "paid", "refunded"])),
+  );
+  if (withMoney > 0) {
+    return {
+      error:
+        "Este evento tiene pagos registrados, así que no puede eliminarse. Puede quedarse archivado; si necesitas borrarlo, escríbenos.",
+    };
+  }
+
+  await db.delete(events).where(eq(events.id, eventId));
+
+  const r2 = r2FromEnv();
+  const keys = [event.cardR2Key, event.teaserR2Key].filter((key): key is string => !!key);
+  if (r2 && keys.length > 0) {
+    await Promise.allSettled(keys.map((key) => deleteObject(r2, key))).then((results) => {
+      for (const result of results) {
+        if (result.status === "rejected") console.error("[events] r2 cleanup", eventId, result.reason);
+      }
+    });
+  }
+
+  revalidatePath("/eventos");
+  revalidatePath("/eventos/archivados");
+  return { ok: "Evento eliminado." };
 }
 
 

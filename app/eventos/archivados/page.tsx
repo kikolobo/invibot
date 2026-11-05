@@ -40,8 +40,8 @@ export default async function Archivados() {
       <h1 className="mt-4 font-display text-4xl text-ink sm:text-5xl">Archivados</h1>
       <p className="mt-4 leading-relaxed text-ink-soft">
         Nada se borró. Estos eventos conservan sus invitados, sus mensajes y sus
-        confirmaciones, pero no pueden editarse. Puedes restaurar uno o usarlo como
-        base para uno nuevo.
+        confirmaciones, pero no pueden editarse. Puedes restaurar uno, usarlo como
+        base para uno nuevo o, si ya no lo necesitas, eliminarlo para siempre.
       </p>
 
       {rows.length === 0 ? (
