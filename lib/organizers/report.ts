@@ -1,4 +1,4 @@
-import { and, eq, isNull, gt, sql as raw } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, gt, or, sql as raw } from "drizzle-orm";
 import { db } from "@/db";
 import { escalations, events, guests, organizers } from "@/db/schema";
 import { whatsappConfig, sendText, sendTemplate, type WhatsAppConfig } from "@/lib/whatsapp/client";
@@ -146,13 +146,36 @@ export function formatReport(report: DailyReport): string {
   ].join("\n");
 }
 
-/** Los eventos que todavía merecen un reporte: vivos y por suceder. */
+/**
+ * Los eventos que todavía merecen un reporte: vivos, por suceder y ya en
+ * marcha. Mientras nadie haya sido invitado ni se haya registrado con la liga,
+ * el corte serían seis ceros todos los días, y fuera de la ventana de 24 horas
+ * cada uno es una plantilla pagada. Cuenta el auto-registro porque un evento
+ * que sólo circula por liga nunca manda invitaciones y aun así tiene qué reportar.
+ */
 async function reportableEvents(): Promise<EventRow[]> {
+  const underway = exists(
+    db
+      .select({ one: raw`1` })
+      .from(guests)
+      .where(
+        and(
+          eq(guests.eventId, events.id),
+          or(inArray(guests.inviteStatus, ["sent", "delivered", "read"]), eq(guests.source, "self")),
+        ),
+      ),
+  );
+
   return db
     .select()
     .from(events)
     .where(
-      and(isNull(events.archivedAt), isNull(events.suspendedAt), gt(events.startsAt, new Date())),
+      and(
+        isNull(events.archivedAt),
+        isNull(events.suspendedAt),
+        gt(events.startsAt, new Date()),
+        underway,
+      ),
     );
 }
 
